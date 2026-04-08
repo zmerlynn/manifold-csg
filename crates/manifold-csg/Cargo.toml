@@ -1,0 +1,28 @@
+[package]
+name = "manifold-csg"
+description = "Safe Rust bindings to manifold3d — f64-precision CSG booleans, 2D cross-sections, extrusion, SDF, and OBJ I/O with Send safety and automatic memory management"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+keywords = ["csg", "geometry", "mesh", "manifold", "3d"]
+categories = ["algorithms", "mathematics"]
+
+[features]
+default = ["parallel"]
+parallel = ["manifold-csg-sys/parallel"]
+nalgebra = ["dep:nalgebra"]
+
+[dependencies]
+manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.4.100", default-features = false }
+thiserror = "2"
+log = "0.4"
+nalgebra = { version = "0.34", optional = true }
+
+[dev-dependencies]
+approx = "0.5"
+nalgebra = "0.34"
+
+[lints]
+workspace = true

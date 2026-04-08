@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux
+          - os: macos-latest
+            name: macOS
+          - os: windows-latest
+            name: Windows
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build
+        run: cargo build --features nalgebra
+
+      - name: Clippy
+        run: cargo clippy --all-targets --features nalgebra -- -D warnings
+
+      - name: Test
+        run: cargo test --features nalgebra
+
+  test-no-parallel:
+    name: Linux (no TBB)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-nopar-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-nopar-
+
+      - name: Build (no parallel)
+        run: cargo build --no-default-features
+
+      - name: Test (no parallel)
+        run: cargo test --no-default-features
