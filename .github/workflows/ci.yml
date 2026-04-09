@@ -58,6 +58,37 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  semver:
+    name: Semver
+    # TODO: Re-enable once manifold-csg is published on crates.io —
+    # cargo-semver-checks needs a published baseline to compare against.
+    # To re-enable: remove the `if: false` line below.
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-semver-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-semver-
+      - name: Check semver
+        run: cargo semver-checks -p manifold-csg
+
+  deny:
+    name: Deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
   test:
     strategy:
       fail-fast: false

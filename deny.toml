@@ -1,0 +1,30 @@
+[graph]
+all-features = true
+
+[advisories]
+ignore = [
+    # paste is unmaintained (archived by dtolnay) but pulled transitively
+    # via nalgebra -> simba -> paste.  Not a security vulnerability.
+    "RUSTSEC-2024-0436",
+]
+
+[licenses]
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "Unicode-3.0",
+    "Zlib",
+]
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
