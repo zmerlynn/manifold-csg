@@ -710,6 +710,8 @@ impl Manifold {
             unsafe { manifold_copy(copy_ptr, m.ptr) };
             // SAFETY: vec_ptr is valid, copy_ptr is a valid manifold.
             unsafe { manifold_manifold_vec_push_back(vec_ptr, copy_ptr) };
+            // SAFETY: push_back copies the value; free the temporary allocation.
+            unsafe { manifold_delete_manifold(copy_ptr) };
         }
 
         // SAFETY: manifold_alloc_manifold returns a valid handle.
@@ -891,6 +893,8 @@ impl Manifold {
             unsafe { manifold_copy(copy_ptr, m.ptr) };
             // SAFETY: vec_ptr is valid, copy_ptr is a valid manifold.
             unsafe { manifold_manifold_vec_push_back(vec_ptr, copy_ptr) };
+            // SAFETY: push_back copies the value; free the temporary allocation.
+            unsafe { manifold_delete_manifold(copy_ptr) };
         }
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
@@ -1068,6 +1072,8 @@ impl Manifold {
             unsafe { manifold_copy(copy_ptr, m.ptr) };
             // SAFETY: vec_ptr is valid, copy_ptr is a valid manifold.
             unsafe { manifold_manifold_vec_push_back(vec_ptr, copy_ptr) };
+            // SAFETY: push_back copies the value; free the temporary allocation.
+            unsafe { manifold_delete_manifold(copy_ptr) };
         }
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
@@ -1258,12 +1264,16 @@ impl Manifold {
     /// - `position`: the vertex position `[x, y, z]`
     /// - `old_props`: the existing properties (length = current `self.num_prop()`)
     #[must_use]
-    pub fn set_properties<F>(&self, num_prop: i32, mut f: F) -> Self
+    pub fn set_properties<F>(&self, num_prop: usize, mut f: F) -> Self
     where
         F: FnMut(&mut [f64], [f64; 3], &[f64]),
     {
+        assert!(
+            num_prop <= i32::MAX as usize,
+            "num_prop must fit in i32 for the C API"
+        );
         let old_num_prop = self.num_prop();
-        let new_num_prop = num_prop as usize;
+        let new_num_prop = num_prop;
 
         struct Context<'a, F> {
             f: &'a mut F,
@@ -1288,6 +1298,9 @@ impl Manifold {
                 // SAFETY: new_prop has ctx.new_num_prop elements (guaranteed by C API).
                 let new_slice =
                     unsafe { std::slice::from_raw_parts_mut(new_prop, ctx.new_num_prop) };
+                // Zero the output buffer so panics in the closure don't leave
+                // uninitialized memory in the manifold's property data.
+                new_slice.fill(0.0);
                 // SAFETY: old_prop may be null if the manifold has no custom properties.
                 // When non-null, it has ctx.old_num_prop elements (guaranteed by C API).
                 let old_slice = if old_prop.is_null() {
@@ -1309,7 +1322,16 @@ impl Manifold {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: ptr valid, self.ptr valid (invariant), trampoline+ctx valid for call duration.
-        unsafe { manifold_set_properties(ptr, self.ptr, num_prop, Some(trampoline::<F>), ctx_ptr) };
+        // SAFETY: num_prop fits in c_int (checked by assert above).
+        unsafe {
+            manifold_set_properties(
+                ptr,
+                self.ptr,
+                num_prop as std::ffi::c_int,
+                Some(trampoline::<F>),
+                ctx_ptr,
+            )
+        };
         Self { ptr }
     }
 
@@ -1370,14 +1392,14 @@ impl Manifold {
     /// * `tolerance` - tolerance for surface accuracy
     #[must_use]
     pub fn from_sdf<F>(
-        mut f: F,
+        f: F,
         bounds: ([f64; 3], [f64; 3]),
         edge_length: f64,
         level: f64,
         tolerance: f64,
     ) -> Self
     where
-        F: FnMut(f64, f64, f64) -> f64,
+        F: Fn(f64, f64, f64) -> f64 + Sync,
     {
         unsafe extern "C" fn trampoline<F>(
             x: f64,
@@ -1386,19 +1408,20 @@ impl Manifold {
             ctx: *mut std::ffi::c_void,
         ) -> f64
         where
-            F: FnMut(f64, f64, f64) -> f64,
+            F: Fn(f64, f64, f64) -> f64 + Sync,
         {
             // Catch panics to prevent UB from unwinding through C stack frames.
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                // SAFETY: ctx was created from a &mut F and is valid for the call duration.
-                let f = unsafe { &mut *(ctx as *mut F) };
+                // SAFETY: ctx points to an F that is Sync, so shared access
+                // from multiple C threads is sound.
+                let f = unsafe { &*(ctx as *const F) };
                 f(x, y, z)
             }));
             // Return large positive distance on panic (outside surface).
             result.unwrap_or(f64::MAX)
         }
 
-        let ctx = &mut f as *mut F as *mut std::ffi::c_void;
+        let ctx = &f as *const F as *mut std::ffi::c_void;
         // SAFETY: manifold_alloc_box returns a valid handle.
         let box_ptr = unsafe { manifold_alloc_box() };
         // SAFETY: box_ptr is valid from alloc.
@@ -1635,36 +1658,47 @@ impl Manifold {
 
 // ── Quality globals ─────────────────────────────────────────────────────
 
+/// Guard for global quality setters. The C API's global state is not
+/// thread-safe, so we serialize access from the Rust side.
+static QUALITY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Set the minimum circular angle (degrees) for tessellation.
 ///
-/// **Warning:** This modifies global state shared by all manifold operations
-/// in the current process. Not thread-safe.
+/// This modifies global state shared by all manifold operations in the
+/// current process.
 pub fn set_min_circular_angle(degrees: f64) {
-    // SAFETY: This is a global state setter with no pointer invariants.
+    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
     unsafe { manifold_set_min_circular_angle(degrees) };
 }
 
 /// Set the minimum circular edge length for tessellation.
 ///
-/// **Warning:** This modifies global state.
+/// This modifies global state shared by all manifold operations in the
+/// current process.
 pub fn set_min_circular_edge_length(length: f64) {
-    // SAFETY: This is a global state setter with no pointer invariants.
+    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
     unsafe { manifold_set_min_circular_edge_length(length) };
 }
 
 /// Set the number of circular segments for tessellation.
 ///
-/// **Warning:** This modifies global state.
+/// This modifies global state shared by all manifold operations in the
+/// current process.
 pub fn set_circular_segments(number: i32) {
-    // SAFETY: This is a global state setter with no pointer invariants.
+    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
     unsafe { manifold_set_circular_segments(number) };
 }
 
 /// Reset circular tessellation parameters to defaults.
 ///
-/// **Warning:** This modifies global state.
+/// This modifies global state shared by all manifold operations in the
+/// current process.
 pub fn reset_to_circular_defaults() {
-    // SAFETY: This is a global state setter with no pointer invariants.
+    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
     unsafe { manifold_reset_to_circular_defaults() };
 }
 

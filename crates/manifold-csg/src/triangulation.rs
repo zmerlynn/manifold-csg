@@ -44,7 +44,7 @@ pub fn triangulate_polygons(polygons: &[Vec<[f64; 2]>], epsilon: f64) -> Option<
             .map(|c| {
                 // The C API returns non-negative indices into the vertex array.
                 // Validate to catch any upstream bugs rather than silently wrapping.
-                debug_assert!(
+                assert!(
                     c[0] >= 0 && c[1] >= 0 && c[2] >= 0,
                     "negative triangle index from C API"
                 );

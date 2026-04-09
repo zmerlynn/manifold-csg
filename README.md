@@ -99,7 +99,7 @@ cargo test --features nalgebra   # runs the test suite
 
 ## Testing
 
-107+ integration tests covering primitives, booleans, transforms, mesh
+196 integration tests covering primitives, booleans, transforms, mesh
 round-trips, plane operations, slicing, 2D cross-sections, extrusion,
 triangulation, callback APIs (warp, SDF, OBJ I/O, set_properties), `Send`
 safety, and f64 precision. The test suite runs on Linux, macOS, and Windows

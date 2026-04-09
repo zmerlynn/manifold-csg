@@ -33,7 +33,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_read_obj` | [`Manifold::from_obj`](crates/manifold-csg/src/manifold.rs#L1063) |
 | `manifold_smooth` | [`Manifold::smooth_f32`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_smooth64` | [`Manifold::smooth_f64`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_level_set_seq` | In PR #7 |
+| `manifold_level_set_seq` | [`Manifold::from_sdf_seq`](crates/manifold-csg/src/manifold.rs) |
 
 ## Manifold — Boolean Operations
 
@@ -103,8 +103,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_get_meshgl` | [`Manifold::to_mesh_f32`](crates/manifold-csg/src/manifold.rs#L235) |
 | `manifold_get_meshgl64` | [`Manifold::to_mesh_f64`](crates/manifold-csg/src/manifold.rs#L197) |
 | `manifold_write_obj` | [`Manifold::to_obj`](crates/manifold-csg/src/manifold.rs#L1082) |
-| `manifold_get_meshgl_w_normals` | In PR #7 |
-| `manifold_get_meshgl64_w_normals` | In PR #7 |
+| `manifold_get_meshgl_w_normals` | [`Manifold::to_mesh_f32_with_normals`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_get_meshgl64_w_normals` | [`Manifold::to_mesh_f64_with_normals`](crates/manifold-csg/src/manifold.rs) |
 
 ## CrossSection — Construction & Booleans
 
@@ -178,8 +178,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_meshgl64_halfedge_tangent` | [`MeshGL64::halfedge_tangent`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_tangent_length` | Internal |
 | `manifold_meshgl64_tangent_length` | Internal |
-| `manifold_meshgl_merge` | In PR #7 |
-| `manifold_meshgl64_merge` | In PR #7 |
+| `manifold_meshgl_merge` | [`MeshGL::merge`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_merge` | [`MeshGL64::merge`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_merge_from_vert` | [`MeshGL::merge_from_vert`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_merge_from_vert` | [`MeshGL64::merge_from_vert`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_merge_to_vert` | [`MeshGL::merge_to_vert`](crates/manifold-csg/src/mesh.rs) |
