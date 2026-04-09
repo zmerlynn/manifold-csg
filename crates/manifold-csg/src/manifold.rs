@@ -195,6 +195,131 @@ impl Manifold {
         Ok(Self { ptr: manifold })
     }
 
+    /// Create a smooth manifold from f64 mesh data with per-halfedge smoothness.
+    ///
+    /// `half_edges` and `smoothness` must have the same length. Each entry
+    /// specifies a halfedge index and its smoothness value (0.0 = sharp,
+    /// 1.0 = fully smooth).
+    ///
+    /// # Errors
+    ///
+    /// Returns `CsgError::InvalidInput` if array lengths don't match or
+    /// `CsgError::ManifoldStatus` if the mesh is invalid.
+    pub fn smooth_f64(
+        vert_props: &[f64],
+        n_props: usize,
+        tri_indices: &[u64],
+        half_edges: &[usize],
+        smoothness: &[f64],
+    ) -> Result<Self, CsgError> {
+        if half_edges.len() != smoothness.len() {
+            return Err(CsgError::InvalidInput(
+                "half_edges and smoothness must have the same length".into(),
+            ));
+        }
+
+        let n_verts = vert_props.len() / n_props;
+        let n_tris = tri_indices.len() / 3;
+
+        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
+        let meshgl = unsafe { manifold_alloc_meshgl64() };
+        // SAFETY: meshgl valid, slices valid with correct lengths.
+        unsafe {
+            manifold_meshgl64(
+                meshgl,
+                vert_props.as_ptr(),
+                n_verts,
+                n_props,
+                tri_indices.as_ptr(),
+                n_tris,
+            );
+        }
+
+        // SAFETY: manifold_alloc_manifold returns a valid handle.
+        let manifold = unsafe { manifold_alloc_manifold() };
+        // SAFETY: all pointers valid, array lengths match.
+        unsafe {
+            manifold_smooth64(
+                manifold,
+                meshgl,
+                half_edges.as_ptr(),
+                smoothness.as_ptr(),
+                half_edges.len(),
+            );
+        }
+        // SAFETY: meshgl is valid and no longer needed.
+        unsafe { manifold_delete_meshgl64(meshgl) };
+
+        // SAFETY: manifold is valid. Read-only status query.
+        let status = unsafe { manifold_status(manifold) };
+        if status != ManifoldError::NoError {
+            // SAFETY: manifold is valid. Frees the allocation on error path.
+            unsafe { manifold_delete_manifold(manifold) };
+            return Err(CsgError::ManifoldStatus(status));
+        }
+
+        Ok(Self { ptr: manifold })
+    }
+
+    /// Create a smooth manifold from f32 mesh data with per-halfedge smoothness.
+    ///
+    /// See [`smooth_f64`](Self::smooth_f64) for details.
+    pub fn smooth_f32(
+        vert_props: &[f32],
+        n_props: usize,
+        tri_indices: &[u32],
+        half_edges: &[usize],
+        smoothness: &[f64],
+    ) -> Result<Self, CsgError> {
+        if half_edges.len() != smoothness.len() {
+            return Err(CsgError::InvalidInput(
+                "half_edges and smoothness must have the same length".into(),
+            ));
+        }
+
+        let n_verts = vert_props.len() / n_props;
+        let n_tris = tri_indices.len() / 3;
+
+        // SAFETY: manifold_alloc_meshgl returns a valid handle.
+        let meshgl = unsafe { manifold_alloc_meshgl() };
+        // SAFETY: meshgl valid, slices valid with correct lengths.
+        unsafe {
+            manifold_meshgl(
+                meshgl,
+                vert_props.as_ptr(),
+                n_verts,
+                n_props,
+                tri_indices.as_ptr(),
+                n_tris,
+            );
+        }
+
+        // SAFETY: manifold_alloc_manifold returns a valid handle.
+        let manifold = unsafe { manifold_alloc_manifold() };
+        // SAFETY: all pointers valid, array lengths match.
+        unsafe {
+            manifold_smooth(
+                manifold,
+                meshgl,
+                half_edges.as_ptr(),
+                smoothness.as_ptr(),
+                half_edges.len(),
+            );
+        }
+        // SAFETY: meshgl is valid and no longer needed.
+        unsafe { manifold_delete_meshgl(meshgl) };
+
+        // SAFETY: manifold is valid. Read-only status query.
+        let status = unsafe { manifold_status(manifold) };
+        if status != ManifoldError::NoError {
+            // SAFETY: manifold is valid. Frees the allocation on error path.
+            unsafe { manifold_delete_manifold(manifold) };
+            return Err(CsgError::ManifoldStatus(status));
+        }
+
+        Ok(Self { ptr: manifold })
+    }
+
     /// Extract mesh data as f64 vertex properties and u64 triangle indices.
     ///
     /// Returns `(vert_props, n_props, tri_indices)`.

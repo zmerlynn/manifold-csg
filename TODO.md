@@ -18,11 +18,12 @@
 
 ## Safe wrapper gaps (low priority)
 
-- [ ] MeshGL/MeshGL64 advanced accessors (run_index, face_id, tangents)
-- [ ] `manifold_smooth` / `manifold_smooth64` constructors (from half-edge indices)
+- [ ] MeshGL/MeshGL64 construction with options (`w_options`, `w_tangents`)
+- [ ] MeshGL64 OBJ I/O (`read_obj`, `write_obj`)
 
 ## Documentation & Publishing
 
+- [ ] Re-enable `semver` CI job once manifold-csg is published on crates.io (disabled via `if: false` in `ci.yml`)
 - [ ] README badges (crates.io version, docs.rs, CI status) — add once published
 - [ ] Make doc-tests runnable (currently `rust,ignore`) — runnable examples exist in `examples/` but inline doc examples still need `rust,ignore` due to build infra requirements
 
