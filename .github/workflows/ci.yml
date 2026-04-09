@@ -58,6 +58,34 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  semver:
+    name: Semver
+    runs-on: ubuntu-latest
+    # Only meaningful once published to crates.io
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-semver-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-semver-
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+      - name: Check semver
+        run: cargo semver-checks -p manifold-csg
+
+  deny:
+    name: Deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
   test:
     strategy:
       fail-fast: false
