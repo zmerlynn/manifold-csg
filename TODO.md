@@ -19,14 +19,10 @@
 ## Safe wrapper gaps (low priority)
 
 - [ ] MeshGL/MeshGL64 advanced accessors (run_index, face_id, tangents)
-- [ ] MeshGL/MeshGL64 `merge()` — wrappable but needs care: on failure, the C API returns the *input* pointer instead of the output buffer (aliased ownership → double-free). Safe wrapper must check `returned_ptr == input_ptr` and handle accordingly.
 - [ ] `manifold_smooth` / `manifold_smooth64` constructors (from half-edge indices)
-- [ ] `manifold_level_set_seq` — sequential SDF for single-threaded runtimes
-- [ ] `manifold_get_meshgl_w_normals` / `manifold_get_meshgl64_w_normals` — mesh export with normals
 
 ## Documentation & Publishing
 
-- [ ] Re-enable `semver` CI job once manifold-csg is published on crates.io (disabled via `if: false` in `ci.yml`)
 - [ ] README badges (crates.io version, docs.rs, CI status) — add once published
 - [ ] Make doc-tests runnable (currently `rust,ignore`) — runnable examples exist in `examples/` but inline doc examples still need `rust,ignore` due to build infra requirements
 

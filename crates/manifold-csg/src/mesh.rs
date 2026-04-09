@@ -105,6 +105,20 @@ impl MeshGL {
         unsafe { manifold_meshgl_tri_verts(buf.as_mut_ptr(), self.ptr) };
         buf
     }
+
+    /// Merge coincident vertices, returning a new mesh.
+    ///
+    /// Processes the mesh's merge vectors to weld vertices that share
+    /// the same position. Returns a new mesh (the original is unchanged).
+    #[must_use]
+    pub fn merge(&self) -> Self {
+        // SAFETY: manifold_alloc_meshgl returns a valid handle.
+        let ptr = unsafe { manifold_alloc_meshgl() };
+        // SAFETY: ptr and self.ptr are valid. With the carry-patch applied,
+        // manifold_meshgl_merge always returns ptr (the output buffer).
+        unsafe { manifold_meshgl_merge(ptr, self.ptr) };
+        Self { ptr }
+    }
 }
 
 impl Clone for MeshGL {
@@ -215,6 +229,20 @@ impl MeshGL64 {
         // SAFETY: buf has capacity len, self.ptr is valid.
         unsafe { manifold_meshgl64_tri_verts(buf.as_mut_ptr(), self.ptr) };
         buf
+    }
+
+    /// Merge coincident vertices, returning a new mesh.
+    ///
+    /// Processes the mesh's merge vectors to weld vertices that share
+    /// the same position. Returns a new mesh (the original is unchanged).
+    #[must_use]
+    pub fn merge(&self) -> Self {
+        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
+        let ptr = unsafe { manifold_alloc_meshgl64() };
+        // SAFETY: ptr and self.ptr are valid. With the carry-patch applied,
+        // manifold_meshgl64_merge always returns ptr (the output buffer).
+        unsafe { manifold_meshgl64_merge(ptr, self.ptr) };
+        Self { ptr }
     }
 }
 

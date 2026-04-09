@@ -233,6 +233,70 @@ impl Manifold {
         (vp_buf, n_props, tri_buf)
     }
 
+    /// Extract mesh data as f64 with normals baked into vertex properties.
+    ///
+    /// The normals are stored starting at property index `normal_idx` (3
+    /// consecutive f64 values per vertex: nx, ny, nz). If the mesh doesn't
+    /// already have properties at that index, they are added.
+    ///
+    /// Returns `(vert_props, n_props, tri_indices)`.
+    #[must_use]
+    pub fn to_mesh_f64_with_normals(&self, normal_idx: i32) -> (Vec<f64>, usize, Vec<u64>) {
+        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
+        let meshgl = unsafe { manifold_alloc_meshgl64() };
+        // SAFETY: self.ptr and meshgl are valid handles.
+        unsafe { manifold_get_meshgl64_w_normals(meshgl, self.ptr, normal_idx) };
+
+        // SAFETY: meshgl is valid. Read-only query.
+        let n_props = unsafe { manifold_meshgl64_num_prop(meshgl) };
+        // SAFETY: meshgl is valid. Returns total element count.
+        let vp_len = unsafe { manifold_meshgl64_vert_properties_length(meshgl) };
+        let mut vp_buf = vec![0.0f64; vp_len];
+        // SAFETY: vp_buf has capacity vp_len.
+        unsafe { manifold_meshgl64_vert_properties(vp_buf.as_mut_ptr(), meshgl) };
+
+        // SAFETY: meshgl is valid. Returns total element count.
+        let tri_len = unsafe { manifold_meshgl64_tri_length(meshgl) };
+        let mut tri_buf = vec![0u64; tri_len];
+        // SAFETY: tri_buf has capacity tri_len.
+        unsafe { manifold_meshgl64_tri_verts(tri_buf.as_mut_ptr(), meshgl) };
+
+        // SAFETY: meshgl is valid and no longer needed.
+        unsafe { manifold_delete_meshgl64(meshgl) };
+
+        (vp_buf, n_props, tri_buf)
+    }
+
+    /// Extract mesh data as f32 with normals baked into vertex properties.
+    ///
+    /// See [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) for details.
+    #[must_use]
+    pub fn to_mesh_f32_with_normals(&self, normal_idx: i32) -> (Vec<f32>, usize, Vec<u32>) {
+        // SAFETY: manifold_alloc_meshgl returns a valid handle.
+        let meshgl = unsafe { manifold_alloc_meshgl() };
+        // SAFETY: self.ptr and meshgl are valid handles.
+        unsafe { manifold_get_meshgl_w_normals(meshgl, self.ptr, normal_idx) };
+
+        // SAFETY: meshgl is valid. Read-only query.
+        let n_props = unsafe { manifold_meshgl_num_prop(meshgl) };
+        // SAFETY: meshgl is valid. Returns total element count.
+        let vp_len = unsafe { manifold_meshgl_vert_properties_length(meshgl) };
+        let mut vp_buf = vec![0.0f32; vp_len];
+        // SAFETY: vp_buf has capacity vp_len.
+        unsafe { manifold_meshgl_vert_properties(vp_buf.as_mut_ptr(), meshgl) };
+
+        // SAFETY: meshgl is valid. Returns total element count.
+        let tri_len = unsafe { manifold_meshgl_tri_length(meshgl) };
+        let mut tri_buf = vec![0u32; tri_len];
+        // SAFETY: tri_buf has capacity tri_len.
+        unsafe { manifold_meshgl_tri_verts(tri_buf.as_mut_ptr(), meshgl) };
+
+        // SAFETY: meshgl is valid and no longer needed.
+        unsafe { manifold_delete_meshgl(meshgl) };
+
+        (vp_buf, n_props, tri_buf)
+    }
+
     /// Extract mesh data as f32 vertex properties and u32 triangle indices.
     ///
     /// Returns `(vert_props, n_props, tri_indices)`.
@@ -1214,6 +1278,75 @@ impl Manifold {
         // SAFETY: ptr valid, box_ptr valid, trampoline+ctx valid for call duration.
         unsafe {
             manifold_level_set(
+                ptr,
+                Some(trampoline::<F>),
+                box_ptr,
+                edge_length,
+                level,
+                tolerance,
+                ctx,
+            )
+        };
+        // SAFETY: box_ptr is valid and no longer needed.
+        unsafe { manifold_delete_box(box_ptr) };
+        Self { ptr }
+    }
+
+    /// Construct a manifold from a signed distance function (SDF), using
+    /// sequential (single-threaded) execution.
+    ///
+    /// Same as [`from_sdf`](Self::from_sdf) but forces sequential evaluation.
+    /// Use this when calling from a runtime that prevents parallel execution of
+    /// closures (e.g., Python or Ruby runtimes with a GIL).
+    #[must_use]
+    pub fn from_sdf_seq<F>(
+        mut f: F,
+        bounds: ([f64; 3], [f64; 3]),
+        edge_length: f64,
+        level: f64,
+        tolerance: f64,
+    ) -> Self
+    where
+        F: FnMut(f64, f64, f64) -> f64,
+    {
+        unsafe extern "C" fn trampoline<F>(
+            x: f64,
+            y: f64,
+            z: f64,
+            ctx: *mut std::ffi::c_void,
+        ) -> f64
+        where
+            F: FnMut(f64, f64, f64) -> f64,
+        {
+            // Catch panics to prevent UB from unwinding through C stack frames.
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // SAFETY: ctx was created from a &mut F and is valid for the call duration.
+                let f = unsafe { &mut *(ctx as *mut F) };
+                f(x, y, z)
+            }));
+            result.unwrap_or(f64::MAX)
+        }
+
+        let ctx = &mut f as *mut F as *mut std::ffi::c_void;
+        // SAFETY: manifold_alloc_box returns a valid handle.
+        let box_ptr = unsafe { manifold_alloc_box() };
+        // SAFETY: box_ptr is valid from alloc.
+        unsafe {
+            manifold_box(
+                box_ptr,
+                bounds.0[0],
+                bounds.0[1],
+                bounds.0[2],
+                bounds.1[0],
+                bounds.1[1],
+                bounds.1[2],
+            );
+        }
+        // SAFETY: manifold_alloc_manifold returns a valid handle.
+        let ptr = unsafe { manifold_alloc_manifold() };
+        // SAFETY: ptr valid, box_ptr valid, trampoline+ctx valid for call duration.
+        unsafe {
+            manifold_level_set_seq(
                 ptr,
                 Some(trampoline::<F>),
                 box_ptr,

@@ -36,7 +36,15 @@ The sys crate clones manifold3d v3.4.1 via git and builds with cmake. Requires:
 - All FFI callback trampolines must use `catch_unwind` to prevent panic-across-FFI UB
 - `unsafe impl Send` requires documented justification on each type
 - `Sync` is deliberately NOT implemented (C++ `mutable shared_ptr<CsgNode>` races on lazy evaluation)
-- `manifold_meshgl_merge` / `manifold_meshgl64_merge` need special handling — on merge failure, the C API returns the input pointer instead of the output buffer, creating aliased ownership that causes double-free. A safe wrapper must check if `returned_ptr == input_ptr`.
+- `manifold_meshgl_merge` / `manifold_meshgl64_merge` had an upstream ownership bug (returning the input pointer on failure, causing double-free). This is fixed by a carry-patch in `crates/manifold-csg-sys/patches/`. The safe wrapper trusts the patched behavior.
+
+## Carry-patches
+
+`crates/manifold-csg-sys/patches/` contains patches applied to the cloned manifold3d source at build time via `git apply`. These fix upstream bugs not yet in a tagged release.
+
+- Patches must have LF line endings (enforced by `.gitattributes` with `*.patch eol=lf`) — Windows Git's autocrlf corrupts unified diff format otherwise.
+- `build.rs` applies patches with `--ignore-whitespace --whitespace=nowarn` for cross-platform reliability.
+- When bumping the upstream version, check if each carry-patch has been merged upstream and remove it if so.
 
 ## Testing
 
@@ -44,12 +52,7 @@ The sys crate clones manifold3d v3.4.1 via git and builds with cmake. Requires:
 cargo test --features nalgebra
 ```
 
-180 integration tests covering:
-- All public methods on Manifold, CrossSection, BoundingBox, Rect, MeshGL, MeshGL64
-- Binding-specific concerns: Drop safety (alloc/free cycles), Send across threads, Clone independence, FFI data integrity (buffer sizes, index ranges), ownership after split/decompose
-- Operator overloads, Debug formatting, quality globals
-- FillRule variants, callback identity transforms
-- Edge cases: empty inputs, zero-size geometry, batch operations
+Integration tests cover all public methods, Drop safety, Send across threads, Clone independence, FFI data integrity, operator overloads, callback identity transforms, and edge cases (empty inputs, zero-size geometry, batch operations).
 
 ## Lints
 
@@ -65,3 +68,4 @@ cargo test --features nalgebra
 - When committing, use descriptive messages that explain what changed and why.
 - Do NOT include Claude session links in commit messages or PR descriptions.
 - Keep `API_COVERAGE.md` in sync when adding new safe wrappers or updating upstream.
+- Keep this file (`CLAUDE.md`) up to date: when adding new patterns, conventions, or crate infrastructure (e.g. carry-patches, CI jobs, feature flags), document them here.

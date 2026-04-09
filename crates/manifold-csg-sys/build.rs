@@ -28,15 +28,51 @@ fn main() {
     // Prevent unnecessary build script re-execution.
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/lib.rs");
+    println!("cargo:rerun-if-changed=patches");
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let manifold_src = out_dir.join("manifold-src");
     let build_dir = out_dir.join("build");
 
+    // Compute a hash of the patches directory so we can detect when patches
+    // change and invalidate the cached (possibly stale) source checkout.
+    let patches_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("patches");
+    let patch_stamp = out_dir.join(".patch-stamp");
+    let current_stamp: String = {
+        let mut entries: Vec<String> = Vec::new();
+        if let Ok(dir) = std::fs::read_dir(&patches_dir) {
+            for e in dir.flatten() {
+                let path = e.path();
+                if path.extension().is_none_or(|ext| ext != "patch") {
+                    continue;
+                }
+                if let Ok(contents) = std::fs::read_to_string(&path) {
+                    entries.push(format!("{}:{}", path.display(), contents.len()));
+                }
+            }
+        }
+        entries.sort();
+        entries.join(";")
+    };
+    let old_stamp = std::fs::read_to_string(&patch_stamp).unwrap_or_default();
+    if current_stamp != old_stamp && manifold_src.exists() {
+        // Patches changed — delete cached source so it gets re-cloned and re-patched.
+        // If removal fails (e.g. read-only files on Windows), reset via git instead.
+        if std::fs::remove_dir_all(&manifold_src).is_err() {
+            let _ = Command::new("git")
+                .args(["checkout", "."])
+                .current_dir(&manifold_src)
+                .status();
+        }
+        let _ = std::fs::remove_dir_all(&build_dir);
+    }
+
     // Clone manifold3d if not already present.
     if !manifold_src.join("CMakeLists.txt").exists() {
         let status = Command::new("git")
             .args([
+                "-c",
+                "core.autocrlf=false",
                 "clone",
                 "--depth=1",
                 "--branch=v3.4.1",
@@ -61,28 +97,46 @@ fn main() {
             .collect();
         patches.sort();
         for patch in &patches {
-            let status = Command::new("git")
-                .args(["apply", "--check"])
+            let check = Command::new("git")
+                .args([
+                    "apply",
+                    "--check",
+                    "--ignore-whitespace",
+                    "--whitespace=nowarn",
+                ])
                 .arg(patch)
                 .current_dir(&manifold_src)
-                .status()
+                .output()
                 .expect("failed to check patch");
-            if status.success() {
-                let status = Command::new("git")
-                    .args(["apply"])
+            if check.status.success() {
+                let apply = Command::new("git")
+                    .args(["apply", "--ignore-whitespace", "--whitespace=nowarn"])
                     .arg(patch)
                     .current_dir(&manifold_src)
-                    .status()
+                    .output()
                     .expect("failed to apply patch");
                 assert!(
-                    status.success(),
-                    "failed to apply patch: {}",
-                    patch.display()
+                    apply.status.success(),
+                    "failed to apply patch {}: {}",
+                    patch.display(),
+                    String::from_utf8_lossy(&apply.stderr)
+                );
+                println!(
+                    "cargo:warning=Applied patch: {}",
+                    patch.file_name().unwrap_or_default().to_string_lossy()
+                );
+            } else {
+                // Log why --check failed so we can diagnose CI issues.
+                println!(
+                    "cargo:warning=Patch skipped (already applied?): {} ({})",
+                    patch.file_name().unwrap_or_default().to_string_lossy(),
+                    String::from_utf8_lossy(&check.stderr).trim()
                 );
             }
-            // If --check fails, patch was already applied (cached build).
         }
     }
+    // Record current patch state so we can detect changes on next build.
+    let _ = std::fs::write(&patch_stamp, &current_stamp);
 
     // Configure with cmake.
     let parallel = env::var("CARGO_FEATURE_PARALLEL").is_ok();
