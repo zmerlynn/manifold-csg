@@ -47,6 +47,41 @@ fn main() {
         assert!(status.success(), "git clone manifold3d failed");
     }
 
+    // Apply carry-patches (fixes awaiting upstream merge).
+    let patches_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("patches");
+    if patches_dir.exists()
+        && let Ok(entries) = std::fs::read_dir(&patches_dir)
+    {
+        let mut patches: Vec<_> = entries
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|ext| ext == "patch"))
+            .collect();
+        patches.sort();
+        for patch in &patches {
+            let status = Command::new("git")
+                .args(["apply", "--check"])
+                .arg(patch)
+                .current_dir(&manifold_src)
+                .status()
+                .expect("failed to check patch");
+            if status.success() {
+                let status = Command::new("git")
+                    .args(["apply"])
+                    .arg(patch)
+                    .current_dir(&manifold_src)
+                    .status()
+                    .expect("failed to apply patch");
+                assert!(
+                    status.success(),
+                    "failed to apply patch: {}",
+                    patch.display()
+                );
+            }
+            // If --check fails, patch was already applied (cached build).
+        }
+    }
+
     // Configure with cmake.
     let parallel = env::var("CARGO_FEATURE_PARALLEL").is_ok();
 
