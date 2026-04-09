@@ -553,6 +553,8 @@ impl CrossSection {
             unsafe { manifold_cross_section_copy(copy_ptr, cs.ptr) };
             // SAFETY: vec_ptr is valid, copy_ptr is a valid cross-section.
             unsafe { manifold_cross_section_vec_push_back(vec_ptr, copy_ptr) };
+            // SAFETY: push_back copies the value; free the temporary allocation.
+            unsafe { manifold_delete_cross_section(copy_ptr) };
         }
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
@@ -586,6 +588,8 @@ impl CrossSection {
             unsafe { manifold_cross_section_copy(copy_ptr, cs.ptr) };
             // SAFETY: vec_ptr is valid, copy_ptr is a valid cross-section.
             unsafe { manifold_cross_section_vec_push_back(vec_ptr, copy_ptr) };
+            // SAFETY: push_back copies the value; free the temporary allocation.
+            unsafe { manifold_delete_cross_section(copy_ptr) };
         }
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
@@ -610,6 +614,8 @@ impl CrossSection {
             unsafe { manifold_cross_section_copy(copy_ptr, cs.ptr) };
             // SAFETY: vec_ptr is valid, copy_ptr is a valid cross-section.
             unsafe { manifold_cross_section_vec_push_back(vec_ptr, copy_ptr) };
+            // SAFETY: push_back copies the value; free the temporary allocation.
+            unsafe { manifold_delete_cross_section(copy_ptr) };
         }
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
