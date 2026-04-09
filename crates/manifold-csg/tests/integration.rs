@@ -1,6 +1,6 @@
 use approx::assert_relative_eq;
 use manifold_csg::{
-    BoundingBox, CrossSection, FillRule, JoinType, Manifold, MeshGL, MeshGL64, Rect,
+    BoundingBox, CrossSection, FillRule, JoinType, Manifold, MeshGL, MeshGL64, OpType, Rect,
     get_circular_segments, reserve_ids, reset_to_circular_defaults, set_circular_segments,
     set_min_circular_angle, set_min_circular_edge_length, triangulate_polygons,
 };
@@ -1939,4 +1939,67 @@ fn cross_section_hull_polygons() {
 fn cross_section_from_simple_polygon_empty() {
     let cs = CrossSection::from_simple_polygon(&[], FillRule::EvenOdd);
     assert!(cs.is_empty());
+}
+
+// ── Generic boolean ────────────────────────────────────────────────────
+
+#[test]
+fn manifold_boolean_union() {
+    let a = Manifold::cube(10.0, 10.0, 10.0, true);
+    let b = Manifold::cube(10.0, 10.0, 10.0, true).translate(5.0, 0.0, 0.0);
+    let result = a.boolean(&b, OpType::Add);
+    assert!(result.volume() > 1000.0);
+    assert!(result.volume() < 2000.0);
+}
+
+#[test]
+fn cross_section_boolean_subtract() {
+    let a = CrossSection::square(10.0, 10.0, true);
+    let b = CrossSection::square(5.0, 5.0, true);
+    let result = a.boolean(&b, OpType::Subtract);
+    assert_relative_eq!(result.area(), 75.0, epsilon = 0.1);
+}
+
+// ── MeshGL64 OBJ I/O ──────────────────────────────────────────────────
+
+#[test]
+fn meshgl64_obj_round_trip() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let mesh = MeshGL64::new(&verts, n_props, &indices);
+    let obj = mesh.to_obj();
+    assert!(!obj.is_empty());
+    assert!(obj.contains("v "));
+    assert!(obj.contains("f "));
+
+    let mesh2 = MeshGL64::from_obj(&obj).unwrap();
+    assert!(mesh2.num_vert() > 0);
+    assert!(mesh2.num_tri() > 0);
+}
+
+// ── MeshGL with tangents ───────────────────────────────────────────────
+
+#[test]
+fn meshgl_new_with_tangents() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f32();
+    let n_tris = indices.len() / 3;
+    // 4 floats per halfedge, 3 halfedges per triangle
+    let tangents = vec![0.0f32; n_tris * 3 * 4];
+    let mesh = MeshGL::new_with_tangents(&verts, n_props, &indices, &tangents);
+    assert_eq!(mesh.num_vert(), verts.len() / n_props);
+    assert_eq!(mesh.num_tri(), n_tris);
+    assert_eq!(mesh.halfedge_tangent().len(), tangents.len());
+}
+
+#[test]
+fn meshgl64_new_with_tangents() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let n_tris = indices.len() / 3;
+    let tangents = vec![0.0f64; n_tris * 3 * 4];
+    let mesh = MeshGL64::new_with_tangents(&verts, n_props, &indices, &tangents);
+    assert_eq!(mesh.num_vert(), verts.len() / n_props);
+    assert_eq!(mesh.num_tri(), n_tris);
+    assert_eq!(mesh.halfedge_tangent().len(), tangents.len());
 }

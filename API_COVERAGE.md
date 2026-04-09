@@ -33,7 +33,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_read_obj` | [`Manifold::from_obj`](crates/manifold-csg/src/manifold.rs#L1063) |
 | `manifold_smooth` | [`Manifold::smooth_f32`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_smooth64` | [`Manifold::smooth_f64`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_level_set_seq` | Not wrapped |
+| `manifold_level_set_seq` | In PR #7 |
 
 ## Manifold — Boolean Operations
 
@@ -42,7 +42,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_union` | [`Manifold::union`](crates/manifold-csg/src/manifold.rs#L607), `&a + &b` |
 | `manifold_difference` | [`Manifold::difference`](crates/manifold-csg/src/manifold.rs#L592), `&a - &b` |
 | `manifold_intersection` | [`Manifold::intersection`](crates/manifold-csg/src/manifold.rs#L622), `&a ^ &b` |
-| `manifold_boolean` | Not wrapped |
+| `manifold_boolean` | [`Manifold::boolean`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_batch_boolean` | [`Manifold::batch_union`](crates/manifold-csg/src/manifold.rs#L489), [`batch_difference`](crates/manifold-csg/src/manifold.rs#L495) |
 | `manifold_batch_hull` | [`Manifold::batch_hull`](crates/manifold-csg/src/manifold.rs#L673) |
 | `manifold_split` | [`Manifold::split`](crates/manifold-csg/src/manifold.rs#L859) |
@@ -86,8 +86,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_min_gap` | [`Manifold::min_gap`](crates/manifold-csg/src/manifold.rs#L941) |
 | `manifold_status` | Internal |
 | `manifold_as_original` | [`Manifold::as_original`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_manifold_size` | Not wrapped |
-| `manifold_manifold_pair_size` | Not wrapped |
+| `manifold_manifold_size` | Not needed (alloc size) |
+| `manifold_manifold_pair_size` | Not needed (alloc size) |
 
 ## Manifold — Hull, Decomposition & Mesh Extraction
 
@@ -103,8 +103,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_get_meshgl` | [`Manifold::to_mesh_f32`](crates/manifold-csg/src/manifold.rs#L235) |
 | `manifold_get_meshgl64` | [`Manifold::to_mesh_f64`](crates/manifold-csg/src/manifold.rs#L197) |
 | `manifold_write_obj` | [`Manifold::to_obj`](crates/manifold-csg/src/manifold.rs#L1082) |
-| `manifold_get_meshgl_w_normals` | Not wrapped |
-| `manifold_get_meshgl64_w_normals` | Not wrapped |
+| `manifold_get_meshgl_w_normals` | In PR #7 |
+| `manifold_get_meshgl64_w_normals` | In PR #7 |
 
 ## CrossSection — Construction & Booleans
 
@@ -118,7 +118,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_cross_section_union` | [`CrossSection::union`](crates/manifold-csg/src/cross_section.rs#L166), `&a + &b` |
 | `manifold_cross_section_difference` | [`CrossSection::difference`](crates/manifold-csg/src/cross_section.rs#L176), `&a - &b` |
 | `manifold_cross_section_intersection` | [`CrossSection::intersection`](crates/manifold-csg/src/cross_section.rs#L186), `&a ^ &b` |
-| `manifold_cross_section_boolean` | Not wrapped |
+| `manifold_cross_section_boolean` | [`CrossSection::boolean`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_batch_boolean` | [`CrossSection::batch_boolean`](crates/manifold-csg/src/cross_section.rs#L349), [`batch_union`](crates/manifold-csg/src/cross_section.rs#L376) |
 | `manifold_cross_section_batch_hull` | [`CrossSection::batch_hull`](crates/manifold-csg/src/cross_section.rs#L382) |
 | `manifold_cross_section_hull` | [`CrossSection::hull`](crates/manifold-csg/src/cross_section.rs#L234) |
@@ -146,7 +146,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_cross_section_bounds` | [`CrossSection::bounds`](crates/manifold-csg/src/cross_section.rs#L316) |
 | `manifold_cross_section_to_polygons` | [`CrossSection::to_polygons`](crates/manifold-csg/src/cross_section.rs#L479) |
 | `manifold_cross_section_transform` | [`CrossSection::transform`](crates/manifold-csg/src/cross_section.rs) |
-| `manifold_cross_section_size` | Not wrapped |
+| `manifold_cross_section_size` | Not needed (alloc size) |
 
 ## MeshGL (f32) & MeshGL64 (f64)
 
@@ -168,18 +168,18 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_meshgl_tri_length` | Internal |
 | `manifold_meshgl64_vert_properties_length` | Internal |
 | `manifold_meshgl64_tri_length` | Internal |
-| `manifold_meshgl_copy` | Not wrapped |
-| `manifold_meshgl64_copy` | Not wrapped |
+| `manifold_meshgl_copy` | Internal (Clone impl) |
+| `manifold_meshgl64_copy` | Internal (Clone impl) |
 | `manifold_meshgl_w_options` | Not wrapped |
 | `manifold_meshgl64_w_options` | Not wrapped |
-| `manifold_meshgl_w_tangents` | Not wrapped |
-| `manifold_meshgl64_w_tangents` | Not wrapped |
+| `manifold_meshgl_w_tangents` | [`MeshGL::new_with_tangents`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_w_tangents` | [`MeshGL64::new_with_tangents`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_halfedge_tangent` | [`MeshGL::halfedge_tangent`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_halfedge_tangent` | [`MeshGL64::halfedge_tangent`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_tangent_length` | Internal |
 | `manifold_meshgl64_tangent_length` | Internal |
-| `manifold_meshgl_merge` | Not wrapped |
-| `manifold_meshgl64_merge` | Not wrapped |
+| `manifold_meshgl_merge` | In PR #7 |
+| `manifold_meshgl64_merge` | In PR #7 |
 | `manifold_meshgl_merge_from_vert` | [`MeshGL::merge_from_vert`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_merge_from_vert` | [`MeshGL64::merge_from_vert`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_merge_to_vert` | [`MeshGL::merge_to_vert`](crates/manifold-csg/src/mesh.rs) |
@@ -202,10 +202,10 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_meshgl64_face_id` | [`MeshGL64::face_id`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_face_id_length` | Internal |
 | `manifold_meshgl64_face_id_length` | Internal |
-| `manifold_meshgl_size` | Not wrapped |
-| `manifold_meshgl64_size` | Not wrapped |
-| `manifold_meshgl64_read_obj` | Not wrapped |
-| `manifold_meshgl64_write_obj` | Not wrapped |
+| `manifold_meshgl_size` | Not needed (alloc size) |
+| `manifold_meshgl64_size` | Not needed (alloc size) |
+| `manifold_meshgl64_read_obj` | [`MeshGL64::from_obj`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_write_obj` | [`MeshGL64::to_obj`](crates/manifold-csg/src/mesh.rs) |
 
 ## Triangulation
 
@@ -249,7 +249,7 @@ Fully wrapped via the `BoundingBox` type in `crates/manifold-csg/src/bounding_bo
 | `manifold_box_transform` | [`BoundingBox::transform`](crates/manifold-csg/src/bounding_box.rs) |
 | `manifold_box_translate` | [`BoundingBox::translate`](crates/manifold-csg/src/bounding_box.rs) |
 | `manifold_box_mul` | [`BoundingBox::mul`](crates/manifold-csg/src/bounding_box.rs) |
-| `manifold_box_size` | Not wrapped |
+| `manifold_box_size` | Not needed (alloc size) |
 
 ## Rect2D Operations (`Rect`)
 
@@ -273,7 +273,7 @@ Fully wrapped via the `Rect` type in `crates/manifold-csg/src/rect.rs`.
 | `manifold_rect_transform` | [`Rect::transform`](crates/manifold-csg/src/rect.rs) |
 | `manifold_rect_translate` | [`Rect::translate`](crates/manifold-csg/src/rect.rs) |
 | `manifold_rect_mul` | [`Rect::mul`](crates/manifold-csg/src/rect.rs) |
-| `manifold_rect_size` | Not wrapped |
+| `manifold_rect_size` | Not needed (alloc size) |
 
 ## Polygon Helpers (Internal)
 
