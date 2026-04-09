@@ -11,9 +11,21 @@ fn main() {
     let sphere = Manifold::sphere(12.0, 64);
     let cylinder = Manifold::cylinder(30.0, 5.0, 5.0, 32, true);
 
-    println!("Cube:     volume={:.1}, verts={}", cube.volume(), cube.num_vert());
-    println!("Sphere:   volume={:.1}, verts={}", sphere.volume(), sphere.num_vert());
-    println!("Cylinder: volume={:.1}, verts={}", cylinder.volume(), cylinder.num_vert());
+    println!(
+        "Cube:     volume={:.1}, verts={}",
+        cube.volume(),
+        cube.num_vert()
+    );
+    println!(
+        "Sphere:   volume={:.1}, verts={}",
+        sphere.volume(),
+        sphere.num_vert()
+    );
+    println!(
+        "Cylinder: volume={:.1}, verts={}",
+        cylinder.volume(),
+        cylinder.num_vert()
+    );
 
     // -- Boolean operations --------------------------------------------------
     // Operator overloads: + (union), - (difference), ^ (intersection)
@@ -22,9 +34,18 @@ fn main() {
     let difference = &cube - &sphere;
     let intersection = &cube ^ &sphere;
 
-    println!("\nCube + Sphere (union):        volume={:.1}", union.volume());
-    println!("Cube - Sphere (difference):  volume={:.1}", difference.volume());
-    println!("Cube ^ Sphere (intersection): volume={:.1}", intersection.volume());
+    println!(
+        "\nCube + Sphere (union):        volume={:.1}",
+        union.volume()
+    );
+    println!(
+        "Cube - Sphere (difference):  volume={:.1}",
+        difference.volume()
+    );
+    println!(
+        "Cube ^ Sphere (intersection): volume={:.1}",
+        intersection.volume()
+    );
 
     // You can also call the methods directly:
     let _same_union = cube.union(&sphere);
@@ -55,8 +76,14 @@ fn main() {
     if let Some(bb) = drilled.bounding_box() {
         let min = bb.min();
         let max = bb.max();
-        println!("  bbox min:     [{:.1}, {:.1}, {:.1}]", min[0], min[1], min[2]);
-        println!("  bbox max:     [{:.1}, {:.1}, {:.1}]", max[0], max[1], max[2]);
+        println!(
+            "  bbox min:     [{:.1}, {:.1}, {:.1}]",
+            min[0], min[1], min[2]
+        );
+        println!(
+            "  bbox max:     [{:.1}, {:.1}, {:.1}]",
+            max[0], max[1], max[2]
+        );
     }
 
     // -- Batch operations ----------------------------------------------------
@@ -65,7 +92,10 @@ fn main() {
         .map(|i| Manifold::sphere(3.0, 32).translate(i as f64 * 8.0, 0.0, 0.0))
         .collect();
     let combined = Manifold::batch_union(&parts);
-    println!("\nBatch union of 5 spheres: volume={:.1}", combined.volume());
+    println!(
+        "\nBatch union of 5 spheres: volume={:.1}",
+        combined.volume()
+    );
 
     // -- Mesh round-trip (f64) -----------------------------------------------
 

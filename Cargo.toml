@@ -18,3 +18,5 @@ unsafe_op_in_unsafe_fn = "deny"
 [workspace.lints.clippy]
 undocumented_unsafe_blocks = "deny"
 multiple_unsafe_ops_per_block = "deny"
+# is_multiple_of() is unstable on our MSRV (1.85)
+manual_is_multiple_of = "allow"

@@ -76,7 +76,12 @@ pub struct Rect2 {
 
 impl Default for Rect2 {
     fn default() -> Self {
-        Self { min_x: 0.0, min_y: 0.0, max_x: 0.0, max_y: 0.0 }
+        Self {
+            min_x: 0.0,
+            min_y: 0.0,
+            max_x: 0.0,
+            max_y: 0.0,
+        }
     }
 }
 
@@ -180,10 +185,7 @@ impl CrossSection {
     /// The fill rule determines how self-intersecting or overlapping contours
     /// are interpreted. See [`FillRule`] for details.
     #[must_use]
-    pub fn from_polygons_with_fill_rule(
-        polygons: &[Vec<[f64; 2]>],
-        fill_rule: FillRule,
-    ) -> Self {
+    pub fn from_polygons_with_fill_rule(polygons: &[Vec<[f64; 2]>], fill_rule: FillRule) -> Self {
         if polygons.is_empty() {
             return Self::empty();
         }
@@ -342,12 +344,7 @@ impl CrossSection {
         let ptr = unsafe { manifold_alloc_cross_section() };
         // SAFETY: ptr and self.ptr are valid.
         unsafe {
-            manifold_cross_section_transform(
-                ptr, self.ptr,
-                m[0], m[1],
-                m[2], m[3],
-                m[4], m[5],
-            );
+            manifold_cross_section_transform(ptr, self.ptr, m[0], m[1], m[2], m[3], m[4], m[5]);
         }
         Self { ptr }
     }
@@ -550,7 +547,8 @@ impl CrossSection {
         F: FnMut(f64, f64) -> [f64; 2],
     {
         unsafe extern "C" fn trampoline<F>(
-            x: f64, y: f64,
+            x: f64,
+            y: f64,
             ctx: *mut std::ffi::c_void,
         ) -> ManifoldVec2
         where
