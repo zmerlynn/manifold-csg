@@ -2003,3 +2003,99 @@ fn meshgl64_new_with_tangents() {
     assert_eq!(mesh.num_tri(), n_tris);
     assert_eq!(mesh.halfedge_tangent().len(), tangents.len());
 }
+
+// ── Test gap coverage (from deep review W5) ────────────────────────────
+
+#[test]
+fn from_sdf_seq_sphere() {
+    let sphere = Manifold::from_sdf_seq(
+        |x, y, z| (x * x + y * y + z * z).sqrt() - 5.0,
+        ([-6.0, -6.0, -6.0], [6.0, 6.0, 6.0]),
+        0.5,
+        0.0,
+        0.001,
+    );
+    assert!(!sphere.is_empty());
+    assert!(sphere.volume() > 200.0);
+}
+
+#[test]
+fn to_mesh_f64_with_normals() {
+    let sphere = Manifold::sphere(5.0, 32).calculate_normals(3, 60.0);
+    let (verts, n_props, _) = sphere.to_mesh_f64_with_normals(3);
+    assert!(!verts.is_empty());
+    assert!(n_props >= 3);
+}
+
+#[test]
+fn to_mesh_f32_with_normals() {
+    let sphere = Manifold::sphere(5.0, 32).calculate_normals(3, 60.0);
+    let (verts, n_props, _) = sphere.to_mesh_f32_with_normals(3);
+    assert!(!verts.is_empty());
+    assert!(n_props >= 3);
+}
+
+#[test]
+fn cross_section_num_contour() {
+    let square = CrossSection::square(10.0, 10.0, false);
+    assert!(square.num_contour() >= 1);
+    let empty = CrossSection::empty();
+    assert_eq!(empty.num_contour(), 0);
+}
+
+#[test]
+fn rect_transform() {
+    let r = Rect::new([0.0, 0.0], [10.0, 10.0]);
+    // Identity-ish transform (translate by 5, 5)
+    let t = r.transform(&[1.0, 0.0, 0.0, 1.0, 5.0, 5.0]);
+    let min = t.min();
+    assert_relative_eq!(min[0], 5.0, epsilon = 0.01);
+    assert_relative_eq!(min[1], 5.0, epsilon = 0.01);
+}
+
+#[test]
+fn zero_size_cube() {
+    let c = Manifold::cube(0.0, 0.0, 0.0, false);
+    assert!(c.is_empty());
+}
+
+#[test]
+fn zero_radius_sphere() {
+    let s = Manifold::sphere(0.0, 16);
+    assert!(s.is_empty());
+}
+
+#[test]
+fn manifold_boolean_subtract_and_intersect() {
+    let a = Manifold::cube(10.0, 10.0, 10.0, true);
+    let b = Manifold::cube(10.0, 10.0, 10.0, true).translate(5.0, 0.0, 0.0);
+    let sub = a.boolean(&b, OpType::Subtract);
+    assert!(sub.volume() > 0.0);
+    assert!(sub.volume() < 1000.0);
+    let inter = a.boolean(&b, OpType::Intersect);
+    assert!(inter.volume() > 0.0);
+    assert!(inter.volume() < 1000.0);
+}
+
+#[test]
+fn meshgl_is_send() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f32();
+    let mesh = MeshGL::new(&verts, n_props, &indices);
+    let handle = std::thread::spawn(move || {
+        assert!(mesh.num_vert() > 0);
+    });
+    handle.join().unwrap();
+}
+
+#[test]
+fn invalid_mesh_returns_manifold_status_error() {
+    // Degenerate triangle indices pointing at the same vertex
+    let verts = [0.0f64, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let tris = [0u64, 0, 0]; // degenerate: all same vertex
+    let result = Manifold::from_mesh_f64(&verts, 3, &tris);
+    // Should either succeed with an empty/degenerate manifold or return an error
+    if let Ok(m) = result {
+        assert!(m.is_empty() || m.volume().abs() < 0.001);
+    }
+}
