@@ -210,6 +210,86 @@ impl CrossSection {
         Self { ptr }
     }
 
+    /// Create a cross-section from a single simple polygon (no holes).
+    ///
+    /// For polygons with holes, use [`from_polygons`](Self::from_polygons).
+    #[must_use]
+    pub fn from_simple_polygon(points: &[[f64; 2]], fill_rule: FillRule) -> Self {
+        if points.is_empty() {
+            return Self::empty();
+        }
+
+        let vec2s: Vec<ManifoldVec2> = points
+            .iter()
+            .map(|p| ManifoldVec2 { x: p[0], y: p[1] })
+            .collect();
+        // SAFETY: manifold_alloc_simple_polygon returns a valid handle.
+        let sp = unsafe { manifold_alloc_simple_polygon() };
+        // SAFETY: sp valid, vec2s is a valid slice.
+        unsafe { manifold_simple_polygon(sp, vec2s.as_ptr(), vec2s.len()) };
+
+        // SAFETY: manifold_alloc_cross_section returns a valid handle.
+        let ptr = unsafe { manifold_alloc_cross_section() };
+        // SAFETY: ptr and sp are valid.
+        unsafe { manifold_cross_section_of_simple_polygon(ptr, sp, fill_rule.to_ffi()) };
+
+        // SAFETY: sp is valid and no longer needed.
+        unsafe { manifold_delete_simple_polygon(sp) };
+
+        Self { ptr }
+    }
+
+    /// Compute the convex hull of a simple polygon.
+    #[must_use]
+    pub fn hull_simple_polygon(points: &[[f64; 2]]) -> Self {
+        if points.is_empty() {
+            return Self::empty();
+        }
+
+        let vec2s: Vec<ManifoldVec2> = points
+            .iter()
+            .map(|p| ManifoldVec2 { x: p[0], y: p[1] })
+            .collect();
+        // SAFETY: manifold_alloc_simple_polygon returns a valid handle.
+        let sp = unsafe { manifold_alloc_simple_polygon() };
+        // SAFETY: sp valid, vec2s is a valid slice.
+        unsafe { manifold_simple_polygon(sp, vec2s.as_ptr(), vec2s.len()) };
+
+        // SAFETY: manifold_alloc_cross_section returns a valid handle.
+        let ptr = unsafe { manifold_alloc_cross_section() };
+        // SAFETY: ptr and sp are valid.
+        unsafe { manifold_cross_section_hull_simple_polygon(ptr, sp) };
+
+        // SAFETY: sp is valid and no longer needed.
+        unsafe { manifold_delete_simple_polygon(sp) };
+
+        Self { ptr }
+    }
+
+    /// Compute the convex hull of a polygon set (multiple rings).
+    #[must_use]
+    pub fn hull_polygons(polygons: &[Vec<[f64; 2]>]) -> Self {
+        if polygons.is_empty() {
+            return Self::empty();
+        }
+
+        let (polys_ptr, simple_ptrs) = build_polygons_ffi(polygons);
+
+        // SAFETY: manifold_alloc_cross_section returns a valid handle.
+        let ptr = unsafe { manifold_alloc_cross_section() };
+        // SAFETY: ptr and polys_ptr are valid.
+        unsafe { manifold_cross_section_hull_polygons(ptr, polys_ptr) };
+
+        // SAFETY: polys_ptr and simple polygon handles are valid and no longer needed.
+        unsafe { manifold_delete_polygons(polys_ptr) };
+        for sp in simple_ptrs {
+            // SAFETY: sp is valid and no longer needed.
+            unsafe { manifold_delete_simple_polygon(sp) };
+        }
+
+        Self { ptr }
+    }
+
     // ── Booleans ────────────────────────────────────────────────────
 
     /// Boolean union: `self ∪ other`.

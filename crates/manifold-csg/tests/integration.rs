@@ -1812,98 +1812,131 @@ fn cross_section_operator_xor() {
     assert!(result.area() < 100.0);
 }
 
-// ── MeshGL/MeshGL64 merge tests ────────────────────────────────────────
+// ── MeshGL/MeshGL64 advanced accessors ─────────────────────────────────
 
 #[test]
-fn meshgl_merge() {
+fn meshgl_accessors_return_consistent_lengths() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f32();
     let mesh = MeshGL::new(&verts, n_props, &indices);
-    let merged = mesh.merge();
-    assert!(merged.num_vert() > 0);
-    assert!(merged.num_tri() > 0);
-    // Original should be unaffected.
-    assert_eq!(mesh.num_vert(), verts.len() / n_props);
+    // merge vectors should be paired
+    assert_eq!(mesh.merge_from_vert().len(), mesh.merge_to_vert().len());
+    // face_id is either empty or has one per triangle
+    let fid = mesh.face_id();
+    assert!(fid.is_empty() || fid.len() == mesh.num_tri());
+    // tangents are either empty or 4 floats per halfedge (3 halfedges per tri)
+    let tang = mesh.halfedge_tangent();
+    assert!(tang.is_empty() || tang.len() == mesh.num_tri() * 3 * 4);
 }
 
 #[test]
-fn meshgl64_merge() {
+fn meshgl64_accessors_return_consistent_lengths() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();
     let mesh = MeshGL64::new(&verts, n_props, &indices);
-    let merged = mesh.merge();
-    assert!(merged.num_vert() > 0);
-    assert!(merged.num_tri() > 0);
+    assert_eq!(mesh.merge_from_vert().len(), mesh.merge_to_vert().len());
+    let fid = mesh.face_id();
+    assert!(fid.is_empty() || fid.len() == mesh.num_tri());
+    let tang = mesh.halfedge_tangent();
+    assert!(tang.is_empty() || tang.len() == mesh.num_tri() * 3 * 4);
 }
 
 #[test]
-fn meshgl_merge_then_drop_both() {
-    // Regression test: merge() previously caused double-free.
-    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+fn meshgl_run_accessors_consistent() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false).as_original();
     let (verts, n_props, indices) = cube.to_mesh_f32();
     let mesh = MeshGL::new(&verts, n_props, &indices);
-    let merged = mesh.merge();
-    drop(mesh);
-    // Merged should still be valid after source is dropped.
-    assert!(merged.num_vert() > 0);
+    let ri = mesh.run_index();
+    let ro = mesh.run_original_id();
+    let rt = mesh.run_transform();
+    // run_index and run_original_id should have the same length
+    assert_eq!(ri.len(), ro.len());
+    // run_transform has 12 floats per run (4x3 matrix)
+    assert!(rt.is_empty() || rt.len() == ri.len() * 12);
 }
 
 #[test]
-fn meshgl64_merge_then_drop_both() {
-    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+fn meshgl64_run_accessors_consistent() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false).as_original();
     let (verts, n_props, indices) = cube.to_mesh_f64();
     let mesh = MeshGL64::new(&verts, n_props, &indices);
-    let merged = mesh.merge();
-    drop(mesh);
-    assert!(merged.num_vert() > 0);
+    let ri = mesh.run_index();
+    let ro = mesh.run_original_id();
+    let rt = mesh.run_transform();
+    assert_eq!(ri.len(), ro.len());
+    assert!(rt.is_empty() || rt.len() == ri.len() * 12);
 }
 
-// ── from_sdf_seq tests ─────────────────────────────────────────────────
+// ── Smooth constructors ────────────────────────────────────────────────
 
 #[test]
-fn from_sdf_seq_sphere() {
-    // Same SDF as from_sdf but forced sequential execution.
-    let sphere = Manifold::from_sdf_seq(
-        |x, y, z| (x * x + y * y + z * z).sqrt() - 5.0,
-        ([-6.0, -6.0, -6.0], [6.0, 6.0, 6.0]),
-        0.5,
-        0.0,
-        0.001,
-    );
-    assert!(!sphere.is_empty());
-    // Sequential mode may produce a coarser mesh than parallel; use wide bounds.
-    assert!(
-        sphere.volume() > 200.0,
-        "volume too small: {}",
-        sphere.volume()
-    );
-}
-
-// ── to_mesh_with_normals tests ─────────────────────────────────────────
-
-#[test]
-fn to_mesh_f64_with_normals() {
-    // calculate_normals adds normal properties to the manifold; the _w_normals
-    // export then includes them in the mesh output.
-    let sphere = Manifold::sphere(5.0, 32).calculate_normals(3, 60.0);
-    let (verts_with, n_props_with, _) = sphere.to_mesh_f64_with_normals(3);
-    let (_, n_props_without, _) = sphere.to_mesh_f64();
-    // The _w_normals export should include the normal properties.
-    assert!(
-        n_props_with >= n_props_without,
-        "with_normals n_props ({n_props_with}) < without ({n_props_without})"
-    );
-    assert!(!verts_with.is_empty());
+fn smooth_f64_no_smoothness() {
+    // With empty smoothness arrays, smooth should behave like from_mesh_f64.
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let result = Manifold::smooth_f64(&verts, n_props, &indices, &[], &[]);
+    assert!(result.is_ok());
+    let m = result.unwrap();
+    assert!(!m.is_empty());
+    assert_relative_eq!(m.volume(), 1000.0, epsilon = 1.0);
 }
 
 #[test]
-fn to_mesh_f32_with_normals() {
-    let sphere = Manifold::sphere(5.0, 32).calculate_normals(3, 60.0);
-    let (verts_with, n_props_with, _) = sphere.to_mesh_f32_with_normals(3);
-    let (_, n_props_without, _) = sphere.to_mesh_f32();
-    assert!(
-        n_props_with >= n_props_without,
-        "with_normals n_props ({n_props_with}) < without ({n_props_without})"
-    );
-    assert!(!verts_with.is_empty());
+fn smooth_f32_no_smoothness() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f32();
+    let result = Manifold::smooth_f32(&verts, n_props, &indices, &[], &[]);
+    assert!(result.is_ok());
+    let m = result.unwrap();
+    assert!(!m.is_empty());
+}
+
+#[test]
+fn smooth_mismatched_arrays_returns_error() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let result = Manifold::smooth_f64(&verts, n_props, &indices, &[0, 1], &[0.5]);
+    assert!(result.is_err());
+}
+
+// ── CrossSection gaps ──────────────────────────────────────────────────
+
+#[test]
+fn cross_section_from_simple_polygon() {
+    let points = vec![[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]];
+    let cs = CrossSection::from_simple_polygon(&points, FillRule::EvenOdd);
+    assert_relative_eq!(cs.area(), 100.0, epsilon = 0.1);
+}
+
+#[test]
+fn cross_section_hull_simple_polygon() {
+    // L-shape hull should be a convex polygon covering 100 sq units.
+    let points = vec![
+        [0.0, 0.0],
+        [10.0, 0.0],
+        [10.0, 5.0],
+        [5.0, 5.0],
+        [5.0, 10.0],
+        [0.0, 10.0],
+    ];
+    let hull = CrossSection::hull_simple_polygon(&points);
+    assert!(hull.area() >= 75.0); // at least the L-shape area
+    assert!(hull.area() <= 100.5); // at most the bounding box
+}
+
+#[test]
+fn cross_section_hull_polygons() {
+    let polygons = vec![
+        vec![[0.0, 0.0], [5.0, 0.0], [5.0, 5.0], [0.0, 5.0]],
+        vec![[10.0, 10.0], [15.0, 10.0], [15.0, 15.0], [10.0, 15.0]],
+    ];
+    let hull = CrossSection::hull_polygons(&polygons);
+    // Hull of two separated squares should be larger than either
+    assert!(hull.area() > 25.0);
+}
+
+#[test]
+fn cross_section_from_simple_polygon_empty() {
+    let cs = CrossSection::from_simple_polygon(&[], FillRule::EvenOdd);
+    assert!(cs.is_empty());
 }

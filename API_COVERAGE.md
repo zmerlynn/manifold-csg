@@ -31,9 +31,9 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_copy` | [`Clone` impl](crates/manifold-csg/src/manifold.rs#L56) |
 | `manifold_level_set` | [`Manifold::from_sdf`](crates/manifold-csg/src/manifold.rs#L1114) |
 | `manifold_read_obj` | [`Manifold::from_obj`](crates/manifold-csg/src/manifold.rs#L1063) |
-| `manifold_smooth` | Not wrapped |
-| `manifold_smooth64` | Not wrapped |
-| `manifold_level_set_seq` | [`Manifold::from_sdf_seq`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_smooth` | [`Manifold::smooth_f32`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_smooth64` | [`Manifold::smooth_f64`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_level_set_seq` | Not wrapped |
 
 ## Manifold — Boolean Operations
 
@@ -103,8 +103,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_get_meshgl` | [`Manifold::to_mesh_f32`](crates/manifold-csg/src/manifold.rs#L235) |
 | `manifold_get_meshgl64` | [`Manifold::to_mesh_f64`](crates/manifold-csg/src/manifold.rs#L197) |
 | `manifold_write_obj` | [`Manifold::to_obj`](crates/manifold-csg/src/manifold.rs#L1082) |
-| `manifold_get_meshgl_w_normals` | [`Manifold::to_mesh_f32_with_normals`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_get_meshgl64_w_normals` | [`Manifold::to_mesh_f64_with_normals`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_get_meshgl_w_normals` | Not wrapped |
+| `manifold_get_meshgl64_w_normals` | Not wrapped |
 
 ## CrossSection — Construction & Booleans
 
@@ -123,9 +123,9 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_cross_section_batch_hull` | [`CrossSection::batch_hull`](crates/manifold-csg/src/cross_section.rs#L382) |
 | `manifold_cross_section_hull` | [`CrossSection::hull`](crates/manifold-csg/src/cross_section.rs#L234) |
 | `manifold_cross_section_compose` | [`CrossSection::compose`](crates/manifold-csg/src/cross_section.rs#L409) |
-| `manifold_cross_section_of_simple_polygon` | Not wrapped |
-| `manifold_cross_section_hull_polygons` | Not wrapped |
-| `manifold_cross_section_hull_simple_polygon` | Not wrapped |
+| `manifold_cross_section_of_simple_polygon` | [`CrossSection::from_simple_polygon`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_hull_polygons` | [`CrossSection::hull_polygons`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_hull_simple_polygon` | [`CrossSection::hull_simple_polygon`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_decompose` | [`CrossSection::decompose`](crates/manifold-csg/src/cross_section.rs) |
 
 ## CrossSection — Transforms & Queries
@@ -174,34 +174,34 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_meshgl64_w_options` | Not wrapped |
 | `manifold_meshgl_w_tangents` | Not wrapped |
 | `manifold_meshgl64_w_tangents` | Not wrapped |
-| `manifold_meshgl_halfedge_tangent` | Not wrapped |
-| `manifold_meshgl64_halfedge_tangent` | Not wrapped |
-| `manifold_meshgl_tangent_length` | Not wrapped |
-| `manifold_meshgl64_tangent_length` | Not wrapped |
-| `manifold_meshgl_merge` | [`MeshGL::merge`](crates/manifold-csg/src/mesh.rs) |
-| `manifold_meshgl64_merge` | [`MeshGL64::merge`](crates/manifold-csg/src/mesh.rs) |
-| `manifold_meshgl_merge_from_vert` | Not wrapped |
-| `manifold_meshgl64_merge_from_vert` | Not wrapped |
-| `manifold_meshgl_merge_to_vert` | Not wrapped |
-| `manifold_meshgl64_merge_to_vert` | Not wrapped |
-| `manifold_meshgl_merge_length` | Not wrapped |
-| `manifold_meshgl64_merge_length` | Not wrapped |
-| `manifold_meshgl_run_index` | Not wrapped |
-| `manifold_meshgl64_run_index` | Not wrapped |
-| `manifold_meshgl_run_index_length` | Not wrapped |
-| `manifold_meshgl64_run_index_length` | Not wrapped |
-| `manifold_meshgl_run_original_id` | Not wrapped |
-| `manifold_meshgl64_run_original_id` | Not wrapped |
-| `manifold_meshgl_run_original_id_length` | Not wrapped |
-| `manifold_meshgl64_run_original_id_length` | Not wrapped |
-| `manifold_meshgl_run_transform` | Not wrapped |
-| `manifold_meshgl64_run_transform` | Not wrapped |
-| `manifold_meshgl_run_transform_length` | Not wrapped |
-| `manifold_meshgl64_run_transform_length` | Not wrapped |
-| `manifold_meshgl_face_id` | Not wrapped |
-| `manifold_meshgl64_face_id` | Not wrapped |
-| `manifold_meshgl_face_id_length` | Not wrapped |
-| `manifold_meshgl64_face_id_length` | Not wrapped |
+| `manifold_meshgl_halfedge_tangent` | [`MeshGL::halfedge_tangent`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_halfedge_tangent` | [`MeshGL64::halfedge_tangent`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_tangent_length` | Internal |
+| `manifold_meshgl64_tangent_length` | Internal |
+| `manifold_meshgl_merge` | Not wrapped |
+| `manifold_meshgl64_merge` | Not wrapped |
+| `manifold_meshgl_merge_from_vert` | [`MeshGL::merge_from_vert`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_merge_from_vert` | [`MeshGL64::merge_from_vert`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_merge_to_vert` | [`MeshGL::merge_to_vert`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_merge_to_vert` | [`MeshGL64::merge_to_vert`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_merge_length` | Internal |
+| `manifold_meshgl64_merge_length` | Internal |
+| `manifold_meshgl_run_index` | [`MeshGL::run_index`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_run_index` | [`MeshGL64::run_index`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_run_index_length` | Internal |
+| `manifold_meshgl64_run_index_length` | Internal |
+| `manifold_meshgl_run_original_id` | [`MeshGL::run_original_id`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_run_original_id` | [`MeshGL64::run_original_id`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_run_original_id_length` | Internal |
+| `manifold_meshgl64_run_original_id_length` | Internal |
+| `manifold_meshgl_run_transform` | [`MeshGL::run_transform`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_run_transform` | [`MeshGL64::run_transform`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_run_transform_length` | Internal |
+| `manifold_meshgl64_run_transform_length` | Internal |
+| `manifold_meshgl_face_id` | [`MeshGL::face_id`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_face_id` | [`MeshGL64::face_id`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_face_id_length` | Internal |
+| `manifold_meshgl64_face_id_length` | Internal |
 | `manifold_meshgl_size` | Not wrapped |
 | `manifold_meshgl64_size` | Not wrapped |
 | `manifold_meshgl64_read_obj` | Not wrapped |
@@ -333,14 +333,14 @@ and `Drop` implementations.
 
 | Category | Wrapped | Internal |
 |---|---|---|
-| Manifold construction | 15 | 0 |
+| Manifold construction | 14 | 0 |
 | Manifold booleans | 7 | 0 |
 | Manifold transforms | 15 | 0 |
 | Manifold queries | 13 | 0 |
 | Manifold hull/decompose/mesh | 10 | 0 |
 | CrossSection construction & booleans | 13 | 0 |
 | CrossSection transforms & queries | 15 | 0 |
-| MeshGL/MeshGL64 | 18 | 4 |
+| MeshGL/MeshGL64 | 14 | 4 |
 | Triangulation | 1 | 2 |
 | Quality globals | 6 | 0 |
 | Box3D (BoundingBox) | 16 | 0 |
@@ -348,12 +348,12 @@ and `Drop` implementations.
 | Polygon helpers | 0 | 7 |
 | Vector containers | 0 | 10 |
 | Alloc/delete/destruct | 0 | 24 |
-| **Total** | **145** | **47** |
+| **Total** | **140** | **47** |
 
-The remaining unwrapped functions are primarily:
-- MeshGL advanced accessors (run tables, face IDs, tangents) — 30 functions
+The 71 unwrapped functions are primarily:
+- MeshGL advanced accessors (merge tables, run tables, face IDs, tangents) — 34 functions
 - Allocation infrastructure (`destruct_*` variants, unused vec ops) — 18 functions
-- Specialized variants (smooth constructors) — 4 functions
+- Specialized variants (smooth constructors, mesh normals export) — 9 functions
 - Internal size queries — 10 functions
 
 All operations commonly needed for CSG workflows (primitives, booleans, transforms,

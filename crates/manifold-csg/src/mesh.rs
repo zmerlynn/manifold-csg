@@ -119,6 +119,83 @@ impl MeshGL {
         unsafe { manifold_meshgl_merge(ptr, self.ptr) };
         Self { ptr }
     }
+
+    /// Copy merge-from vertex indices out as a flat u32 array.
+    #[must_use]
+    pub fn merge_from_vert(&self) -> Vec<u32> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl_merge_length(self.ptr) };
+        let mut buf = vec![0u32; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl_merge_from_vert(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy merge-to vertex indices out as a flat u32 array.
+    #[must_use]
+    pub fn merge_to_vert(&self) -> Vec<u32> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl_merge_length(self.ptr) };
+        let mut buf = vec![0u32; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl_merge_to_vert(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy run indices out as a flat u32 array.
+    #[must_use]
+    pub fn run_index(&self) -> Vec<u32> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl_run_index_length(self.ptr) };
+        let mut buf = vec![0u32; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl_run_index(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy run original IDs out as a flat u32 array.
+    #[must_use]
+    pub fn run_original_id(&self) -> Vec<u32> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl_run_original_id_length(self.ptr) };
+        let mut buf = vec![0u32; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl_run_original_id(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy run transforms out as a flat f32 array (4x3 matrices, 12 floats each).
+    #[must_use]
+    pub fn run_transform(&self) -> Vec<f32> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl_run_transform_length(self.ptr) };
+        let mut buf = vec![0.0f32; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl_run_transform(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy face IDs out as a flat u32 array.
+    #[must_use]
+    pub fn face_id(&self) -> Vec<u32> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl_face_id_length(self.ptr) };
+        let mut buf = vec![0u32; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl_face_id(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy halfedge tangents out as a flat f32 array (4 floats per halfedge).
+    #[must_use]
+    pub fn halfedge_tangent(&self) -> Vec<f32> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl_tangent_length(self.ptr) };
+        let mut buf = vec![0.0f32; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl_halfedge_tangent(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
 }
 
 impl Clone for MeshGL {
@@ -243,6 +320,83 @@ impl MeshGL64 {
         // manifold_meshgl64_merge always returns ptr (the output buffer).
         unsafe { manifold_meshgl64_merge(ptr, self.ptr) };
         Self { ptr }
+    }
+
+    /// Copy merge-from vertex indices out as a flat u64 array.
+    #[must_use]
+    pub fn merge_from_vert(&self) -> Vec<u64> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl64_merge_length(self.ptr) };
+        let mut buf = vec![0u64; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl64_merge_from_vert(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy merge-to vertex indices out as a flat u64 array.
+    #[must_use]
+    pub fn merge_to_vert(&self) -> Vec<u64> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl64_merge_length(self.ptr) };
+        let mut buf = vec![0u64; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl64_merge_to_vert(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy run indices out as a flat u64 array.
+    #[must_use]
+    pub fn run_index(&self) -> Vec<u64> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl64_run_index_length(self.ptr) };
+        let mut buf = vec![0u64; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl64_run_index(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy run original IDs out as a flat u32 array.
+    #[must_use]
+    pub fn run_original_id(&self) -> Vec<u32> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl64_run_original_id_length(self.ptr) };
+        let mut buf = vec![0u32; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl64_run_original_id(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy run transforms out as a flat f64 array (4x3 matrices, 12 doubles each).
+    #[must_use]
+    pub fn run_transform(&self) -> Vec<f64> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl64_run_transform_length(self.ptr) };
+        let mut buf = vec![0.0f64; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl64_run_transform(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy face IDs out as a flat u64 array.
+    #[must_use]
+    pub fn face_id(&self) -> Vec<u64> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl64_face_id_length(self.ptr) };
+        let mut buf = vec![0u64; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl64_face_id(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Copy halfedge tangents out as a flat f64 array (4 doubles per halfedge).
+    #[must_use]
+    pub fn halfedge_tangent(&self) -> Vec<f64> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl64_tangent_length(self.ptr) };
+        let mut buf = vec![0.0f64; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl64_halfedge_tangent(buf.as_mut_ptr(), self.ptr) };
+        buf
     }
 }
 
