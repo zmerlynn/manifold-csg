@@ -60,10 +60,11 @@ jobs:
 
   semver:
     name: Semver
+    # Disabled until manifold-csg is published on crates.io —
+    # cargo-semver-checks needs a published baseline to compare against.
+    # To re-enable: remove the `if: false` line below.
+    if: false
     runs-on: ubuntu-latest
-    # Soft-fail: cargo-semver-checks requires a published baseline,
-    # so this is expected to fail until the crate is on crates.io.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
