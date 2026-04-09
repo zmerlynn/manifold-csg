@@ -36,7 +36,7 @@ The sys crate clones manifold3d v3.4.1 via git and builds with cmake. Requires:
 - All FFI callback trampolines must use `catch_unwind` to prevent panic-across-FFI UB
 - `unsafe impl Send` requires documented justification on each type
 - `Sync` is deliberately NOT implemented (C++ `mutable shared_ptr<CsgNode>` races on lazy evaluation)
-- `manifold_meshgl_merge` / `manifold_meshgl64_merge` must NOT be wrapped — the C API returns meshes sharing internal buffers, causing double-free on drop
+- `manifold_meshgl_merge` / `manifold_meshgl64_merge` need special handling — on merge failure, the C API returns the input pointer instead of the output buffer, creating aliased ownership that causes double-free. A safe wrapper must check if `returned_ptr == input_ptr`.
 
 ## Testing
 
@@ -63,3 +63,5 @@ cargo test --features nalgebra
 - **NEVER create a pull request unless the user explicitly asks for one.**
 - Prefer creating new commits over amending existing ones.
 - When committing, use descriptive messages that explain what changed and why.
+- Do NOT include Claude session links in commit messages or PR descriptions.
+- Keep `API_COVERAGE.md` in sync when adding new safe wrappers or updating upstream.
