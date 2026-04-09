@@ -10,10 +10,10 @@ fn main() {
 
     let sdf_sphere = Manifold::from_sdf(
         |x, y, z| (x * x + y * y + z * z).sqrt() - 5.0, // sphere of radius 5
-        ([-6.0, -6.0, -6.0], [6.0, 6.0, 6.0]),           // bounding box
-        0.5,                                                // edge length
-        0.0,                                                // isosurface level
-        0.01,                                               // tolerance
+        ([-6.0, -6.0, -6.0], [6.0, 6.0, 6.0]),          // bounding box
+        0.5,                                            // edge length
+        0.0,                                            // isosurface level
+        0.01,                                           // tolerance
     );
     println!(
         "SDF sphere: volume={:.1} (expected ~{:.1})",
@@ -74,10 +74,7 @@ fn main() {
     let sphere = Manifold::sphere(5.0, 64);
     let with_normals = sphere.calculate_normals(3, 60.0);
     let with_curvature = sphere.calculate_curvature(3, 4);
-    println!(
-        "Sphere with normals: num_prop={}",
-        with_normals.num_prop(),
-    );
+    println!("Sphere with normals: num_prop={}", with_normals.num_prop(),);
     println!(
         "Sphere with curvature: num_prop={}",
         with_curvature.num_prop(),
@@ -114,8 +111,5 @@ fn main() {
     let b = Manifold::sphere(3.0, 32).translate(10.0, 0.0, 0.0);
     let composed = Manifold::compose(&[a, b]);
     let parts = composed.decompose();
-    println!(
-        "\nComposed 2 spheres -> decompose -> {} parts",
-        parts.len(),
-    );
+    println!("\nComposed 2 spheres -> decompose -> {} parts", parts.len(),);
 }

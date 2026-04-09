@@ -10,8 +10,16 @@ fn main() {
     let square = CrossSection::square(20.0, 20.0, true);
     let circle = CrossSection::circle(10.0, 64);
 
-    println!("Square: area={:.1}, verts={}", square.area(), square.num_vert());
-    println!("Circle: area={:.1}, verts={}", circle.area(), circle.num_vert());
+    println!(
+        "Square: area={:.1}, verts={}",
+        square.area(),
+        square.num_vert()
+    );
+    println!(
+        "Circle: area={:.1}, verts={}",
+        circle.area(),
+        circle.num_vert()
+    );
 
     // -- 2D booleans ---------------------------------------------------------
     // Same operators as Manifold: + (union), - (difference), ^ (intersection)
@@ -47,8 +55,7 @@ fn main() {
 
     // Extrude with twist and taper
     let fancy = Manifold::extrude_with_options(
-        &circle,
-        30.0,  // height
+        &circle, 30.0,  // height
         20,    // slices (more = smoother twist)
         180.0, // twist degrees
         0.5,   // scale_x at top

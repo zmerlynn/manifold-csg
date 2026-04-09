@@ -34,10 +34,10 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-msrv-
+      # nalgebra 0.34 (unconditional dev-dep) requires Rust 1.87+,
+      # so MSRV check verifies the library builds but skips tests.
       - name: Build
-        run: cargo build --features nalgebra
-      - name: Test
-        run: cargo test --features nalgebra
+        run: cargo build
 
   docs:
     name: Docs

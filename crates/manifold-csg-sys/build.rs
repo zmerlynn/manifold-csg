@@ -14,9 +14,10 @@ fn find_lib_recursive(dir: &Path, name: &str) -> Option<PathBuf> {
             if let Some(found) = find_lib_recursive(&path, name) {
                 return Some(found);
             }
-        } else if path.file_name().is_some_and(|f| {
-            f == unix_target.as_str() || f == msvc_target.as_str()
-        }) {
+        } else if path
+            .file_name()
+            .is_some_and(|f| f == unix_target.as_str() || f == msvc_target.as_str())
+        {
             return path.parent().map(Path::to_path_buf);
         }
     }
@@ -49,9 +50,10 @@ fn main() {
 
     // Apply carry-patches (fixes awaiting upstream merge).
     let patches_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("patches");
-    if patches_dir.exists()
-        && let Ok(entries) = std::fs::read_dir(&patches_dir)
-    {
+    if patches_dir.exists() {
+        let Ok(entries) = std::fs::read_dir(&patches_dir) else {
+            panic!("failed to read patches directory");
+        };
         let mut patches: Vec<_> = entries
             .filter_map(|e| e.ok())
             .map(|e| e.path())

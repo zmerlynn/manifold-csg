@@ -104,7 +104,9 @@ impl Manifold {
             return Err(CsgError::EmptyMesh);
         }
         if n_props < 3 {
-            return Err(CsgError::InvalidInput("n_props must be >= 3 (x, y, z)".into()));
+            return Err(CsgError::InvalidInput(
+                "n_props must be >= 3 (x, y, z)".into(),
+            ));
         }
         let n_verts = vert_props.len() / n_props;
         let n_tris = tri_indices.len() / 3;
@@ -154,7 +156,9 @@ impl Manifold {
             return Err(CsgError::EmptyMesh);
         }
         if n_props < 3 {
-            return Err(CsgError::InvalidInput("n_props must be >= 3 (x, y, z)".into()));
+            return Err(CsgError::InvalidInput(
+                "n_props must be >= 3 (x, y, z)".into(),
+            ));
         }
         let n_verts = vert_props.len() / n_props;
         let n_tris = tri_indices.len() / 3;
@@ -297,7 +301,16 @@ impl Manifold {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: ptr is valid from alloc.
-        unsafe { manifold_cylinder(ptr, height, radius_low, radius_high, segments, i32::from(center)) };
+        unsafe {
+            manifold_cylinder(
+                ptr,
+                height,
+                radius_low,
+                radius_high,
+                segments,
+                i32::from(center),
+            )
+        };
         Self { ptr }
     }
 
@@ -370,11 +383,8 @@ impl Manifold {
         // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
         unsafe {
             manifold_transform(
-                ptr, self.ptr,
-                m[0], m[1], m[2],
-                m[3], m[4], m[5],
-                m[6], m[7], m[8],
-                m[9], m[10], m[11],
+                ptr, self.ptr, m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10],
+                m[11],
             );
         }
         Self { ptr }
@@ -395,8 +405,7 @@ impl Manifold {
         // SAFETY: self.ptr is valid (invariant), both output handles are fresh.
         let pair = unsafe {
             manifold_split_by_plane(
-                mem_first, mem_second, self.ptr,
-                normal[0], normal[1], normal[2], offset,
+                mem_first, mem_second, self.ptr, normal[0], normal[1], normal[2], offset,
             )
         };
         (Self { ptr: pair.first }, Self { ptr: pair.second })
@@ -412,10 +421,7 @@ impl Manifold {
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
         unsafe {
-            manifold_trim_by_plane(
-                ptr, self.ptr,
-                normal[0], normal[1], normal[2], offset,
-            );
+            manifold_trim_by_plane(ptr, self.ptr, normal[0], normal[1], normal[2], offset);
         }
         Self { ptr }
     }
@@ -696,7 +702,11 @@ impl Manifold {
     pub fn hull_pts(points: &[[f64; 3]]) -> Self {
         let vec3s: Vec<ManifoldVec3> = points
             .iter()
-            .map(|p| ManifoldVec3 { x: p[0], y: p[1], z: p[2] })
+            .map(|p| ManifoldVec3 {
+                x: p[0],
+                y: p[1],
+                z: p[2],
+            })
             .collect();
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
@@ -789,7 +799,11 @@ impl Manifold {
 
     /// Revolve a 2D cross-section around the Y axis to create a solid of revolution.
     #[must_use]
-    pub fn revolve(cross_section: &CrossSection, circular_segments: i32, revolve_degrees: f64) -> Self {
+    pub fn revolve(
+        cross_section: &CrossSection,
+        circular_segments: i32,
+        revolve_degrees: f64,
+    ) -> Self {
         // SAFETY: manifold_alloc_polygons returns a valid handle.
         let poly_ptr = unsafe { manifold_alloc_polygons() };
         // SAFETY: poly_ptr is valid, cross_section.ptr is valid (invariant).
@@ -820,7 +834,17 @@ impl Manifold {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: ptr is valid from alloc, poly_ptr is valid.
-        unsafe { manifold_extrude(ptr, poly_ptr, height, slices, twist_degrees, scale_x, scale_y) };
+        unsafe {
+            manifold_extrude(
+                ptr,
+                poly_ptr,
+                height,
+                slices,
+                twist_degrees,
+                scale_x,
+                scale_y,
+            )
+        };
         // SAFETY: poly_ptr is valid and no longer needed.
         unsafe { manifold_delete_polygons(poly_ptr) };
         Self { ptr }
@@ -936,7 +960,7 @@ impl Manifold {
     /// tracking through boolean operations.
     ///
     /// Use [`original_id`](Self::original_id) to retrieve the assigned ID,
-    /// and [`reserve_ids`](crate::reserve_ids) to pre-allocate ID ranges.
+    /// and [`reserve_ids`] to pre-allocate ID ranges.
     #[must_use]
     pub fn as_original(&self) -> Self {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
@@ -986,7 +1010,9 @@ impl Manifold {
         F: FnMut(f64, f64, f64) -> [f64; 3],
     {
         unsafe extern "C" fn trampoline<F>(
-            x: f64, y: f64, z: f64,
+            x: f64,
+            y: f64,
+            z: f64,
             ctx: *mut std::ffi::c_void,
         ) -> ManifoldVec3
         where
@@ -999,7 +1025,11 @@ impl Manifold {
                 f(x, y, z)
             }));
             match result {
-                Ok([rx, ry, rz]) => ManifoldVec3 { x: rx, y: ry, z: rz },
+                Ok([rx, ry, rz]) => ManifoldVec3 {
+                    x: rx,
+                    y: ry,
+                    z: rz,
+                },
                 // Return the original point on panic to avoid UB from unwinding through C.
                 Err(_) => ManifoldVec3 { x, y, z },
             }
@@ -1052,7 +1082,8 @@ impl Manifold {
                 let ctx = unsafe { &mut *(ctx as *mut Context<'_, F>) };
                 let pos = [position.x, position.y, position.z];
                 // SAFETY: new_prop has ctx.new_num_prop elements (guaranteed by C API).
-                let new_slice = unsafe { std::slice::from_raw_parts_mut(new_prop, ctx.new_num_prop) };
+                let new_slice =
+                    unsafe { std::slice::from_raw_parts_mut(new_prop, ctx.new_num_prop) };
                 // SAFETY: old_prop may be null if the manifold has no custom properties.
                 // When non-null, it has ctx.old_num_prop elements (guaranteed by C API).
                 let old_slice = if old_prop.is_null() {
@@ -1065,7 +1096,11 @@ impl Manifold {
             }));
         }
 
-        let mut ctx = Context { f: &mut f, old_num_prop, new_num_prop };
+        let mut ctx = Context {
+            f: &mut f,
+            old_num_prop,
+            new_num_prop,
+        };
         let ctx_ptr = &mut ctx as *mut Context<'_, F> as *mut std::ffi::c_void;
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
@@ -1101,10 +1136,7 @@ impl Manifold {
     pub fn to_obj(&self) -> String {
         let mut result = String::new();
 
-        unsafe extern "C" fn callback(
-            data: *mut std::ffi::c_char,
-            ctx: *mut std::ffi::c_void,
-        ) {
+        unsafe extern "C" fn callback(data: *mut std::ffi::c_char, ctx: *mut std::ffi::c_void) {
             // Catch panics to prevent UB from unwinding through C stack frames.
             let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 // SAFETY: ctx was created from a &mut String and is valid for the call.
@@ -1144,7 +1176,9 @@ impl Manifold {
         F: FnMut(f64, f64, f64) -> f64,
     {
         unsafe extern "C" fn trampoline<F>(
-            x: f64, y: f64, z: f64,
+            x: f64,
+            y: f64,
+            z: f64,
             ctx: *mut std::ffi::c_void,
         ) -> f64
         where
@@ -1167,14 +1201,28 @@ impl Manifold {
         unsafe {
             manifold_box(
                 box_ptr,
-                bounds.0[0], bounds.0[1], bounds.0[2],
-                bounds.1[0], bounds.1[1], bounds.1[2],
+                bounds.0[0],
+                bounds.0[1],
+                bounds.0[2],
+                bounds.1[0],
+                bounds.1[1],
+                bounds.1[2],
             );
         }
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: ptr valid, box_ptr valid, trampoline+ctx valid for call duration.
-        unsafe { manifold_level_set(ptr, Some(trampoline::<F>), box_ptr, edge_length, level, tolerance, ctx) };
+        unsafe {
+            manifold_level_set(
+                ptr,
+                Some(trampoline::<F>),
+                box_ptr,
+                edge_length,
+                level,
+                tolerance,
+                ctx,
+            )
+        };
         // SAFETY: box_ptr is valid and no longer needed.
         unsafe { manifold_delete_box(box_ptr) };
         Self { ptr }
@@ -1222,10 +1270,18 @@ impl Manifold {
         translation: &nalgebra::Vector3<f64>,
     ) -> Self {
         self.transform(&[
-            matrix[(0, 0)], matrix[(1, 0)], matrix[(2, 0)],
-            matrix[(0, 1)], matrix[(1, 1)], matrix[(2, 1)],
-            matrix[(0, 2)], matrix[(1, 2)], matrix[(2, 2)],
-            translation.x, translation.y, translation.z,
+            matrix[(0, 0)],
+            matrix[(1, 0)],
+            matrix[(2, 0)],
+            matrix[(0, 1)],
+            matrix[(1, 1)],
+            matrix[(2, 1)],
+            matrix[(0, 2)],
+            matrix[(1, 2)],
+            matrix[(2, 2)],
+            translation.x,
+            translation.y,
+            translation.z,
         ])
     }
 
@@ -1241,11 +1297,7 @@ impl Manifold {
 
     /// Trim to the positive side of a plane (nalgebra types).
     #[must_use]
-    pub fn trim_by_plane_nalgebra(
-        &self,
-        normal: &nalgebra::Vector3<f64>,
-        offset: f64,
-    ) -> Self {
+    pub fn trim_by_plane_nalgebra(&self, normal: &nalgebra::Vector3<f64>, offset: f64) -> Self {
         self.trim_by_plane([normal.x, normal.y, normal.z], offset)
     }
 
@@ -1257,9 +1309,7 @@ impl Manifold {
 
     /// Bounding box as nalgebra points.
     #[must_use]
-    pub fn bounding_box_nalgebra(
-        &self,
-    ) -> Option<(nalgebra::Point3<f64>, nalgebra::Point3<f64>)> {
+    pub fn bounding_box_nalgebra(&self) -> Option<(nalgebra::Point3<f64>, nalgebra::Point3<f64>)> {
         self.bounding_box().map(|bb| {
             let min = bb.min();
             let max = bb.max();
@@ -1275,10 +1325,7 @@ impl Manifold {
         vertices: &[nalgebra::Point3<f64>],
         faces: &[[u32; 3]],
     ) -> Result<Self, CsgError> {
-        let vert_props: Vec<f64> = vertices
-            .iter()
-            .flat_map(|v| [v.x, v.y, v.z])
-            .collect();
+        let vert_props: Vec<f64> = vertices.iter().flat_map(|v| [v.x, v.y, v.z]).collect();
         let tri_indices: Vec<u64> = faces
             .iter()
             .flat_map(|&[i0, i1, i2]| [u64::from(i0), u64::from(i1), u64::from(i2)])

@@ -36,8 +36,14 @@ impl MeshGL {
     #[must_use]
     pub fn new(vert_props: &[f32], n_props: usize, tri_indices: &[u32]) -> Self {
         assert!(n_props >= 3, "n_props must be >= 3");
-        assert!(vert_props.len().is_multiple_of(n_props), "vert_props length must be divisible by n_props");
-        assert!(tri_indices.len().is_multiple_of(3), "tri_indices length must be divisible by 3");
+        assert!(
+            vert_props.len() % n_props == 0,
+            "vert_props length must be divisible by n_props"
+        );
+        assert!(
+            tri_indices.len() % 3 == 0,
+            "tri_indices length must be divisible by 3"
+        );
         let n_verts = vert_props.len() / n_props;
         let n_tris = tri_indices.len() / 3;
 
@@ -45,7 +51,14 @@ impl MeshGL {
         let ptr = unsafe { manifold_alloc_meshgl() };
         // SAFETY: ptr is valid, slices are valid with correct lengths.
         unsafe {
-            manifold_meshgl(ptr, vert_props.as_ptr(), n_verts, n_props, tri_indices.as_ptr(), n_tris);
+            manifold_meshgl(
+                ptr,
+                vert_props.as_ptr(),
+                n_verts,
+                n_props,
+                tri_indices.as_ptr(),
+                n_tris,
+            );
         }
         Self { ptr }
     }
@@ -92,7 +105,6 @@ impl MeshGL {
         unsafe { manifold_meshgl_tri_verts(buf.as_mut_ptr(), self.ptr) };
         buf
     }
-
 }
 
 impl Clone for MeshGL {
@@ -135,8 +147,14 @@ impl MeshGL64 {
     #[must_use]
     pub fn new(vert_props: &[f64], n_props: usize, tri_indices: &[u64]) -> Self {
         assert!(n_props >= 3, "n_props must be >= 3");
-        assert!(vert_props.len().is_multiple_of(n_props), "vert_props length must be divisible by n_props");
-        assert!(tri_indices.len().is_multiple_of(3), "tri_indices length must be divisible by 3");
+        assert!(
+            vert_props.len() % n_props == 0,
+            "vert_props length must be divisible by n_props"
+        );
+        assert!(
+            tri_indices.len() % 3 == 0,
+            "tri_indices length must be divisible by 3"
+        );
         let n_verts = vert_props.len() / n_props;
         let n_tris = tri_indices.len() / 3;
 
@@ -144,7 +162,14 @@ impl MeshGL64 {
         let ptr = unsafe { manifold_alloc_meshgl64() };
         // SAFETY: ptr is valid, slices are valid with correct lengths.
         unsafe {
-            manifold_meshgl64(ptr, vert_props.as_ptr(), n_verts, n_props, tri_indices.as_ptr(), n_tris);
+            manifold_meshgl64(
+                ptr,
+                vert_props.as_ptr(),
+                n_verts,
+                n_props,
+                tri_indices.as_ptr(),
+                n_tris,
+            );
         }
         Self { ptr }
     }
@@ -191,7 +216,6 @@ impl MeshGL64 {
         unsafe { manifold_meshgl64_tri_verts(buf.as_mut_ptr(), self.ptr) };
         buf
     }
-
 }
 
 impl Clone for MeshGL64 {

@@ -25,11 +25,11 @@ pub mod types;
 pub use bounding_box::BoundingBox;
 pub use cross_section::{CrossSection, FillRule, JoinType, Rect2};
 pub use manifold::Manifold;
-pub use manifold_csg_sys::ManifoldOpType as OpType;
 pub use manifold::{
-    set_min_circular_angle, set_min_circular_edge_length, set_circular_segments,
-    reset_to_circular_defaults, get_circular_segments, reserve_ids,
+    get_circular_segments, reserve_ids, reset_to_circular_defaults, set_circular_segments,
+    set_min_circular_angle, set_min_circular_edge_length,
 };
+pub use manifold_csg_sys::ManifoldOpType as OpType;
 pub use mesh::{MeshGL, MeshGL64};
 pub use rect::Rect;
 pub use triangulation::triangulate_polygons;

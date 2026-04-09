@@ -317,10 +317,7 @@ unsafe extern "C" {
     pub fn manifold_polygons_length(ps: *const ManifoldPolygons) -> usize;
 
     /// Get the number of points in a specific simple polygon within a polygon set.
-    pub fn manifold_polygons_simple_length(
-        ps: *const ManifoldPolygons,
-        idx: usize,
-    ) -> usize;
+    pub fn manifold_polygons_simple_length(ps: *const ManifoldPolygons, idx: usize) -> usize;
 
     /// Get a point from a simple polygon by index.
     pub fn manifold_simple_polygon_get_point(
@@ -424,58 +421,31 @@ unsafe extern "C" {
     pub fn manifold_meshgl_tangent_length(m: *const ManifoldMeshGL) -> usize;
 
     /// Copy vertex properties into caller-provided buffer.
-    pub fn manifold_meshgl_vert_properties(
-        mem: *mut f32,
-        m: *const ManifoldMeshGL,
-    ) -> *mut f32;
+    pub fn manifold_meshgl_vert_properties(mem: *mut f32, m: *const ManifoldMeshGL) -> *mut f32;
 
     /// Copy triangle indices into caller-provided buffer.
-    pub fn manifold_meshgl_tri_verts(
-        mem: *mut u32,
-        m: *const ManifoldMeshGL,
-    ) -> *mut u32;
+    pub fn manifold_meshgl_tri_verts(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
 
     /// Copy merge-from vertex indices into caller-provided buffer.
-    pub fn manifold_meshgl_merge_from_vert(
-        mem: *mut u32,
-        m: *const ManifoldMeshGL,
-    ) -> *mut u32;
+    pub fn manifold_meshgl_merge_from_vert(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
 
     /// Copy merge-to vertex indices into caller-provided buffer.
-    pub fn manifold_meshgl_merge_to_vert(
-        mem: *mut u32,
-        m: *const ManifoldMeshGL,
-    ) -> *mut u32;
+    pub fn manifold_meshgl_merge_to_vert(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
 
     /// Copy run indices into caller-provided buffer.
-    pub fn manifold_meshgl_run_index(
-        mem: *mut u32,
-        m: *const ManifoldMeshGL,
-    ) -> *mut u32;
+    pub fn manifold_meshgl_run_index(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
 
     /// Copy run original IDs into caller-provided buffer.
-    pub fn manifold_meshgl_run_original_id(
-        mem: *mut u32,
-        m: *const ManifoldMeshGL,
-    ) -> *mut u32;
+    pub fn manifold_meshgl_run_original_id(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
 
     /// Copy run transforms into caller-provided buffer.
-    pub fn manifold_meshgl_run_transform(
-        mem: *mut f32,
-        m: *const ManifoldMeshGL,
-    ) -> *mut f32;
+    pub fn manifold_meshgl_run_transform(mem: *mut f32, m: *const ManifoldMeshGL) -> *mut f32;
 
     /// Copy face IDs into caller-provided buffer.
-    pub fn manifold_meshgl_face_id(
-        mem: *mut u32,
-        m: *const ManifoldMeshGL,
-    ) -> *mut u32;
+    pub fn manifold_meshgl_face_id(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
 
     /// Copy halfedge tangents into caller-provided buffer.
-    pub fn manifold_meshgl_halfedge_tangent(
-        mem: *mut f32,
-        m: *const ManifoldMeshGL,
-    ) -> *mut f32;
+    pub fn manifold_meshgl_halfedge_tangent(mem: *mut f32, m: *const ManifoldMeshGL) -> *mut f32;
 
     // ── MeshGL64 construction (f64 vertices, u64 indices) ───────────────
 
@@ -557,52 +527,31 @@ unsafe extern "C" {
     pub fn manifold_meshgl64_tangent_length(m: *const ManifoldMeshGL64) -> usize;
 
     /// Copy f64 vertex properties into caller-provided buffer.
-    pub fn manifold_meshgl64_vert_properties(
-        mem: *mut f64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut f64;
+    pub fn manifold_meshgl64_vert_properties(mem: *mut f64, m: *const ManifoldMeshGL64)
+    -> *mut f64;
 
     /// Copy u64 triangle indices into caller-provided buffer.
-    pub fn manifold_meshgl64_tri_verts(
-        mem: *mut u64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut u64;
+    pub fn manifold_meshgl64_tri_verts(mem: *mut u64, m: *const ManifoldMeshGL64) -> *mut u64;
 
     /// Copy merge-from vertex indices into caller-provided buffer.
-    pub fn manifold_meshgl64_merge_from_vert(
-        mem: *mut u64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut u64;
+    pub fn manifold_meshgl64_merge_from_vert(mem: *mut u64, m: *const ManifoldMeshGL64)
+    -> *mut u64;
 
     /// Copy merge-to vertex indices into caller-provided buffer.
-    pub fn manifold_meshgl64_merge_to_vert(
-        mem: *mut u64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut u64;
+    pub fn manifold_meshgl64_merge_to_vert(mem: *mut u64, m: *const ManifoldMeshGL64) -> *mut u64;
 
     /// Copy run indices into caller-provided buffer.
-    pub fn manifold_meshgl64_run_index(
-        mem: *mut u64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut u64;
+    pub fn manifold_meshgl64_run_index(mem: *mut u64, m: *const ManifoldMeshGL64) -> *mut u64;
 
     /// Copy run original IDs into caller-provided buffer.
-    pub fn manifold_meshgl64_run_original_id(
-        mem: *mut u32,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut u32;
+    pub fn manifold_meshgl64_run_original_id(mem: *mut u32, m: *const ManifoldMeshGL64)
+    -> *mut u32;
 
     /// Copy run transforms into caller-provided buffer.
-    pub fn manifold_meshgl64_run_transform(
-        mem: *mut f64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut f64;
+    pub fn manifold_meshgl64_run_transform(mem: *mut f64, m: *const ManifoldMeshGL64) -> *mut f64;
 
     /// Copy face IDs into caller-provided buffer.
-    pub fn manifold_meshgl64_face_id(
-        mem: *mut u64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut u64;
+    pub fn manifold_meshgl64_face_id(mem: *mut u64, m: *const ManifoldMeshGL64) -> *mut u64;
 
     /// Copy halfedge tangents into caller-provided buffer.
     pub fn manifold_meshgl64_halfedge_tangent(
@@ -643,9 +592,7 @@ unsafe extern "C" {
 
     // ── Manifold vectors ───────────────────────────────────────────────
 
-    pub fn manifold_manifold_empty_vec(
-        mem: *mut ManifoldManifoldVec,
-    ) -> *mut ManifoldManifoldVec;
+    pub fn manifold_manifold_empty_vec(mem: *mut ManifoldManifoldVec) -> *mut ManifoldManifoldVec;
 
     pub fn manifold_manifold_vec(
         mem: *mut ManifoldManifoldVec,
@@ -668,10 +615,7 @@ unsafe extern "C" {
         m: *mut ManifoldManifold,
     );
 
-    pub fn manifold_manifold_vec_push_back(
-        ms: *mut ManifoldManifoldVec,
-        m: *mut ManifoldManifold,
-    );
+    pub fn manifold_manifold_vec_push_back(ms: *mut ManifoldManifoldVec, m: *mut ManifoldManifold);
 
     // ── Manifold boolean operations ────────────────────────────────────
 
@@ -830,10 +774,18 @@ unsafe extern "C" {
     pub fn manifold_transform(
         mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
-        x1: f64, y1: f64, z1: f64,
-        x2: f64, y2: f64, z2: f64,
-        x3: f64, y3: f64, z3: f64,
-        x4: f64, y4: f64, z4: f64,
+        x1: f64,
+        y1: f64,
+        z1: f64,
+        x2: f64,
+        y2: f64,
+        z2: f64,
+        x3: f64,
+        y3: f64,
+        z3: f64,
+        x4: f64,
+        y4: f64,
+        z4: f64,
     ) -> *mut ManifoldManifold;
 
     /// Mirror a manifold across the plane defined by normal (nx, ny, nz).
@@ -1012,12 +964,7 @@ unsafe extern "C" {
         m: *const ManifoldManifold,
         num_prop: c_int,
         fun: Option<
-            unsafe extern "C" fn(
-                *mut f64,
-                ManifoldVec3,
-                *const f64,
-                *mut std::ffi::c_void,
-            ),
+            unsafe extern "C" fn(*mut f64, ManifoldVec3, *const f64, *mut std::ffi::c_void),
         >,
         ctx: *mut std::ffi::c_void,
     ) -> *mut ManifoldManifold;
@@ -1068,24 +1015,11 @@ unsafe extern "C" {
     pub fn manifold_box_center(b: *const ManifoldBox) -> ManifoldVec3;
     pub fn manifold_box_scale(b: *const ManifoldBox) -> f64;
 
-    pub fn manifold_box_contains_pt(
-        b: *const ManifoldBox,
-        x: f64,
-        y: f64,
-        z: f64,
-    ) -> c_int;
+    pub fn manifold_box_contains_pt(b: *const ManifoldBox, x: f64, y: f64, z: f64) -> c_int;
 
-    pub fn manifold_box_contains_box(
-        a: *const ManifoldBox,
-        b: *const ManifoldBox,
-    ) -> c_int;
+    pub fn manifold_box_contains_box(a: *const ManifoldBox, b: *const ManifoldBox) -> c_int;
 
-    pub fn manifold_box_include_pt(
-        b: *mut ManifoldBox,
-        x: f64,
-        y: f64,
-        z: f64,
-    );
+    pub fn manifold_box_include_pt(b: *mut ManifoldBox, x: f64, y: f64, z: f64);
 
     pub fn manifold_box_union(
         mem: *mut ManifoldBox,
@@ -1096,10 +1030,18 @@ unsafe extern "C" {
     pub fn manifold_box_transform(
         mem: *mut ManifoldBox,
         b: *const ManifoldBox,
-        x1: f64, y1: f64, z1: f64,
-        x2: f64, y2: f64, z2: f64,
-        x3: f64, y3: f64, z3: f64,
-        x4: f64, y4: f64, z4: f64,
+        x1: f64,
+        y1: f64,
+        z1: f64,
+        x2: f64,
+        y2: f64,
+        z2: f64,
+        x3: f64,
+        y3: f64,
+        z3: f64,
+        x4: f64,
+        y4: f64,
+        z4: f64,
     ) -> *mut ManifoldBox;
 
     pub fn manifold_box_translate(
@@ -1118,17 +1060,9 @@ unsafe extern "C" {
         z: f64,
     ) -> *mut ManifoldBox;
 
-    pub fn manifold_box_does_overlap_pt(
-        b: *const ManifoldBox,
-        x: f64,
-        y: f64,
-        z: f64,
-    ) -> c_int;
+    pub fn manifold_box_does_overlap_pt(b: *const ManifoldBox, x: f64, y: f64, z: f64) -> c_int;
 
-    pub fn manifold_box_does_overlap_box(
-        a: *const ManifoldBox,
-        b: *const ManifoldBox,
-    ) -> c_int;
+    pub fn manifold_box_does_overlap_box(a: *const ManifoldBox, b: *const ManifoldBox) -> c_int;
 
     pub fn manifold_box_is_finite(b: *const ManifoldBox) -> c_int;
 
@@ -1192,14 +1126,9 @@ unsafe extern "C" {
         sz: usize,
     ) -> *mut ManifoldCrossSectionVec;
 
-    pub fn manifold_cross_section_vec_reserve(
-        csv: *mut ManifoldCrossSectionVec,
-        sz: usize,
-    );
+    pub fn manifold_cross_section_vec_reserve(csv: *mut ManifoldCrossSectionVec, sz: usize);
 
-    pub fn manifold_cross_section_vec_length(
-        csv: *const ManifoldCrossSectionVec,
-    ) -> usize;
+    pub fn manifold_cross_section_vec_length(csv: *const ManifoldCrossSectionVec) -> usize;
 
     pub fn manifold_cross_section_vec_get(
         mem: *mut ManifoldCrossSection,
@@ -1310,9 +1239,12 @@ unsafe extern "C" {
     pub fn manifold_cross_section_transform(
         mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
-        x1: f64, y1: f64,
-        x2: f64, y2: f64,
-        x3: f64, y3: f64,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
     ) -> *mut ManifoldCrossSection;
 
     /// Warp a cross-section by applying a function to each vertex.
@@ -1381,22 +1313,11 @@ unsafe extern "C" {
     pub fn manifold_rect_center(r: *const ManifoldRect) -> ManifoldVec2;
     pub fn manifold_rect_scale(r: *const ManifoldRect) -> f64;
 
-    pub fn manifold_rect_contains_pt(
-        r: *const ManifoldRect,
-        x: f64,
-        y: f64,
-    ) -> c_int;
+    pub fn manifold_rect_contains_pt(r: *const ManifoldRect, x: f64, y: f64) -> c_int;
 
-    pub fn manifold_rect_contains_rect(
-        a: *const ManifoldRect,
-        b: *const ManifoldRect,
-    ) -> c_int;
+    pub fn manifold_rect_contains_rect(a: *const ManifoldRect, b: *const ManifoldRect) -> c_int;
 
-    pub fn manifold_rect_include_pt(
-        r: *mut ManifoldRect,
-        x: f64,
-        y: f64,
-    );
+    pub fn manifold_rect_include_pt(r: *mut ManifoldRect, x: f64, y: f64);
 
     pub fn manifold_rect_union(
         mem: *mut ManifoldRect,
@@ -1429,10 +1350,8 @@ unsafe extern "C" {
         y: f64,
     ) -> *mut ManifoldRect;
 
-    pub fn manifold_rect_does_overlap_rect(
-        a: *const ManifoldRect,
-        r: *const ManifoldRect,
-    ) -> c_int;
+    pub fn manifold_rect_does_overlap_rect(a: *const ManifoldRect, r: *const ManifoldRect)
+    -> c_int;
 
     pub fn manifold_rect_is_empty(r: *const ManifoldRect) -> c_int;
     pub fn manifold_rect_is_finite(r: *const ManifoldRect) -> c_int;

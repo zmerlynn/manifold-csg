@@ -1,9 +1,8 @@
 use approx::assert_relative_eq;
 use manifold_csg::{
     BoundingBox, CrossSection, FillRule, JoinType, Manifold, MeshGL, MeshGL64, Rect,
-    triangulate_polygons,
-    set_circular_segments, get_circular_segments, reset_to_circular_defaults,
-    set_min_circular_angle, set_min_circular_edge_length, reserve_ids,
+    get_circular_segments, reserve_ids, reset_to_circular_defaults, set_circular_segments,
+    set_min_circular_angle, set_min_circular_edge_length, triangulate_polygons,
 };
 
 // ── Primitive tests ─────────────────────────────────────────────────────
@@ -215,8 +214,7 @@ fn chained_booleans_work() {
 fn five_chained_subtractions() {
     let mut result = Manifold::cube(30.0, 30.0, 30.0, true);
     for i in 0..5 {
-        let hole = Manifold::sphere(2.0, 16)
-            .translate(f64::from(i) * 5.0 - 10.0, 0.0, 0.0);
+        let hole = Manifold::sphere(2.0, 16).translate(f64::from(i) * 5.0 - 10.0, 0.0, 0.0);
         result = &result - &hole;
     }
     assert!(result.volume() > 0.0);
@@ -270,10 +268,7 @@ fn trim_by_plane_z_removes_top() {
 #[test]
 fn batch_union_multiple_cubes() {
     let cubes: Vec<Manifold> = (0..5)
-        .map(|i| {
-            Manifold::cube(2.0, 2.0, 2.0, true)
-                .translate(f64::from(i) * 10.0, 0.0, 0.0)
-        })
+        .map(|i| Manifold::cube(2.0, 2.0, 2.0, true).translate(f64::from(i) * 10.0, 0.0, 0.0))
         .collect();
     let result = Manifold::batch_union(&cubes);
     assert_relative_eq!(result.volume(), 40.0, epsilon = 1.0);
@@ -338,12 +333,7 @@ fn decompose_two_bodies() {
 
 #[test]
 fn triangulate_simple_square() {
-    let square = vec![vec![
-        [0.0, 0.0],
-        [10.0, 0.0],
-        [10.0, 10.0],
-        [0.0, 10.0],
-    ]];
+    let square = vec![vec![[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]];
     let tris = triangulate_polygons(&square, 1e-6);
     assert!(tris.is_some());
     assert_eq!(tris.unwrap().len(), 2);
@@ -396,12 +386,7 @@ fn cross_section_circle_area() {
 
 #[test]
 fn cross_section_from_polygons() {
-    let square = vec![vec![
-        [0.0, 0.0],
-        [10.0, 0.0],
-        [10.0, 10.0],
-        [0.0, 10.0],
-    ]];
+    let square = vec![vec![[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]];
     let cs = CrossSection::from_polygons(&square);
     assert!(!cs.is_empty());
     assert_relative_eq!(cs.area(), 100.0, epsilon = 1.0);
@@ -565,9 +550,7 @@ fn extrude_empty_cross_section() {
 #[test]
 fn manifold_is_send() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
-    let handle = std::thread::spawn(move || {
-        cube.volume()
-    });
+    let handle = std::thread::spawn(move || cube.volume());
     let vol = handle.join().unwrap();
     assert_relative_eq!(vol, 1000.0, epsilon = 1.0);
 }
@@ -575,9 +558,7 @@ fn manifold_is_send() {
 #[test]
 fn cross_section_is_send() {
     let cs = CrossSection::square(10.0, 10.0, true);
-    let handle = std::thread::spawn(move || {
-        cs.area()
-    });
+    let handle = std::thread::spawn(move || cs.area());
     let area = handle.join().unwrap();
     assert_relative_eq!(area, 100.0, epsilon = 1.0);
 }
@@ -1299,9 +1280,7 @@ fn fill_rule_even_odd_default() {
 fn fill_rule_non_zero() {
     // A self-intersecting polygon (figure-8 shape) should produce different
     // results with EvenOdd vs NonZero fill rules.
-    let figure_8 = vec![vec![
-        [0.0, 0.0], [10.0, 10.0], [10.0, 0.0], [0.0, 10.0],
-    ]];
+    let figure_8 = vec![vec![[0.0, 0.0], [10.0, 10.0], [10.0, 0.0], [0.0, 10.0]]];
     let even_odd = CrossSection::from_polygons_with_fill_rule(&figure_8, FillRule::EvenOdd);
     let non_zero = CrossSection::from_polygons_with_fill_rule(&figure_8, FillRule::NonZero);
     // Both should produce valid (non-empty) cross-sections.
@@ -1493,7 +1472,10 @@ fn mesh_f64_buffer_sizes_consistent() {
     assert_eq!(n_tris, cube.num_tri());
     // All indices should be in range.
     for &idx in &indices {
-        assert!((idx as usize) < n_verts, "index {idx} out of range for {n_verts} verts");
+        assert!(
+            (idx as usize) < n_verts,
+            "index {idx} out of range for {n_verts} verts"
+        );
     }
 }
 
@@ -1505,7 +1487,10 @@ fn mesh_f32_buffer_sizes_consistent() {
     assert_eq!(indices.len() % 3, 0);
     let n_verts = verts.len() / n_props;
     for &idx in &indices {
-        assert!((idx as usize) < n_verts, "index {idx} out of range for {n_verts} verts");
+        assert!(
+            (idx as usize) < n_verts,
+            "index {idx} out of range for {n_verts} verts"
+        );
     }
 }
 
@@ -1517,8 +1502,12 @@ fn bounding_box_from_manifold_matches_mesh_extents() {
     // Every vertex position should be within the bounding box.
     for chunk in verts.chunks(n_props) {
         let (x, y, z) = (chunk[0], chunk[1], chunk[2]);
-        assert!(bb.contains_point([x, y, z]),
-            "vertex ({x}, {y}, {z}) not in bbox {:?}..{:?}", bb.min(), bb.max());
+        assert!(
+            bb.contains_point([x, y, z]),
+            "vertex ({x}, {y}, {z}) not in bbox {:?}..{:?}",
+            bb.min(),
+            bb.max()
+        );
     }
 }
 
