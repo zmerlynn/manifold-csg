@@ -67,6 +67,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks
       - uses: actions/cache@v4
         with:
           path: |
@@ -75,8 +78,6 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-semver-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-semver-
-      - name: Install cargo-semver-checks
-        run: cargo install cargo-semver-checks --locked
       - name: Check semver
         run: cargo semver-checks -p manifold-csg
 
