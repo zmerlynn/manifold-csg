@@ -32,7 +32,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/cache-version') }}
           restore-keys: ${{ runner.os }}-cargo-msrv-
       # nalgebra 0.34 (unconditional dev-dep) requires Rust 1.87+,
       # so MSRV check verifies the library builds but skips tests.
@@ -51,7 +51,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/cache-version') }}
           restore-keys: ${{ runner.os }}-cargo-docs-
       - name: Doc
         run: cargo doc --no-deps --features nalgebra
@@ -115,7 +115,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/patches/*', 'crates/manifold-csg-sys/cache-version') }}
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build
@@ -141,7 +141,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-nopar-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          key: ${{ runner.os }}-cargo-nopar-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/cache-version') }}
           restore-keys: ${{ runner.os }}-cargo-nopar-
 
       - name: Build (no parallel)

@@ -1811,3 +1811,99 @@ fn cross_section_operator_xor() {
     assert!(result.area() > 0.0);
     assert!(result.area() < 100.0);
 }
+
+// ── MeshGL/MeshGL64 merge tests ────────────────────────────────────────
+
+#[test]
+fn meshgl_merge() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f32();
+    let mesh = MeshGL::new(&verts, n_props, &indices);
+    let merged = mesh.merge();
+    assert!(merged.num_vert() > 0);
+    assert!(merged.num_tri() > 0);
+    // Original should be unaffected.
+    assert_eq!(mesh.num_vert(), verts.len() / n_props);
+}
+
+#[test]
+fn meshgl64_merge() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let mesh = MeshGL64::new(&verts, n_props, &indices);
+    let merged = mesh.merge();
+    assert!(merged.num_vert() > 0);
+    assert!(merged.num_tri() > 0);
+}
+
+#[test]
+fn meshgl_merge_then_drop_both() {
+    // Regression test: merge() previously caused double-free.
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f32();
+    let mesh = MeshGL::new(&verts, n_props, &indices);
+    let merged = mesh.merge();
+    drop(mesh);
+    // Merged should still be valid after source is dropped.
+    assert!(merged.num_vert() > 0);
+}
+
+#[test]
+fn meshgl64_merge_then_drop_both() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let mesh = MeshGL64::new(&verts, n_props, &indices);
+    let merged = mesh.merge();
+    drop(mesh);
+    assert!(merged.num_vert() > 0);
+}
+
+// ── from_sdf_seq tests ─────────────────────────────────────────────────
+
+#[test]
+fn from_sdf_seq_sphere() {
+    // Same SDF as from_sdf but forced sequential execution.
+    let sphere = Manifold::from_sdf_seq(
+        |x, y, z| (x * x + y * y + z * z).sqrt() - 5.0,
+        ([-6.0, -6.0, -6.0], [6.0, 6.0, 6.0]),
+        0.5,
+        0.0,
+        0.001,
+    );
+    assert!(!sphere.is_empty());
+    // Sequential mode may produce a coarser mesh than parallel; use wide bounds.
+    assert!(
+        sphere.volume() > 200.0,
+        "volume too small: {}",
+        sphere.volume()
+    );
+}
+
+// ── to_mesh_with_normals tests ─────────────────────────────────────────
+
+#[test]
+fn to_mesh_f64_with_normals() {
+    // calculate_normals adds normal properties to the manifold; the _w_normals
+    // export then includes them in the mesh output.
+    let sphere = Manifold::sphere(5.0, 32).calculate_normals(3, 60.0);
+    let (verts_with, n_props_with, _) = sphere.to_mesh_f64_with_normals(3);
+    let (_, n_props_without, _) = sphere.to_mesh_f64();
+    // The _w_normals export should include the normal properties.
+    assert!(
+        n_props_with >= n_props_without,
+        "with_normals n_props ({n_props_with}) < without ({n_props_without})"
+    );
+    assert!(!verts_with.is_empty());
+}
+
+#[test]
+fn to_mesh_f32_with_normals() {
+    let sphere = Manifold::sphere(5.0, 32).calculate_normals(3, 60.0);
+    let (verts_with, n_props_with, _) = sphere.to_mesh_f32_with_normals(3);
+    let (_, n_props_without, _) = sphere.to_mesh_f32();
+    assert!(
+        n_props_with >= n_props_without,
+        "with_normals n_props ({n_props_with}) < without ({n_props_without})"
+    );
+    assert!(!verts_with.is_empty());
+}
