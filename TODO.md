@@ -19,20 +19,16 @@
 ## Safe wrapper gaps (low priority)
 
 - [ ] MeshGL/MeshGL64 advanced accessors (run_index, face_id, tangents)
-  - Note: `merge()` was found to cause double-free (C API shares internal buffers) — do not wrap without upstream fix
+- [ ] MeshGL/MeshGL64 `merge()` — wrappable but needs care: on failure, the C API returns the *input* pointer instead of the output buffer (aliased ownership → double-free). Safe wrapper must check `returned_ptr == input_ptr` and handle accordingly.
 - [ ] `manifold_smooth` / `manifold_smooth64` constructors (from half-edge indices)
-- [x] Box/Rect full operation sets — done: `BoundingBox` (16 methods) and `Rect` (16 methods)
 - [ ] `manifold_level_set_seq` — sequential SDF for single-threaded runtimes
 - [ ] `manifold_get_meshgl_w_normals` / `manifold_get_meshgl64_w_normals` — mesh export with normals
 
 ## Documentation & Publishing
 
-- [ ] CHANGELOG.md — create before first crates.io publish
 - [ ] README badges (crates.io version, docs.rs, CI status) — add once published
 - [ ] Make doc-tests runnable (currently `rust,ignore`) — runnable examples exist in `examples/` but inline doc examples still need `rust,ignore` due to build infra requirements
-- [ ] Keep `API_COVERAGE.md` in sync when adding new safe wrappers or updating upstream
 
 ## Ergonomics (nice-to-have)
 
-- [ ] Named struct for `to_mesh_f64()` return type instead of bare tuple
 - [ ] Extract vec-building helper to reduce boilerplate in batch operations
