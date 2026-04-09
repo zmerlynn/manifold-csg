@@ -63,6 +63,44 @@ impl MeshGL {
         Self { ptr }
     }
 
+    /// Create a MeshGL with halfedge tangent data.
+    ///
+    /// `halfedge_tangent` must have `num_tri * 3 * 4` elements (4 floats per
+    /// halfedge, 3 halfedges per triangle).
+    ///
+    /// # Panics
+    ///
+    /// Same as [`new`](Self::new).
+    #[must_use]
+    pub fn new_with_tangents(
+        vert_props: &[f32],
+        n_props: usize,
+        tri_indices: &[u32],
+        halfedge_tangent: &[f32],
+    ) -> Self {
+        assert!(n_props >= 3, "n_props must be >= 3");
+        assert!(vert_props.len() % n_props == 0);
+        assert!(tri_indices.len() % 3 == 0);
+        let n_verts = vert_props.len() / n_props;
+        let n_tris = tri_indices.len() / 3;
+
+        // SAFETY: manifold_alloc_meshgl returns a valid handle.
+        let ptr = unsafe { manifold_alloc_meshgl() };
+        // SAFETY: ptr valid, all slices valid with correct lengths.
+        unsafe {
+            manifold_meshgl_w_tangents(
+                ptr,
+                vert_props.as_ptr(),
+                n_verts,
+                n_props,
+                tri_indices.as_ptr(),
+                n_tris,
+                halfedge_tangent.as_ptr(),
+            );
+        }
+        Self { ptr }
+    }
+
     /// Number of vertices.
     #[must_use]
     pub fn num_vert(&self) -> usize {
@@ -265,6 +303,39 @@ impl MeshGL64 {
         Self { ptr }
     }
 
+    /// Create a MeshGL64 with halfedge tangent data.
+    ///
+    /// See [`MeshGL::new_with_tangents`] for details.
+    #[must_use]
+    pub fn new_with_tangents(
+        vert_props: &[f64],
+        n_props: usize,
+        tri_indices: &[u64],
+        halfedge_tangent: &[f64],
+    ) -> Self {
+        assert!(n_props >= 3, "n_props must be >= 3");
+        assert!(vert_props.len() % n_props == 0);
+        assert!(tri_indices.len() % 3 == 0);
+        let n_verts = vert_props.len() / n_props;
+        let n_tris = tri_indices.len() / 3;
+
+        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
+        let ptr = unsafe { manifold_alloc_meshgl64() };
+        // SAFETY: ptr valid, all slices valid with correct lengths.
+        unsafe {
+            manifold_meshgl64_w_tangents(
+                ptr,
+                vert_props.as_ptr(),
+                n_verts,
+                n_props,
+                tri_indices.as_ptr(),
+                n_tris,
+                halfedge_tangent.as_ptr(),
+            );
+        }
+        Self { ptr }
+    }
+
     /// Number of vertices.
     #[must_use]
     pub fn num_vert(&self) -> usize {
@@ -397,6 +468,40 @@ impl MeshGL64 {
         // SAFETY: buf has capacity len, self.ptr is valid.
         unsafe { manifold_meshgl64_halfedge_tangent(buf.as_mut_ptr(), self.ptr) };
         buf
+    }
+
+    /// Read a MeshGL64 from a Wavefront OBJ string.
+    pub fn from_obj(obj_content: &str) -> Result<Self, crate::types::CsgError> {
+        let c_str = std::ffi::CString::new(obj_content).map_err(|_| {
+            crate::types::CsgError::InvalidInput("OBJ content contains null byte".into())
+        })?;
+        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
+        let ptr = unsafe { manifold_alloc_meshgl64() };
+        // SAFETY: ptr valid from alloc, c_str.as_ptr() is a valid null-terminated string.
+        unsafe { manifold_meshgl64_read_obj(ptr, c_str.as_ptr()) };
+        Ok(Self { ptr })
+    }
+
+    /// Export this mesh as a Wavefront OBJ string.
+    #[must_use]
+    pub fn to_obj(&self) -> String {
+        let mut result = String::new();
+
+        unsafe extern "C" fn callback(data: *mut std::ffi::c_char, ctx: *mut std::ffi::c_void) {
+            // Catch panics to prevent UB from unwinding through C stack frames.
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // SAFETY: ctx was created from a &mut String and is valid for the call.
+                let result = unsafe { &mut *(ctx as *mut String) };
+                // SAFETY: data is a null-terminated C string provided by manifold3d.
+                let c_str = unsafe { std::ffi::CStr::from_ptr(data) };
+                *result = c_str.to_string_lossy().into_owned();
+            }));
+        }
+
+        let ctx = &mut result as *mut String as *mut std::ffi::c_void;
+        // SAFETY: self.ptr is valid (invariant), callback and ctx are valid for the call.
+        unsafe { manifold_meshgl64_write_obj(self.ptr, Some(callback), ctx) };
+        result
     }
 }
 

@@ -322,6 +322,20 @@ impl CrossSection {
         Self { ptr }
     }
 
+    /// Generic boolean operation with an explicit operation type.
+    ///
+    /// Prefer the specific methods ([`union`](Self::union),
+    /// [`difference`](Self::difference), [`intersection`](Self::intersection))
+    /// or operator overloads for readability.
+    #[must_use]
+    pub fn boolean(&self, other: &Self, op: ManifoldOpType) -> Self {
+        // SAFETY: manifold_alloc_cross_section returns a valid handle.
+        let ptr = unsafe { manifold_alloc_cross_section() };
+        // SAFETY: all three pointers are valid.
+        unsafe { manifold_cross_section_boolean(ptr, self.ptr, other.ptr, op) };
+        Self { ptr }
+    }
+
     // ── Offset ──────────────────────────────────────────────────────
 
     /// Inflate (positive delta) or deflate (negative delta) the cross-section.

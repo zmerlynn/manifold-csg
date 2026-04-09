@@ -823,6 +823,21 @@ impl Manifold {
         Self { ptr }
     }
 
+    /// Generic boolean operation with an explicit operation type.
+    ///
+    /// Prefer the specific methods ([`union`](Self::union),
+    /// [`difference`](Self::difference), [`intersection`](Self::intersection))
+    /// or operator overloads (`+`, `-`, `^`) for readability. This method
+    /// is useful when the operation type is determined at runtime.
+    #[must_use]
+    pub fn boolean(&self, other: &Self, op: ManifoldOpType) -> Self {
+        // SAFETY: manifold_alloc_manifold returns a valid handle.
+        let ptr = unsafe { manifold_alloc_manifold() };
+        // SAFETY: all three pointers are valid.
+        unsafe { manifold_boolean(ptr, self.ptr, other.ptr, op) };
+        Self { ptr }
+    }
+
     /// Decompose into connected components.
     #[must_use]
     pub fn decompose(&self) -> Vec<Self> {

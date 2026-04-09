@@ -18,8 +18,7 @@
 
 ## Safe wrapper gaps (low priority)
 
-- [ ] MeshGL/MeshGL64 construction with options (`w_options`, `w_tangents`)
-- [ ] MeshGL64 OBJ I/O (`read_obj`, `write_obj`)
+- [ ] MeshGL/MeshGL64 construction with full options (`w_options` — merge vectors + run data)
 
 ## Documentation & Publishing
 
