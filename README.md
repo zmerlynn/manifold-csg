@@ -1,5 +1,7 @@
 # manifold-csg
 
+> **Note:** This crate is not yet published to crates.io. The API may change before the first release.
+
 Safe Rust bindings to the [manifold3d](https://github.com/elalish/manifold)
 geometry kernel for constructive solid geometry (CSG).
 
