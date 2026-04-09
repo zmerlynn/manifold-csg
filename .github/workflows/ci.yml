@@ -60,7 +60,7 @@ jobs:
 
   semver:
     name: Semver
-    # Disabled until manifold-csg is published on crates.io —
+    # TODO: Re-enable once manifold-csg is published on crates.io —
     # cargo-semver-checks needs a published baseline to compare against.
     # To re-enable: remove the `if: false` line below.
     if: false
