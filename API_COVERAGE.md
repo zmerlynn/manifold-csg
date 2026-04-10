@@ -1,9 +1,10 @@
 # API Coverage
 
-This document maps every function in the manifold3d v3.4.1 C API to its status
-in `manifold-csg-sys` (raw FFI) and `manifold-csg` (safe wrapper).
+This document maps every function in the manifold3d C API (pinned to master
+post-v3.4.1) to its status in `manifold-csg-sys` (raw FFI) and `manifold-csg`
+(safe wrapper).
 
-All 256 C API functions are bound in `manifold-csg-sys`. The safe crate wraps the
+All C API functions are bound in `manifold-csg-sys`. The safe crate wraps the
 most commonly needed operations; infrastructure functions (allocation, vectors,
 polygon helpers) are used internally and don't need direct safe wrappers.
 
@@ -61,6 +62,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_refine` | [`Manifold::refine`](crates/manifold-csg/src/manifold.rs#L728) |
 | `manifold_refine_to_length` | [`Manifold::refine_to_length`](crates/manifold-csg/src/manifold.rs#L738) |
 | `manifold_refine_to_tolerance` | [`Manifold::refine_to_tolerance`](crates/manifold-csg/src/manifold.rs#L748) |
+| `manifold_set_tolerance` | [`Manifold::set_tolerance`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_simplify` | [`Manifold::simplify`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_smooth_by_normals` | [`Manifold::smooth_by_normals`](crates/manifold-csg/src/manifold.rs#L761) |
 | `manifold_smooth_out` | [`Manifold::smooth_out`](crates/manifold-csg/src/manifold.rs#L774) |
 | `manifold_calculate_normals` | [`Manifold::calculate_normals`](crates/manifold-csg/src/manifold.rs#L950) |
@@ -80,6 +83,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_num_edge` | [`Manifold::num_edge`](crates/manifold-csg/src/manifold.rs#L906) |
 | `manifold_num_prop` | [`Manifold::num_prop`](crates/manifold-csg/src/manifold.rs#L912) |
 | `manifold_epsilon` | [`Manifold::epsilon`](crates/manifold-csg/src/manifold.rs#L920) |
+| `manifold_get_tolerance` | [`Manifold::get_tolerance`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_num_prop_vert` | [`Manifold::num_prop_vert`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_genus` | [`Manifold::genus`](crates/manifold-csg/src/manifold.rs#L927) |
 | `manifold_bounding_box` | [`Manifold::bounding_box`](crates/manifold-csg/src/manifold.rs#L571) |
 | `manifold_original_id` | [`Manifold::original_id`](crates/manifold-csg/src/manifold.rs#L934) |
@@ -178,6 +183,16 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_meshgl64_halfedge_tangent` | [`MeshGL64::halfedge_tangent`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_tangent_length` | Internal |
 | `manifold_meshgl64_tangent_length` | Internal |
+| `manifold_meshgl_tolerance` | [`MeshGL::tolerance`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_tolerance` | [`MeshGL64::tolerance`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_num_run` | [`MeshGL::num_run`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_num_run` | [`MeshGL64::num_run`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_run_flags` | [`MeshGL::run_flags`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_run_flags` | [`MeshGL64::run_flags`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_run_flags_length` | Internal |
+| `manifold_meshgl64_run_flags_length` | Internal |
+| `manifold_meshgl_update_normals` | [`MeshGL::update_normals`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_update_normals` | [`MeshGL64::update_normals`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_merge` | [`MeshGL::merge`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_merge` | [`MeshGL64::merge`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_merge_from_vert` | [`MeshGL::merge_from_vert`](crates/manifold-csg/src/mesh.rs) |
@@ -335,12 +350,12 @@ and `Drop` implementations.
 |---|---|---|
 | Manifold construction | 14 | 0 |
 | Manifold booleans | 7 | 0 |
-| Manifold transforms | 15 | 0 |
-| Manifold queries | 13 | 0 |
+| Manifold transforms | 17 | 0 |
+| Manifold queries | 15 | 0 |
 | Manifold hull/decompose/mesh | 10 | 0 |
 | CrossSection construction & booleans | 13 | 0 |
 | CrossSection transforms & queries | 15 | 0 |
-| MeshGL/MeshGL64 | 14 | 4 |
+| MeshGL/MeshGL64 | 22 | 6 |
 | Triangulation | 1 | 2 |
 | Quality globals | 6 | 0 |
 | Box3D (BoundingBox) | 16 | 0 |
@@ -348,7 +363,7 @@ and `Drop` implementations.
 | Polygon helpers | 0 | 7 |
 | Vector containers | 0 | 10 |
 | Alloc/delete/destruct | 0 | 24 |
-| **Total** | **140** | **47** |
+| **Total** | **152** | **49** |
 
 The 71 unwrapped functions are primarily:
 - MeshGL advanced accessors (merge tables, run tables, face IDs, tangents) — 34 functions

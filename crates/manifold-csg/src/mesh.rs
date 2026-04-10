@@ -14,6 +14,10 @@ pub struct MeshGL {
 // SAFETY: MeshGL owns its heap allocation with no thread-local state.
 unsafe impl Send for MeshGL {}
 
+// SAFETY: MeshGL is a pure data container (vertex arrays, index arrays) with no
+// lazy evaluation or mutable internal state. Concurrent read access is safe.
+unsafe impl Sync for MeshGL {}
+
 impl Drop for MeshGL {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
@@ -152,8 +156,7 @@ impl MeshGL {
     pub fn merge(&self) -> Self {
         // SAFETY: manifold_alloc_meshgl returns a valid handle.
         let ptr = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: ptr and self.ptr are valid. With the carry-patch applied,
-        // manifold_meshgl_merge always returns ptr (the output buffer).
+        // SAFETY: ptr and self.ptr are valid.
         unsafe { manifold_meshgl_merge(ptr, self.ptr) };
         Self { ptr }
     }
@@ -234,6 +237,42 @@ impl MeshGL {
         unsafe { manifold_meshgl_halfedge_tangent(buf.as_mut_ptr(), self.ptr) };
         buf
     }
+
+    /// Tolerance used for merging and vertex welding.
+    #[must_use]
+    pub fn tolerance(&self) -> f32 {
+        // SAFETY: self.ptr is valid (invariant).
+        unsafe { manifold_meshgl_tolerance(self.ptr) }
+    }
+
+    /// Number of triangle runs.
+    #[must_use]
+    pub fn num_run(&self) -> usize {
+        // SAFETY: self.ptr is valid (invariant).
+        unsafe { manifold_meshgl_num_run(self.ptr) }
+    }
+
+    /// Copy run flags out as a u8 array (one per triangle run).
+    #[must_use]
+    pub fn run_flags(&self) -> Vec<u8> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl_run_flags_length(self.ptr) };
+        let mut buf = vec![0u8; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl_run_flags(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Update normals based on run transforms and backside flags, then clear
+    /// those fields to avoid double-applying on round-trip.
+    ///
+    /// `normal_idx` specifies the first of three consecutive property channels
+    /// forming the (x, y, z) normals. Must be >= 3 and `num_prop` must be at
+    /// least `normal_idx + 3`.
+    pub fn update_normals(&mut self, normal_idx: i32) {
+        // SAFETY: self.ptr is valid (invariant), mutation is exclusive via &mut self.
+        unsafe { manifold_meshgl_update_normals(self.ptr, normal_idx) };
+    }
 }
 
 impl Clone for MeshGL {
@@ -256,6 +295,10 @@ pub struct MeshGL64 {
 
 // SAFETY: MeshGL64 owns its heap allocation with no thread-local state.
 unsafe impl Send for MeshGL64 {}
+
+// SAFETY: MeshGL64 is a pure data container (vertex arrays, index arrays) with
+// no lazy evaluation or mutable internal state. Concurrent read access is safe.
+unsafe impl Sync for MeshGL64 {}
 
 impl Drop for MeshGL64 {
     fn drop(&mut self) {
@@ -387,8 +430,7 @@ impl MeshGL64 {
     pub fn merge(&self) -> Self {
         // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
         let ptr = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: ptr and self.ptr are valid. With the carry-patch applied,
-        // manifold_meshgl64_merge always returns ptr (the output buffer).
+        // SAFETY: ptr and self.ptr are valid.
         unsafe { manifold_meshgl64_merge(ptr, self.ptr) };
         Self { ptr }
     }
@@ -468,6 +510,42 @@ impl MeshGL64 {
         // SAFETY: buf has capacity len, self.ptr is valid.
         unsafe { manifold_meshgl64_halfedge_tangent(buf.as_mut_ptr(), self.ptr) };
         buf
+    }
+
+    /// Tolerance used for merging and vertex welding.
+    #[must_use]
+    pub fn tolerance(&self) -> f64 {
+        // SAFETY: self.ptr is valid (invariant).
+        unsafe { manifold_meshgl64_tolerance(self.ptr) }
+    }
+
+    /// Number of triangle runs.
+    #[must_use]
+    pub fn num_run(&self) -> usize {
+        // SAFETY: self.ptr is valid (invariant).
+        unsafe { manifold_meshgl64_num_run(self.ptr) }
+    }
+
+    /// Copy run flags out as a u8 array (one per triangle run).
+    #[must_use]
+    pub fn run_flags(&self) -> Vec<u8> {
+        // SAFETY: self.ptr is valid (invariant).
+        let len = unsafe { manifold_meshgl64_run_flags_length(self.ptr) };
+        let mut buf = vec![0u8; len];
+        // SAFETY: buf has capacity len, self.ptr is valid.
+        unsafe { manifold_meshgl64_run_flags(buf.as_mut_ptr(), self.ptr) };
+        buf
+    }
+
+    /// Update normals based on run transforms and backside flags, then clear
+    /// those fields to avoid double-applying on round-trip.
+    ///
+    /// `normal_idx` specifies the first of three consecutive property channels
+    /// forming the (x, y, z) normals. Must be >= 3 and `num_prop` must be at
+    /// least `normal_idx + 3`.
+    pub fn update_normals(&mut self, normal_idx: i32) {
+        // SAFETY: self.ptr is valid (invariant), mutation is exclusive via &mut self.
+        unsafe { manifold_meshgl64_update_normals(self.ptr, normal_idx) };
     }
 
     /// Read a MeshGL64 from a Wavefront OBJ string.

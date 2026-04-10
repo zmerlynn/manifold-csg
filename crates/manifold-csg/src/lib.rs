@@ -11,7 +11,7 @@
 //! # Key features
 //!
 //! - **f64 precision**: Uses MeshGL64 to avoid f32 precision loss
-//! - **`Send` safe**: Manifolds can be moved across threads
+//! - **`Send` + `Sync` safe**: Manifolds can be moved across threads and shared for concurrent reads
 //! - **Memory safe**: All C handles are freed automatically via `Drop`
 
 pub mod bounding_box;
