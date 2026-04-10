@@ -117,6 +117,10 @@ impl std::fmt::Debug for CrossSection {
 // threads is sound. The underlying Clipper2 data is an owned heap allocation.
 unsafe impl Send for CrossSection {}
 
+// SAFETY: The C++ CrossSection class synchronizes lazy path evaluation, so
+// concurrent const access from multiple threads is safe.
+unsafe impl Sync for CrossSection {}
+
 impl Clone for CrossSection {
     fn clone(&self) -> Self {
         // SAFETY: manifold_alloc_cross_section returns a valid handle.

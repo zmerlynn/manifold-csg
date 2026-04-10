@@ -24,6 +24,9 @@ fn find_lib_recursive(dir: &Path, name: &str) -> Option<PathBuf> {
     None
 }
 
+/// Pinned upstream commit (master post-v3.4.1).
+const MANIFOLD_COMMIT: &str = "93c1b4bf3cc35663ad5a9ab0c8f27196dc9f846f";
+
 fn main() {
     // Prevent unnecessary build script re-execution.
     println!("cargo:rerun-if-changed=build.rs");
@@ -33,6 +36,19 @@ fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let manifold_src = out_dir.join("manifold-src");
     let build_dir = out_dir.join("build");
+
+    // Invalidate cached source when the pinned commit changes.
+    let commit_stamp = out_dir.join(".commit-stamp");
+    let old_commit = std::fs::read_to_string(&commit_stamp).unwrap_or_default();
+    if old_commit.trim() != MANIFOLD_COMMIT && manifold_src.exists() {
+        if std::fs::remove_dir_all(&manifold_src).is_err() {
+            let _ = Command::new("git")
+                .args(["checkout", "."])
+                .current_dir(&manifold_src)
+                .status();
+        }
+        let _ = std::fs::remove_dir_all(&build_dir);
+    }
 
     // Compute a hash of the patches directory so we can detect when patches
     // change and invalidate the cached (possibly stale) source checkout.
@@ -74,14 +90,22 @@ fn main() {
                 "-c",
                 "core.autocrlf=false",
                 "clone",
-                "--depth=1",
-                "--branch=v3.4.1",
                 "https://github.com/elalish/manifold.git",
                 manifold_src.to_str().unwrap(),
             ])
             .status()
             .expect("failed to run git clone for manifold3d");
         assert!(status.success(), "git clone manifold3d failed");
+
+        // Checkout pinned commit.
+        let status = Command::new("git")
+            .args(["checkout", MANIFOLD_COMMIT])
+            .current_dir(&manifold_src)
+            .status()
+            .expect("failed to checkout manifold3d commit");
+        assert!(status.success(), "git checkout manifold3d failed");
+
+        let _ = std::fs::write(&commit_stamp, MANIFOLD_COMMIT);
     }
 
     // Apply carry-patches (fixes awaiting upstream merge).

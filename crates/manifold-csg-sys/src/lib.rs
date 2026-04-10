@@ -447,6 +447,21 @@ unsafe extern "C" {
     /// Copy halfedge tangents into caller-provided buffer.
     pub fn manifold_meshgl_halfedge_tangent(mem: *mut f32, m: *const ManifoldMeshGL) -> *mut f32;
 
+    /// Get the tolerance of a MeshGL.
+    pub fn manifold_meshgl_tolerance(m: *const ManifoldMeshGL) -> f32;
+
+    /// Get the number of run flags.
+    pub fn manifold_meshgl_run_flags_length(m: *const ManifoldMeshGL) -> usize;
+
+    /// Copy run flags into caller-provided buffer.
+    pub fn manifold_meshgl_run_flags(mem: *mut u8, m: *const ManifoldMeshGL) -> *mut u8;
+
+    /// Get the number of triangle runs.
+    pub fn manifold_meshgl_num_run(m: *const ManifoldMeshGL) -> usize;
+
+    /// Update normals based on run transforms and backside flags, then clear them.
+    pub fn manifold_meshgl_update_normals(m: *mut ManifoldMeshGL, normal_idx: c_int);
+
     // ── MeshGL64 construction (f64 vertices, u64 indices) ───────────────
 
     /// Create a `MeshGL64` from f64 vertex properties and u64 triangle indices.
@@ -558,6 +573,21 @@ unsafe extern "C" {
         mem: *mut f64,
         m: *const ManifoldMeshGL64,
     ) -> *mut f64;
+
+    /// Get the tolerance of a MeshGL64.
+    pub fn manifold_meshgl64_tolerance(m: *const ManifoldMeshGL64) -> f64;
+
+    /// Get the number of run flags.
+    pub fn manifold_meshgl64_run_flags_length(m: *const ManifoldMeshGL64) -> usize;
+
+    /// Copy run flags into caller-provided buffer.
+    pub fn manifold_meshgl64_run_flags(mem: *mut u8, m: *const ManifoldMeshGL64) -> *mut u8;
+
+    /// Get the number of triangle runs.
+    pub fn manifold_meshgl64_num_run(m: *const ManifoldMeshGL64) -> usize;
+
+    /// Update normals based on run transforms and backside flags, then clear them.
+    pub fn manifold_meshgl64_update_normals(m: *mut ManifoldMeshGL64, normal_idx: c_int);
 
     // ── SDF (level set) ────────────────────────────────────────────────
 
@@ -843,6 +873,20 @@ unsafe extern "C" {
         tolerance: f64,
     ) -> *mut ManifoldManifold;
 
+    /// Set the tolerance of the manifold, returning a new manifold.
+    pub fn manifold_set_tolerance(
+        mem: *mut ManifoldManifold,
+        m: *const ManifoldManifold,
+        tolerance: f64,
+    ) -> *mut ManifoldManifold;
+
+    /// Simplify the mesh, removing vertices until the error exceeds `tolerance`.
+    pub fn manifold_simplify(
+        mem: *mut ManifoldManifold,
+        m: *const ManifoldManifold,
+        tolerance: f64,
+    ) -> *mut ManifoldManifold;
+
     // ── Shapes / Constructors ───────────────────────────────────────────
 
     pub fn manifold_empty(mem: *mut ManifoldManifold) -> *mut ManifoldManifold;
@@ -947,6 +991,8 @@ unsafe extern "C" {
     pub fn manifold_volume(m: *const ManifoldManifold) -> f64;
     pub fn manifold_surface_area(m: *const ManifoldManifold) -> f64;
     pub fn manifold_epsilon(m: *const ManifoldManifold) -> f64;
+    pub fn manifold_get_tolerance(m: *const ManifoldManifold) -> f64;
+    pub fn manifold_num_prop_vert(m: *const ManifoldManifold) -> usize;
     pub fn manifold_genus(m: *const ManifoldManifold) -> c_int;
     pub fn manifold_original_id(m: *const ManifoldManifold) -> c_int;
 

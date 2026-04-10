@@ -49,10 +49,9 @@ impl std::fmt::Debug for Manifold {
 // produce new geometry return new allocations.
 unsafe impl Send for Manifold {}
 
-// Note: Sync is deliberately NOT implemented. The C++ Manifold class has
-// `mutable std::shared_ptr<CsgNode> pNode_` — query methods (volume, etc.)
-// trigger lazy CSG tree evaluation which mutates internal state. Concurrent
-// reads from multiple threads would race on that mutable shared_ptr.
+// SAFETY: The C++ Manifold class synchronizes lazy CSG tree evaluation, so
+// concurrent const access (volume, num_vert, etc.) from multiple threads is safe.
+unsafe impl Sync for Manifold {}
 
 impl Clone for Manifold {
     /// Clone via `manifold_copy`, producing a new independent C-side handle.
@@ -967,6 +966,26 @@ impl Manifold {
         Self { ptr }
     }
 
+    /// Set the tolerance of the manifold, returning a new manifold.
+    #[must_use]
+    pub fn set_tolerance(&self, tolerance: f64) -> Self {
+        // SAFETY: manifold_alloc_manifold returns a valid handle.
+        let ptr = unsafe { manifold_alloc_manifold() };
+        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+        unsafe { manifold_set_tolerance(ptr, self.ptr, tolerance) };
+        Self { ptr }
+    }
+
+    /// Simplify the mesh, removing vertices until the error exceeds `tolerance`.
+    #[must_use]
+    pub fn simplify(&self, tolerance: f64) -> Self {
+        // SAFETY: manifold_alloc_manifold returns a valid handle.
+        let ptr = unsafe { manifold_alloc_manifold() };
+        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+        unsafe { manifold_simplify(ptr, self.ptr, tolerance) };
+        Self { ptr }
+    }
+
     // ── Smoothing ───────────────────────────────────────────────────
 
     /// Smooth the manifold by converting sharp edges to smooth curves,
@@ -1150,6 +1169,21 @@ impl Manifold {
     pub fn epsilon(&self) -> f64 {
         // SAFETY: self.ptr is valid (invariant).
         unsafe { manifold_epsilon(self.ptr) }
+    }
+
+    /// Tolerance of the manifold (public API, distinct from the `epsilon` testing hook).
+    #[must_use]
+    pub fn get_tolerance(&self) -> f64 {
+        // SAFETY: self.ptr is valid (invariant).
+        unsafe { manifold_get_tolerance(self.ptr) }
+    }
+
+    /// Number of property vertices (may differ from `num_vert` when vertices
+    /// are split to accommodate different property values).
+    #[must_use]
+    pub fn num_prop_vert(&self) -> usize {
+        // SAFETY: self.ptr is valid (invariant).
+        unsafe { manifold_num_prop_vert(self.ptr) }
     }
 
     /// Genus of the manifold (topological measure: 0 for sphere, 1 for torus, etc).

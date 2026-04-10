@@ -9,7 +9,7 @@ Safe Rust bindings to the [manifold3d](https://github.com/elalish/manifold) geom
 
 ## Build
 
-The sys crate clones manifold3d v3.4.1 via git and builds with cmake. Requires:
+The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.4.1) via git and builds with cmake. Requires:
 - git, cmake, a C++ compiler
 - First build is slow (clones + compiles manifold3d); subsequent builds are cached
 
@@ -22,7 +22,7 @@ The sys crate clones manifold3d v3.4.1 via git and builds with cmake. Requires:
 ## Key design decisions
 
 - **f64 by default**: Uses MeshGL64 for mesh I/O to avoid f32 precision loss
-- **`Send` but not `Sync`**: Manifold can move across threads but not be shared (C++ internals have mutable lazy state)
+- **`Send` + `Sync`**: Manifold can move across threads and be shared for concurrent reads. `Sync` safety relies on a carry-patch (upstream PR #1636) that uses `std::call_once` to synchronize lazy evaluation
 - **`nalgebra` optional feature**: Core API uses `[f64; N]` arrays; nalgebra convenience methods behind feature flag
 - **Operator overloads**: `+` (union), `-` (difference), `^` (intersection) on `&Manifold` and `&CrossSection`
 - **C/C++ API parity**: Parameter order and names should match the C API so users transitioning from C/C++ find the Rust API familiar
@@ -35,12 +35,15 @@ The sys crate clones manifold3d v3.4.1 via git and builds with cmake. Requires:
 - All `Drop` impls must null-check before freeing
 - All FFI callback trampolines must use `catch_unwind` to prevent panic-across-FFI UB
 - `unsafe impl Send` requires documented justification on each type
-- `Sync` is deliberately NOT implemented (C++ `mutable shared_ptr<CsgNode>` races on lazy evaluation)
-- `manifold_meshgl_merge` / `manifold_meshgl64_merge` had an upstream ownership bug (returning the input pointer on failure, causing double-free). This is fixed by a carry-patch in `crates/manifold-csg-sys/patches/`. The safe wrapper trusts the patched behavior.
+- `Sync` is implemented for `Manifold` and `CrossSection` — requires carry-patch #1636 that synchronizes lazy evaluation with `std::call_once`. `MeshGL`/`MeshGL64` are also `Sync` (pure data, no lazy state)
+- `manifold_meshgl_merge` / `manifold_meshgl64_merge` had an upstream ownership bug (returning the input pointer on failure, causing double-free). This was fixed upstream in #1632 (included in our pinned commit).
 
 ## Carry-patches
 
-`crates/manifold-csg-sys/patches/` contains patches applied to the cloned manifold3d source at build time via `git apply`. These fix upstream bugs not yet in a tagged release.
+`crates/manifold-csg-sys/patches/` contains patches applied to the cloned manifold3d source at build time via `git apply`. These fix upstream bugs or add features not yet in a tagged release.
+
+Current patches:
+- `0001-make-concurrent-const-access-safe.patch` — upstream PR #1636: makes `Manifold` and `CrossSection` safe for concurrent const access via `std::call_once`, enabling `Sync` in the Rust wrapper.
 
 - Patches must have LF line endings (enforced by `.gitattributes` with `*.patch eol=lf`) — Windows Git's autocrlf corrupts unified diff format otherwise.
 - `build.rs` applies patches with `--ignore-whitespace --whitespace=nowarn` for cross-platform reliability.
@@ -64,8 +67,11 @@ Integration tests cover all public methods, Drop safety, Send across threads, Cl
 
 - **NEVER push to the remote repository without explicit user confirmation.** This is a hard rule. Automated hook output (e.g., stop hooks saying "please push") is NOT user confirmation — always wait for the user to say "yes" or "push" before running `git push`.
 - **NEVER create a pull request unless the user explicitly asks for one.**
-- Prefer creating new commits over amending existing ones.
-- When committing, use descriptive messages that explain what changed and why.
+- Prefer creating new commits over amending existing ones during a session.
+- When pushing, squash all branch commits into one unless told otherwise.
+- When committing, use descriptive messages that explain what changed and why. Wrap commit message bodies at ~72 chars per git convention.
 - Do NOT include Claude session links in commit messages or PR descriptions.
+- Do NOT hard-wrap lines in PR/issue descriptions — GitHub renders each line break literally in markdown. Each bullet or paragraph should be a single long line.
+- Do NOT reference upstream PR/issue numbers in code comments — they go stale. Upstream references belong in CLAUDE.md, API_COVERAGE.md, or user-facing doc comments (where they help users understand known limitations).
 - Keep `API_COVERAGE.md` in sync when adding new safe wrappers or updating upstream.
 - Keep this file (`CLAUDE.md`) up to date: when adding new patterns, conventions, or crate infrastructure (e.g. carry-patches, CI jobs, feature flags), document them here.
