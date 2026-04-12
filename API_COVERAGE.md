@@ -365,11 +365,6 @@ and `Drop` implementations.
 | Alloc/delete/destruct | 0 | 24 |
 | **Total** | **152** | **49** |
 
-The 71 unwrapped functions are primarily:
-- MeshGL advanced accessors (merge tables, run tables, face IDs, tangents) — 34 functions
-- Allocation infrastructure (`destruct_*` variants, unused vec ops) — 18 functions
-- Specialized variants (smooth constructors, mesh normals export) — 9 functions
-- Internal size queries — 10 functions
-
-All operations commonly needed for CSG workflows (primitives, booleans, transforms,
-mesh I/O, extrusion, hull, slicing, SDF, spatial queries) have safe wrappers.
+Unwrapped functions are primarily allocation infrastructure (`destruct_*` variants,
+unused vector ops), internal size queries, and specialized construction variants.
+All operations commonly needed for CSG workflows have safe wrappers.
