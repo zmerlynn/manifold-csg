@@ -70,6 +70,7 @@ Integration tests cover all public methods, Drop safety, Send across threads, Cl
 - **NEVER create a pull request unless the user explicitly asks for one.**
 - Prefer creating new commits over amending existing ones during a session.
 - When pushing, squash all branch commits into one unless told otherwise.
+- Before force-pushing to a PR branch, check if the PR has already been merged (`gh pr view <N> --json state`). If merged, sync main and create a new branch instead of force-pushing on a dead branch.
 - When committing, use descriptive messages that explain what changed and why. Wrap commit message bodies at ~72 chars per git convention.
 - Do NOT include Claude session links in commit messages or PR descriptions.
 - Do NOT hard-wrap lines in PR/issue descriptions — GitHub renders each line break literally in markdown. Each bullet or paragraph should be a single long line.
