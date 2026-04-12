@@ -60,10 +60,6 @@ jobs:
 
   semver:
     name: Semver
-    # TODO: Re-enable once manifold-csg is published on crates.io —
-    # cargo-semver-checks needs a published baseline to compare against.
-    # To re-enable: remove the `if: false` line below.
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

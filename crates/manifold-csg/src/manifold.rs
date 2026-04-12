@@ -10,7 +10,7 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
+//! ```
 //! use manifold_csg::Manifold;
 //!
 //! let cube = Manifold::cube(10.0, 10.0, 10.0, true);
