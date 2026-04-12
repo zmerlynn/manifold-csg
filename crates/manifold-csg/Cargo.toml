@@ -15,7 +15,7 @@ parallel = ["manifold-csg-sys/parallel"]
 nalgebra = ["dep:nalgebra"]
 
 [dependencies]
-manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.4.101", default-features = false }
+manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.4.102", default-features = false }
 thiserror = "2"
 log = "0.4"
 nalgebra = { version = "0.34", optional = true }
@@ -23,6 +23,9 @@ nalgebra = { version = "0.34", optional = true }
 [dev-dependencies]
 approx = "0.5"
 nalgebra = "0.34"
+
+[package.metadata.docs.rs]
+features = ["nalgebra", "parallel"]
 
 [lints]
 workspace = true

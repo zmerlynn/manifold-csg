@@ -22,10 +22,6 @@
 
 ## Documentation & Publishing
 
-- [ ] Re-enable `semver` CI job once manifold-csg is published on crates.io (disabled via `if: false` in `ci.yml`)
-- [ ] README badges (crates.io version, docs.rs, CI status) — add once published
-- [ ] Make doc-tests runnable (currently `rust,ignore`) — runnable examples exist in `examples/` but inline doc examples still need `rust,ignore` due to build infra requirements
-
 ## Ergonomics (nice-to-have)
 
 - [ ] Extract vec-building helper to reduce boilerplate in batch operations

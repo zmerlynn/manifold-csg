@@ -28,6 +28,13 @@ fn find_lib_recursive(dir: &Path, name: &str) -> Option<PathBuf> {
 const MANIFOLD_COMMIT: &str = "93c1b4bf3cc35663ad5a9ab0c8f27196dc9f846f";
 
 fn main() {
+    // docs.rs builds with --network=none, so we can't clone manifold3d.
+    // The FFI declarations are just extern signatures — skip the C build
+    // entirely and let rustdoc generate docs from the Rust source alone.
+    if env::var("DOCS_RS").is_ok() {
+        return;
+    }
+
     // Prevent unnecessary build script re-execution.
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/lib.rs");
