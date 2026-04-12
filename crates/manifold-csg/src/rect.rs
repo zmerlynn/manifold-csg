@@ -18,6 +18,10 @@ pub struct Rect {
 // so transferring ownership across threads is safe.
 unsafe impl Send for Rect {}
 
+// SAFETY: Rect is a simple value type (two vec2s) with no lazy evaluation
+// or mutable internal state. Concurrent read access is safe.
+unsafe impl Sync for Rect {}
+
 impl Clone for Rect {
     fn clone(&self) -> Self {
         Self::new(self.min(), self.max())

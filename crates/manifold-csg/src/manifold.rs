@@ -30,6 +30,9 @@ use crate::types::CsgError;
 ///
 /// Represents a closed, manifold 3D solid suitable for Boolean operations.
 /// Memory is automatically freed when the value is dropped.
+///
+/// See the [upstream `Manifold` docs](https://elalish.github.io/manifold/docs/html/classmanifold_1_1_manifold.html)
+/// for details on the underlying algorithms and parameter semantics.
 pub struct Manifold {
     pub(crate) ptr: *mut ManifoldManifold,
 }

@@ -7,6 +7,9 @@
 use manifold_csg_sys::*;
 
 /// Safe wrapper around a manifold3d MeshGL object (f32 vertices, u32 indices).
+///
+/// See the [upstream `MeshGL` docs](https://elalish.github.io/manifold/docs/html/structmanifold_1_1_mesh_g_l_p.html)
+/// for field semantics (run indices, merge vectors, tangents, etc.).
 pub struct MeshGL {
     ptr: *mut ManifoldMeshGL,
 }
@@ -289,6 +292,9 @@ impl Clone for MeshGL {
 ///
 /// This is the high-precision variant — use this when sub-mm features matter
 /// at large coordinates (e.g., 0.6mm indents at z=128mm).
+///
+/// See the [upstream `MeshGL` docs](https://elalish.github.io/manifold/docs/html/structmanifold_1_1_mesh_g_l_p.html)
+/// for field semantics (run indices, merge vectors, tangents, etc.).
 pub struct MeshGL64 {
     ptr: *mut ManifoldMeshGL64,
 }

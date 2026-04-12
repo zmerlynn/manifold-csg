@@ -1457,6 +1457,54 @@ fn meshgl64_send_across_thread() {
     assert!(nv > 0);
 }
 
+// ── Binding-specific: Sync (concurrent shared reads) ───────────────────
+
+#[test]
+fn manifold_sync_concurrent_reads() {
+    let cube = std::sync::Arc::new(Manifold::cube(10.0, 10.0, 10.0, true));
+    let handles: Vec<_> = (0..4)
+        .map(|_| {
+            let c = std::sync::Arc::clone(&cube);
+            std::thread::spawn(move || c.volume())
+        })
+        .collect();
+    for h in handles {
+        let vol = h.join().unwrap();
+        assert_relative_eq!(vol, 1000.0, epsilon = 1.0);
+    }
+}
+
+#[test]
+fn cross_section_sync_concurrent_reads() {
+    let cs = std::sync::Arc::new(CrossSection::square(10.0, 10.0, false));
+    let handles: Vec<_> = (0..4)
+        .map(|_| {
+            let c = std::sync::Arc::clone(&cs);
+            std::thread::spawn(move || c.area())
+        })
+        .collect();
+    for h in handles {
+        let area = h.join().unwrap();
+        assert_relative_eq!(area, 100.0, epsilon = 1.0);
+    }
+}
+
+#[test]
+fn meshgl64_sync_concurrent_reads() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let mesh = std::sync::Arc::new(MeshGL64::new(&verts, n_props, &indices));
+    let handles: Vec<_> = (0..4)
+        .map(|_| {
+            let m = std::sync::Arc::clone(&mesh);
+            std::thread::spawn(move || m.num_vert())
+        })
+        .collect();
+    for h in handles {
+        assert!(h.join().unwrap() > 0);
+    }
+}
+
 // ── Binding-specific: FFI data integrity ───────────────────────────────
 
 #[test]

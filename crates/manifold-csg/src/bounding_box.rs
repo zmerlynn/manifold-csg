@@ -18,6 +18,10 @@ pub struct BoundingBox {
 // so transferring ownership across threads is safe.
 unsafe impl Send for BoundingBox {}
 
+// SAFETY: BoundingBox is a simple value type (two vec3s) with no lazy evaluation
+// or mutable internal state. Concurrent read access is safe.
+unsafe impl Sync for BoundingBox {}
+
 impl Clone for BoundingBox {
     fn clone(&self) -> Self {
         Self::new(self.min(), self.max())

@@ -1,7 +1,9 @@
 //! Safe Rust bindings to [manifold3d](https://github.com/elalish/manifold) —
 //! a geometry kernel for constructive solid geometry (CSG).
 //!
-//! This crate provides safe, ergonomic wrappers around the manifold3d C API:
+//! This crate provides safe, ergonomic wrappers around the manifold3d C API.
+//! For details on the underlying algorithms and behavior, see the
+//! [upstream documentation](https://elalish.github.io/manifold/docs/html/).
 //!
 //! - [`Manifold`] — 3D solid with boolean operations (union, difference, intersection)
 //! - [`CrossSection`] — 2D region with offset, boolean, and hull operations
@@ -11,7 +13,7 @@
 //! # Key features
 //!
 //! - **f64 precision**: Uses MeshGL64 to avoid f32 precision loss
-//! - **`Send` + `Sync` safe**: Manifolds can be moved across threads and shared for concurrent reads
+//! - **`Send` + `Sync` safe**: All types can be moved across threads and shared for concurrent reads
 //! - **Memory safe**: All C handles are freed automatically via `Drop`
 
 pub mod bounding_box;

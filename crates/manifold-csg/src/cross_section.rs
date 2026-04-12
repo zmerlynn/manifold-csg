@@ -90,6 +90,9 @@ impl Default for Rect2 {
 /// Represents a 2D region suitable for Boolean operations, offsetting,
 /// and extrusion to 3D. Memory is automatically freed when dropped.
 ///
+/// See the [upstream `CrossSection` docs](https://elalish.github.io/manifold/docs/html/classmanifold_1_1_cross_section.html)
+/// for details on the underlying algorithms and parameter semantics.
+///
 /// # Example
 ///
 /// ```rust,ignore

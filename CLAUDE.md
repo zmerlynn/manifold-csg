@@ -15,9 +15,10 @@ The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.
 
 ## Versioning
 
-- **`manifold-csg-sys`** uses version `{major}.{minor}.{patch}` where major.minor tracks the upstream manifold3d version and patch >= 100 is our release number. For example, `3.4.100` tracks manifold3d v3.4.1, and `3.4.101` would be our next release against the same upstream.
+- **`manifold-csg-sys`** uses version `{major}.{minor}.{patch}` where major.minor tracks the upstream manifold3d version and patch >= 100 is our release number. For example, `3.4.100` tracks manifold3d v3.4.1, and `3.4.101` would be our next release against the same upstream. Patch bumps (e.g., `3.4.101` → `3.4.102`) must be semver-compatible: no removed or changed function signatures, only additions.
 - **`manifold-csg`** uses standard semver (`0.1.0`, etc.) independent of the upstream version. Its `Cargo.toml` pins the sys crate version it depends on.
 - When bumping the manifold3d pin in `build.rs`, the sys crate version must be updated to match (e.g., manifold3d v3.5.0 -> sys crate `3.5.100`).
+- The sys crate pins upstream to a specific commit SHA rather than a tag. This is necessary because upstream doesn't follow strict semver — minor releases can include breaking changes. Pinning to a commit gives us the same reproducibility as a tag, while allowing us to pick up post-release fixes and carry-patches between releases.
 
 ## Key design decisions
 
