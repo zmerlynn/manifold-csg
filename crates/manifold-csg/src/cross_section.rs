@@ -95,7 +95,7 @@ impl Default for Rect2 {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```
 /// use manifold_csg::{Manifold, CrossSection, JoinType};
 ///
 /// let section = CrossSection::square(10.0, 10.0, true);
