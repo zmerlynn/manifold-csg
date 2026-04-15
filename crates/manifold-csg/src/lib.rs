@@ -20,6 +20,7 @@ pub mod bounding_box;
 pub mod cross_section;
 pub mod manifold;
 pub mod mesh;
+pub mod ray;
 pub mod rect;
 pub mod triangulation;
 pub mod types;
@@ -33,6 +34,7 @@ pub use manifold::{
 };
 pub use manifold_csg_sys::ManifoldOpType as OpType;
 pub use mesh::{MeshGL, MeshGL64};
+pub use ray::RayHit;
 pub use rect::Rect;
 pub use triangulation::triangulate_polygons;
 pub use types::CsgError;

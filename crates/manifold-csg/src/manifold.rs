@@ -1224,6 +1224,41 @@ impl Manifold {
         unsafe { manifold_min_gap(self.ptr, other.ptr, search_length) }
     }
 
+    // ── Ray casting ─────────────────────────────────────────────────
+
+    /// Cast a ray against this manifold, returning all intersection hits.
+    ///
+    /// The ray goes from `origin` to `end`. Returns a list of [`RayHit`](crate::RayHit)
+    /// results, each containing the face ID, distance, hit position, and
+    /// surface normal.
+    #[must_use]
+    pub fn ray_cast(&self, origin: [f64; 3], end: [f64; 3]) -> Vec<crate::RayHit> {
+        // SAFETY: manifold_alloc_ray_hit_vec returns a valid handle.
+        let vec_ptr = unsafe { manifold_alloc_ray_hit_vec() };
+        // SAFETY: vec_ptr and self.ptr are valid.
+        unsafe {
+            manifold_ray_cast(
+                vec_ptr, self.ptr, origin[0], origin[1], origin[2], end[0], end[1], end[2],
+            )
+        };
+        // SAFETY: vec_ptr is valid.
+        let len = unsafe { manifold_ray_hit_vec_length(vec_ptr) };
+        let mut result = Vec::with_capacity(len);
+        for i in 0..len {
+            // SAFETY: vec_ptr is valid, i is in range.
+            let hit = unsafe { manifold_ray_hit_vec_get(vec_ptr, i) };
+            result.push(crate::RayHit {
+                face_id: hit.face_id,
+                distance: hit.distance,
+                position: [hit.position.x, hit.position.y, hit.position.z],
+                normal: [hit.normal.x, hit.normal.y, hit.normal.z],
+            });
+        }
+        // SAFETY: vec_ptr is valid and no longer needed.
+        unsafe { manifold_delete_ray_hit_vec(vec_ptr) };
+        result
+    }
+
     /// Calculate normals and store them as vertex properties at `normal_idx`.
     ///
     /// Edges sharper than `min_sharp_angle` (degrees) get sharp normals.
