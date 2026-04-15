@@ -790,6 +790,43 @@ fn min_gap_between_separated_cubes() {
     assert_relative_eq!(gap, 6.0, epsilon = 0.5);
 }
 
+// ── Ray casting tests ──────────────────────────────────────────────
+
+#[test]
+fn ray_cast_through_cube() {
+    // Cube from [0,0,0] to [10,10,10].
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    // Ray along +X through the center of the cube.
+    let hits = cube.ray_cast([-5.0, 5.0, 5.0], [15.0, 5.0, 5.0]);
+    // Should hit two faces (entry and exit).
+    assert_eq!(hits.len(), 2);
+    // Entry hit near x=0, exit hit near x=10.
+    let mut distances: Vec<f64> = hits.iter().map(|h| h.position[0]).collect();
+    distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    assert_relative_eq!(distances[0], 0.0, epsilon = 0.1);
+    assert_relative_eq!(distances[1], 10.0, epsilon = 0.1);
+}
+
+#[test]
+fn ray_cast_miss() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, true);
+    // Ray that misses entirely.
+    let hits = cube.ray_cast([100.0, 100.0, 100.0], [200.0, 200.0, 200.0]);
+    assert!(hits.is_empty());
+}
+
+#[test]
+fn ray_cast_hit_has_normal() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    let hits = cube.ray_cast([-5.0, 5.0, 5.0], [15.0, 5.0, 5.0]);
+    assert!(!hits.is_empty());
+    for hit in &hits {
+        // Normal should be unit length.
+        let len = (hit.normal[0].powi(2) + hit.normal[1].powi(2) + hit.normal[2].powi(2)).sqrt();
+        assert_relative_eq!(len, 1.0, epsilon = 0.01);
+    }
+}
+
 // ── Minkowski tests ─────────────────────────────────────────────────
 
 #[test]

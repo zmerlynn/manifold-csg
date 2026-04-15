@@ -48,6 +48,13 @@ pub struct ManifoldSimplePolygon {
     _private: [u8; 0],
 }
 
+/// Opaque handle to a manifold3d `RayHitVec` (vector of ray hit results).
+#[repr(C)]
+#[derive(Debug)]
+pub struct ManifoldRayHitVec {
+    _private: [u8; 0],
+}
+
 /// Opaque handle to a manifold3d `Triangulation` result.
 #[repr(C)]
 #[derive(Debug)]
@@ -151,6 +158,16 @@ pub struct ManifoldProperties {
     pub volume: f64,
 }
 
+/// Result of a ray-manifold intersection test.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ManifoldRayHit {
+    pub face_id: u64,
+    pub distance: f64,
+    pub position: ManifoldVec3,
+    pub normal: ManifoldVec3,
+}
+
 /// Options for constructing a `MeshGL` with additional metadata.
 #[repr(C)]
 #[derive(Debug)]
@@ -251,6 +268,7 @@ unsafe extern "C" {
     pub fn manifold_box_size() -> usize;
     pub fn manifold_rect_size() -> usize;
     pub fn manifold_triangulation_size() -> usize;
+    pub fn manifold_ray_hit_vec_size() -> usize;
 
     // ── Allocation ─────────────────────────────────────────────────────
 
@@ -265,6 +283,7 @@ unsafe extern "C" {
     pub fn manifold_alloc_box() -> *mut ManifoldBox;
     pub fn manifold_alloc_rect() -> *mut ManifoldRect;
     pub fn manifold_alloc_triangulation() -> *mut ManifoldTriangulation;
+    pub fn manifold_alloc_ray_hit_vec() -> *mut ManifoldRayHitVec;
 
     // ── Destruction (destruct only, does not free) ─────────────────────
 
@@ -279,6 +298,7 @@ unsafe extern "C" {
     pub fn manifold_destruct_box(b: *mut ManifoldBox);
     pub fn manifold_destruct_rect(b: *mut ManifoldRect);
     pub fn manifold_destruct_triangulation(m: *mut ManifoldTriangulation);
+    pub fn manifold_destruct_ray_hit_vec(v: *mut ManifoldRayHitVec);
 
     // ── Deletion (destruct + free) ─────────────────────────────────────
 
@@ -293,6 +313,7 @@ unsafe extern "C" {
     pub fn manifold_delete_box(b: *mut ManifoldBox);
     pub fn manifold_delete_rect(b: *mut ManifoldRect);
     pub fn manifold_delete_triangulation(m: *mut ManifoldTriangulation);
+    pub fn manifold_delete_ray_hit_vec(v: *mut ManifoldRayHitVec);
 
     // ── Polygons ───────────────────────────────────────────────────────
 
@@ -1037,6 +1058,26 @@ unsafe extern "C" {
         normal_idx: c_int,
         min_sharp_angle: f64,
     ) -> *mut ManifoldManifold;
+
+    // ── Ray casting ─────────────────────────────────────────────────────
+
+    /// Cast a ray from `origin` to `end` against a manifold, returning all hits.
+    pub fn manifold_ray_cast(
+        mem: *mut ManifoldRayHitVec,
+        m: *const ManifoldManifold,
+        origin_x: f64,
+        origin_y: f64,
+        origin_z: f64,
+        end_x: f64,
+        end_y: f64,
+        end_z: f64,
+    ) -> *mut ManifoldRayHitVec;
+
+    /// Number of hits in a ray hit vector.
+    pub fn manifold_ray_hit_vec_length(v: *const ManifoldRayHitVec) -> usize;
+
+    /// Get a hit by index from a ray hit vector.
+    pub fn manifold_ray_hit_vec_get(v: *const ManifoldRayHitVec, idx: usize) -> ManifoldRayHit;
 
     // ── Bounding box ────────────────────────────────────────────────────
 
