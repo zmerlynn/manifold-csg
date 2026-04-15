@@ -24,8 +24,8 @@ fn find_lib_recursive(dir: &Path, name: &str) -> Option<PathBuf> {
     None
 }
 
-/// Pinned upstream commit (master post-v3.4.1).
-const MANIFOLD_COMMIT: &str = "93c1b4bf3cc35663ad5a9ab0c8f27196dc9f846f";
+/// Pinned upstream version — can be a tag (e.g., "v3.4.1"), branch, or commit SHA.
+const MANIFOLD_VERSION: &str = "cfe7b563adae70d267cf82ec8eee8e1b51b50de7";
 
 fn main() {
     // docs.rs builds with --network=none, so we can't clone manifold3d.
@@ -45,9 +45,9 @@ fn main() {
     let build_dir = out_dir.join("build");
 
     // Invalidate cached source when the pinned commit changes.
-    let commit_stamp = out_dir.join(".commit-stamp");
+    let commit_stamp = out_dir.join(".version-stamp");
     let old_commit = std::fs::read_to_string(&commit_stamp).unwrap_or_default();
-    if old_commit.trim() != MANIFOLD_COMMIT && manifold_src.exists() {
+    if old_commit.trim() != MANIFOLD_VERSION && manifold_src.exists() {
         if std::fs::remove_dir_all(&manifold_src).is_err() {
             let _ = Command::new("git")
                 .args(["checkout", "."])
@@ -106,13 +106,13 @@ fn main() {
 
         // Checkout pinned commit.
         let status = Command::new("git")
-            .args(["checkout", MANIFOLD_COMMIT])
+            .args(["checkout", MANIFOLD_VERSION])
             .current_dir(&manifold_src)
             .status()
             .expect("failed to checkout manifold3d commit");
         assert!(status.success(), "git checkout manifold3d failed");
 
-        let _ = std::fs::write(&commit_stamp, MANIFOLD_COMMIT);
+        let _ = std::fs::write(&commit_stamp, MANIFOLD_VERSION);
     }
 
     // Apply carry-patches (fixes awaiting upstream merge).
