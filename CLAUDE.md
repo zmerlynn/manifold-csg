@@ -19,11 +19,12 @@ The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.
 - **`manifold-csg`** uses standard semver (`0.1.0`, etc.) independent of the upstream version. Its `Cargo.toml` pins the sys crate version it depends on.
 - When bumping the manifold3d pin in `build.rs`, the sys crate version must be updated to match (e.g., manifold3d v3.5.0 -> sys crate `3.5.100`).
 - The sys crate pins upstream to a specific commit SHA rather than a tag. This is necessary because upstream doesn't follow strict semver — minor releases can include breaking changes. Pinning to a commit gives us the same reproducibility as a tag, while allowing us to pick up post-release fixes and carry-patches between releases.
+- **Version bumps**: bump in a PR only when needed to pass `cargo-semver-checks` CI (e.g., a breaking change requires a minor bump). Otherwise, the `/publish` skill bumps versions at publish time if not already bumped.
 
 ## Key design decisions
 
 - **f64 by default**: Uses MeshGL64 for mesh I/O to avoid f32 precision loss
-- **`Send` + `Sync`**: Manifold can move across threads and be shared for concurrent reads. `Sync` safety relies on a carry-patch (upstream PR #1636) that uses `std::call_once` to synchronize lazy evaluation
+- **`Send` + `Sync`**: Manifold can move across threads and be shared for concurrent reads. `Sync` safety relies on upstream's mutex synchronization of lazy evaluation
 - **`nalgebra` optional feature**: Core API uses `[f64; N]` arrays; nalgebra convenience methods behind feature flag
 - **Operator overloads**: `+` (union), `-` (difference), `^` (intersection) on `&Manifold` and `&CrossSection`
 - **C/C++ API parity**: Parameter order and names should match the C API so users transitioning from C/C++ find the Rust API familiar
@@ -36,15 +37,14 @@ The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.
 - All `Drop` impls must null-check before freeing
 - All FFI callback trampolines must use `catch_unwind` to prevent panic-across-FFI UB
 - `unsafe impl Send` requires documented justification on each type
-- `Sync` is implemented for `Manifold` and `CrossSection` — requires carry-patch #1636 that synchronizes lazy evaluation with `std::call_once`. `MeshGL`/`MeshGL64` are also `Sync` (pure data, no lazy state)
+- `Sync` is implemented for `Manifold` and `CrossSection` (upstream synchronizes lazy evaluation with a mutex). `MeshGL`/`MeshGL64` are also `Sync` (pure data, no lazy state)
 - `manifold_meshgl_merge` / `manifold_meshgl64_merge` had an upstream ownership bug (returning the input pointer on failure, causing double-free). This was fixed upstream in #1632 (included in our pinned commit).
 
 ## Carry-patches
 
 `crates/manifold-csg-sys/patches/` contains patches applied to the cloned manifold3d source at build time via `git apply`. These fix upstream bugs or add features not yet in a tagged release.
 
-Current patches:
-- `0001-make-concurrent-const-access-safe.patch` — upstream PR #1636: makes `Manifold` and `CrossSection` safe for concurrent const access via `std::call_once`, enabling `Sync` in the Rust wrapper.
+No current patches — all previously carried patches have been merged upstream.
 
 - Patches must have LF line endings (enforced by `.gitattributes` with `*.patch eol=lf`) — Windows Git's autocrlf corrupts unified diff format otherwise.
 - `build.rs` applies patches with `--ignore-whitespace --whitespace=nowarn` for cross-platform reliability.
