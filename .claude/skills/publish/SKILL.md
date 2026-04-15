@@ -43,7 +43,7 @@ Version bumps happen at publish time, not in feature PRs. Read CLAUDE.md for the
   - **sys crate**: bump the patch component (e.g., `3.4.102` → `3.4.103`) whenever the upstream contents differ from the last publish — pinned commit changed, carry-patches added/removed, or FFI declarations changed. If the upstream major.minor changed (new manifold3d release), update major.minor accordingly.
   - **safe crate**: bump patch for additive changes, minor for breaking changes (pre-1.0, minor bumps can break).
   - Update the safe crate's `manifold-csg-sys` dependency version to match the new sys version.
-- Commit the version bumps before proceeding to dry run.
+- Commit the version bumps on a branch, open a PR, and get it merged before proceeding. Branch protection requires this — you cannot push version bumps directly to main.
 
 ### 4. Carry-patch audit
 
