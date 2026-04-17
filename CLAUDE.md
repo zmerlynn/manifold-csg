@@ -19,7 +19,8 @@ The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.
 - **`manifold-csg`** uses standard semver (`0.1.0`, etc.) independent of the upstream version. Its `Cargo.toml` pins the sys crate version it depends on.
 - When bumping the manifold3d pin in `build.rs`, the sys crate version must be updated to match (e.g., manifold3d v3.5.0 -> sys crate `3.5.100`).
 - The sys crate pins upstream to a specific commit SHA rather than a tag. This is necessary because upstream doesn't follow strict semver — minor releases can include breaking changes. Pinning to a commit gives us the same reproducibility as a tag, while allowing us to pick up post-release fixes and carry-patches between releases.
-- **Version bumps**: bump in a PR only when needed to pass `cargo-semver-checks` CI (e.g., a breaking change requires a minor bump). Otherwise, the `/publish` skill bumps versions at publish time if not already bumped.
+- **Version bumps**: feature PRs may (and usually should) include their own version bump so the merge is ready to publish. The `/publish` skill will bump at publish time only if no PR has done so since the last release. Note that `cargo-semver-checks` CI requires a bump whenever the PR changes the public API in a way the current version doesn't allow (e.g., a breaking change requires a minor bump pre-1.0).
+- **Facade crates** (`manifold3d`, `manifold3d-sys`) always ship in lockstep with their canonical counterparts (`manifold-csg`, `manifold-csg-sys`) via `=` version pins. Bumping the canonical means bumping the facade.
 
 ## Key design decisions
 
