@@ -4,6 +4,7 @@ members = [
     "crates/manifold-csg",
     "crates/manifold3d-sys",
     "crates/manifold3d",
+    "crates/manifold3d-macros",
 ]
 resolver = "2"
 
