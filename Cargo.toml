@@ -2,6 +2,8 @@
 members = [
     "crates/manifold-csg-sys",
     "crates/manifold-csg",
+    "crates/manifold3d-sys",
+    "crates/manifold3d",
 ]
 resolver = "2"
 
