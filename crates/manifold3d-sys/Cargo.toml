@@ -1,0 +1,23 @@
+[package]
+name = "manifold3d-sys"
+description = "Raw FFI bindings to the manifold3d C API (facade crate — re-exports manifold-csg-sys)"
+version = "3.4.103"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["csg", "geometry", "mesh", "manifold", "ffi"]
+categories = ["algorithms", "external-ffi-bindings"]
+
+[features]
+default = ["parallel"]
+parallel = ["manifold-csg-sys/parallel"]
+
+[dependencies]
+manifold-csg-sys = { path = "../manifold-csg-sys", version = "=3.4.103", default-features = false }
+
+[package.metadata.docs.rs]
+features = ["parallel"]
+
+[lints]
+workspace = true

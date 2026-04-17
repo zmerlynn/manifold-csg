@@ -1,0 +1,24 @@
+[package]
+name = "manifold3d"
+description = "Safe Rust bindings to manifold3d (facade crate — re-exports manifold-csg)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["csg", "geometry", "mesh", "manifold", "3d"]
+categories = ["algorithms", "mathematics"]
+
+[features]
+default = ["parallel"]
+parallel = ["manifold-csg/parallel"]
+nalgebra = ["manifold-csg/nalgebra"]
+
+[dependencies]
+manifold-csg = { path = "../manifold-csg", version = "=0.1.4", default-features = false }
+
+[package.metadata.docs.rs]
+features = ["nalgebra", "parallel"]
+
+[lints]
+workspace = true
