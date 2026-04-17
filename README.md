@@ -111,6 +111,9 @@ Tested on Linux, macOS, and Windows.
 - **[examples/](crates/manifold-csg/examples/)** — runnable code examples
 - **[Upstream docs](https://elalish.github.io/manifold/docs/html/)** — manifold3d
   C++ API documentation (helpful for understanding parameter semantics)
+- **[Migration guide from manifold3d 0.0.6](MIGRATION_FROM_0.0.6.md)** — for users
+  of the original `manifold3d` crate line (pre-transfer). Structured for AI-assisted
+  migration.
 
 ## License
 
