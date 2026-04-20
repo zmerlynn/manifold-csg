@@ -1,0 +1,76 @@
+name: Sanitizer
+
+# Runs the test suite under AddressSanitizer + LeakSanitizer to catch
+# use-after-free, double-free, heap/stack overflows, and memory leaks
+# in our FFI ownership and Drop impls. Slow (rebuilds std + manifold
+# C++ with instrumentation), so it is gated on a label rather than
+# running on every PR.
+#
+# To trigger: add the `sanitizer` label to a PR.
+# To re-run: push a new commit (synchronize re-evaluates the label) or
+# use the manual workflow_dispatch.
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  asan:
+    name: ASan + LSan
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'sanitizer')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install nightly Rust with rust-src
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Install clang for instrumented C++ build
+        run: sudo apt-get update && sudo apt-get install -y clang
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-asan-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-asan-
+
+      - name: Run tests under ASan + LSan
+        env:
+          # Instrument both Rust and C++ sides so the boundary is visible.
+          # rustc's -Z sanitizer=address links its own ASan runtime; we use
+          # clang as the linker only so it can correctly handle the C++
+          # sanitizer-instrumented objects from manifold/Clipper2/TBB.
+          # Do NOT pass -fsanitize=address to the linker — that pulls in
+          # clang's libasan and conflicts with rustc's bundled runtime.
+          RUSTFLAGS: "-Z sanitizer=address -C debuginfo=2 -C linker=clang"
+          CC: clang
+          CXX: clang++
+          CFLAGS: "-fsanitize=address -fno-omit-frame-pointer -g"
+          CXXFLAGS: "-fsanitize=address -fno-omit-frame-pointer -g"
+          # symbolize=1 + ASAN_SYMBOLIZER_PATH gives us readable stack traces
+          # in leak reports so the LSan suppression file can target real symbols.
+          ASAN_OPTIONS: "detect_leaks=1:abort_on_error=0:strict_string_checks=1:detect_stack_use_after_return=1:symbolize=1"
+          ASAN_SYMBOLIZER_PATH: "/usr/bin/llvm-symbolizer-18"
+          LSAN_OPTIONS: "suppressions=${{ github.workspace }}/.github/lsan-suppressions.txt:print_suppressions=0"
+        run: |
+          # Skip doctests: rustdoc doesn't propagate the sanitizer linker
+          # config, causing link failures. Normal CI covers them.
+          cargo +nightly test \
+            --features nalgebra \
+            --target x86_64-unknown-linux-gnu \
+            --all-targets \
+            -Z build-std \
+            --no-fail-fast
