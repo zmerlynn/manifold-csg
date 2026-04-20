@@ -183,6 +183,7 @@ fn main() {
         "-DMANIFOLD_JSBIND=OFF".to_string(),
         "-DMANIFOLD_CBIND=ON".to_string(),
         "-DMANIFOLD_CROSS_SECTION=ON".to_string(),
+        "-DMANIFOLD_USE_BUILTIN_CLIPPER2=ON".to_string(),
         "-DBUILD_SHARED_LIBS=OFF".to_string(),
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON".to_string(),
     ];
