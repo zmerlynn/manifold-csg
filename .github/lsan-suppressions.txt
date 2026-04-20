@@ -7,14 +7,6 @@
 # IMPORTANT: keep these targeted at upstream C++ symbols. Suppressing on
 # our own functions (e.g. `manifold_alloc_manifold`) would hide bugs in
 # our Drop impls.
-
-# Upstream manifold leaks: these are objects allocated by manifold's own
-# constructors that survive manifold_delete_manifold/manifold_delete_cross_section.
-# Most appear to be shared_ptr<CsgLeafNode> caches from lazy CSG tree
-# evaluation.
-leak:manifold::Manifold::Manifold
-leak:manifold::CrossSection::CrossSection
-leak:manifold::CsgLeafNode
-
-# Upstream Clipper2 internal allocations (used by CrossSection).
-leak:Clipper2Lib
+#
+# Currently empty — upstream PR #1667 fixes the default-constructed leak
+# in manifold_alloc_*, so no suppressions should be needed.
