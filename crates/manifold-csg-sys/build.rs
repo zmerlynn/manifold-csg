@@ -25,7 +25,7 @@ fn find_lib_recursive(dir: &Path, name: &str) -> Option<PathBuf> {
 }
 
 /// Pinned upstream version — can be a tag (e.g., "v3.4.1"), branch, or commit SHA.
-const MANIFOLD_VERSION: &str = "cfe7b563adae70d267cf82ec8eee8e1b51b50de7";
+const MANIFOLD_VERSION: &str = "65943caaab531ff9e135fe061868fde91760a372";
 
 fn main() {
     // docs.rs builds with --network=none, so we can't clone manifold3d.
