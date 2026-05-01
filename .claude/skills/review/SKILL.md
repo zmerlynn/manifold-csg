@@ -182,6 +182,14 @@ This crate tracks manifold3d upstream, pinning to a specific commit SHA.
   - Does the patch still apply cleanly?
   - Is any safety justification in our code (e.g., `unsafe impl Sync`) dependent on this patch?
 - Are there upstream fixes we need that aren't in our pin or patches?
+- Patch scope: restricted to `src/` (and `bindings/` if relevant) — no `test/` since we build with `MANIFOLD_TEST=OFF`, no docs/JS/python.
+- Patch size roughly matches the upstream PR's stated diff. A patch that's much larger than the linked PR is a red flag — it usually means whoever generated it used `git diff master..pr-branch` instead of `git diff $(git merge-base master pr-branch)..pr-branch`, and silently picked up the reverse of master's intervening commits.
+- Patch filename has a numeric prefix (e.g., `0001-`) that encodes apply order, and references the upstream PR number.
+
+**Release PR descriptions and commit messages:**
+- Cross-repo PR refs use `elalish/manifold#NNNN` (no backticks) — bare `#NNNN` resolves to our own repo, and backticks suppress GitHub's auto-link entirely.
+- Same-repo PR refs (`#NNNN`) are correct and auto-link as-is.
+- When the release window includes a contributor PR (e.g., from a non-maintainer), credit them by `@username` in the release PR body.
 
 **Known upstream bugs:**
 - Check manifold3d issues for bugs affecting functions we bind
