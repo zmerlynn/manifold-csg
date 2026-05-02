@@ -35,16 +35,24 @@ fn main() {
         return;
     }
 
-    // Emscripten target support is in progress (see docs/plans/wasm-emscripten.md).
-    // Fail loudly rather than silently invoking host cmake/clang and producing
-    // an unlinkable artifact.
+    // Read target info from cargo (build-script-host cfg! is wrong for cross-compiling).
     let target = env::var("TARGET").unwrap_or_default();
-    if target == "wasm32-unknown-emscripten" {
-        panic!(
-            "wasm32-unknown-emscripten support is not yet implemented. \
-             See docs/plans/wasm-emscripten.md for the plan. \
-             Implementation tracked on the emscripten-target-support branch."
-        );
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+    let is_emscripten = target_os == "emscripten";
+
+    if is_emscripten {
+        // emcmake/emmake wrap cmake to inject the Emscripten toolchain. They
+        // come from the Emscripten SDK (`brew install emscripten` or the raw
+        // emsdk install path; either way the binaries need to be on PATH).
+        if Command::new("emcmake").output().is_err() {
+            panic!(
+                "Building for {target} requires the Emscripten SDK on PATH \
+                 (emcmake, emmake, emcc). Install via `brew install emscripten`, \
+                 or run `source emsdk_env.sh` from a raw emsdk checkout. \
+                 See docs/plans/wasm-emscripten.md."
+            );
+        }
     }
 
     // Prevent unnecessary build script re-execution.
@@ -182,7 +190,20 @@ fn main() {
     let _ = std::fs::write(&patch_stamp, &current_stamp);
 
     // Configure with cmake.
-    let parallel = env::var("CARGO_FEATURE_PARALLEL").is_ok();
+    let mut parallel = env::var("CARGO_FEATURE_PARALLEL").is_ok();
+
+    // Threading on emscripten requires SharedArrayBuffer + COOP/COEP HTTP
+    // headers from the hosting page, which is too much friction to require
+    // by default. Force MANIFOLD_PAR=OFF and warn if the user explicitly
+    // asked for it.
+    if is_emscripten && parallel {
+        println!(
+            "cargo:warning=manifold-csg-sys: 'parallel' feature is not supported on \
+             {target}; building without TBB. Disable default-features or the \
+             'parallel' feature to silence this warning."
+        );
+        parallel = false;
+    }
 
     let mut cmake_args = vec![
         "-S".to_string(),
@@ -207,7 +228,27 @@ fn main() {
         cmake_args.push("-DMANIFOLD_PAR=OFF".to_string());
     }
 
-    let cmake_output = Command::new("cmake")
+    if is_emscripten {
+        // Compile manifold's C++ with native wasm exception handling. Manifold's
+        // C wrapper translates internal C++ exceptions into status codes; without
+        // this flag those throws would trap-and-abort the wasm module on invalid
+        // input. Must match the link-time -fwasm-exceptions emitted below.
+        cmake_args.push("-DCMAKE_CXX_FLAGS=-fwasm-exceptions".to_string());
+    }
+
+    // emcmake / emmake wrap cmake invocations to inject Emscripten's toolchain
+    // file and substitute em++/emcc as the C++/C compiler.
+    let make_cmake_cmd = |em_wrapper: &str| -> Command {
+        if is_emscripten {
+            let mut c = Command::new(em_wrapper);
+            c.arg("cmake");
+            c
+        } else {
+            Command::new("cmake")
+        }
+    };
+
+    let cmake_output = make_cmake_cmd("emcmake")
         .args(&cmake_args)
         .output()
         .expect("failed to run cmake configure");
@@ -217,7 +258,7 @@ fn main() {
     }
 
     // Build both manifold and manifoldc.
-    let build_output = Command::new("cmake")
+    let build_output = make_cmake_cmd("emmake")
         .args([
             "--build",
             build_dir.to_str().unwrap(),
@@ -269,11 +310,58 @@ fn main() {
         }
     }
 
-    // C++ standard library.
-    // MSVC links the C++ runtime automatically — no explicit link needed.
-    if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-lib=c++");
-    } else if cfg!(not(target_env = "msvc")) {
-        println!("cargo:rustc-link-lib=stdc++");
+    // C++ standard library. Read target via env, not cfg! — cfg! evaluates at
+    // build-script-host compile time, which silently lies under cross-compile.
+    //
+    // - MSVC links the C++ runtime automatically — no explicit link needed.
+    // - Emscripten's emcc auto-links libc++ during the final wasm link.
+    if !is_emscripten && target_env != "msvc" {
+        if target_os == "macos" {
+            println!("cargo:rustc-link-lib=c++");
+        } else {
+            println!("cargo:rustc-link-lib=stdc++");
+        }
+    }
+
+    // Emscripten link flags. These need to reach the final rustc → emcc link
+    // step in any binary/test/cdylib that depends on us, not just cmake's own
+    // link step (which is a no-op here since BUILD_SHARED_LIBS=OFF).
+    //
+    // Plain `cargo:rustc-link-arg=` from a sys crate's build script does NOT
+    // propagate to downstream link invocations — only `rustc-link-lib` and
+    // `rustc-link-search` do. The proper sys-crate idiom is to expose the
+    // flags as `links` metadata (here as DEP_MANIFOLD_LINK_ARGS, since this
+    // crate has `links = "manifold"`), and have the safe wrapper crate's
+    // build.rs read DEP_MANIFOLD_LINK_ARGS and re-emit `rustc-link-arg=` from
+    // there. End-user binaries then need a similar build.rs (or a
+    // `.cargo/config.toml` entry) to forward through to their own link.
+    //
+    // Documented in docs/plans/wasm-emscripten.md.
+    if is_emscripten {
+        let link_args: &[&str] = &[
+            // Native wasm exception handling — must match -fwasm-exceptions
+            // passed to the C++ compile above.
+            "-fwasm-exceptions",
+            // Allow the wasm linear memory to grow at runtime; the default
+            // 16 MiB heap will OOM on the first non-trivial mesh.
+            "-sALLOW_MEMORY_GROWTH=1",
+            // Cap memory at the wasm32 ceiling (4 GiB) rather than the smaller
+            // default, so growth doesn't trap on large boolean operations.
+            "-sMAXIMUM_MEMORY=4294967296",
+            // Bump the stack from emcc's small default (~5 MB). Manifold's
+            // recursive CSG / topology routines hit stack overflow under the
+            // default. Mirrors upstream's emscripten cmake configuration
+            // (which uses 30 MB; round to 32 MiB).
+            "-sSTACK_SIZE=33554432",
+            // emcc requires INITIAL_MEMORY > STACK_SIZE, and the default
+            // (16 MiB) is smaller than our stack. Bump to 64 MiB to give
+            // headroom for stack + initial heap.
+            "-sINITIAL_MEMORY=67108864",
+        ];
+        // Space-separated; downstream parses on whitespace. No flag here may
+        // contain a literal space — if you ever need that (e.g. paths with
+        // spaces in them), change to a different separator like ';' and update
+        // crates/manifold-csg/build.rs to match.
+        println!("cargo:link_args={}", link_args.join(" "));
     }
 }

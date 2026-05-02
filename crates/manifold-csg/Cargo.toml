@@ -8,6 +8,7 @@ repository.workspace = true
 readme = "../../README.md"
 keywords = ["csg", "geometry", "mesh", "manifold", "3d"]
 categories = ["algorithms", "mathematics"]
+build = "build.rs"
 
 [features]
 default = ["parallel"]

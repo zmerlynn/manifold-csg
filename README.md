@@ -94,7 +94,42 @@ cargo build           # builds both crates
 cargo test --features nalgebra   # runs the test suite
 ```
 
-Tested on Linux, macOS, and Windows.
+Tested on Linux, macOS, Windows, and `wasm32-unknown-emscripten` (see below).
+
+### Browser / WebAssembly (`wasm32-unknown-emscripten`)
+
+`manifold-csg` builds and runs in the browser via Emscripten. The C++ kernel
+is compiled with `emcmake`/`emmake`; Rust links against it via emcc.
+
+```sh
+brew install emscripten   # or install the raw emsdk and source emsdk_env.sh
+rustup target add wasm32-unknown-emscripten
+cargo build --target wasm32-unknown-emscripten -p manifold-csg --no-default-features
+```
+
+The integration test suite runs under Node (the workspace `.cargo/config.toml`
+sets the runner, so no env var needed):
+
+```sh
+cargo test --target wasm32-unknown-emscripten -p manifold-csg --no-default-features --tests
+```
+
+Notes:
+
+- The `parallel` feature is silently disabled on emscripten — TBB requires
+  pthread support which in turn needs the host page to provide `SharedArrayBuffer`
+  via COOP/COEP HTTP headers. Use `--no-default-features` to opt out cleanly.
+- Tests using `std::thread::spawn` are marked `#[ignore]` on this target for
+  the same reason.
+- We do *not* support `wasm32-unknown-unknown` (no libc/libcxx — see
+  [issue #30](https://github.com/zmerlynn/manifold-csg/issues/30) and
+  [docs/plans/wasm-emscripten.md](docs/plans/wasm-emscripten.md) for context).
+- End-user crates that produce their own `bin`/`cdylib` from a wasm build
+  need to forward the same emscripten link flags. Add a one-line `build.rs`
+  that re-emits `DEP_MANIFOLD_LINK_ARGS`, or set them via `.cargo/config.toml`.
+- Existing examples build for wasm too — e.g.
+  `cargo build --example basics --target wasm32-unknown-emscripten -p manifold-csg --no-default-features`
+  produces a `.wasm` + `.js` shim you can run with `node target/wasm32-unknown-emscripten/debug/examples/basics.js`.
 
 ## Feature flags
 

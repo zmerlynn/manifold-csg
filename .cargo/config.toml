@@ -1,0 +1,9 @@
+# Workspace cargo config.
+#
+# Currently only sets the wasm32-unknown-emscripten test runner so
+# `cargo test --target wasm32-unknown-emscripten` works locally without
+# needing the CARGO_TARGET_..._RUNNER env var. Requires Node.js on PATH.
+# CI sets the same value via the workflow env block (see ci.yml).
+
+[target.wasm32-unknown-emscripten]
+runner = "node"

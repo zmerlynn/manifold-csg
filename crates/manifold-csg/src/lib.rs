@@ -15,6 +15,8 @@
 //! - **f64 precision**: Uses MeshGL64 to avoid f32 precision loss
 //! - **`Send` + `Sync` safe**: All types can be moved across threads and shared for concurrent reads
 //! - **Memory safe**: All C handles are freed automatically via `Drop`
+//! - **Browser-capable**: Builds for `wasm32-unknown-emscripten` for
+//!   in-browser geometry. See the README's "Browser / WebAssembly" section.
 
 pub mod bounding_box;
 pub mod cross_section;
