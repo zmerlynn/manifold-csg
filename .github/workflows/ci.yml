@@ -32,7 +32,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/cache-version') }}
+          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/cache-version') }}
           restore-keys: ${{ runner.os }}-cargo-msrv-
       # nalgebra 0.34 (unconditional dev-dep) requires Rust 1.87+,
       # so MSRV check verifies the library builds but skips tests.
@@ -51,7 +51,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/cache-version') }}
+          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/cache-version') }}
           restore-keys: ${{ runner.os }}-cargo-docs-
       - name: Doc
         run: cargo doc --no-deps --features nalgebra
@@ -73,7 +73,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-semver-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs') }}
+          key: ${{ runner.os }}-cargo-semver-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-semver-
       - name: Check semver
         run: cargo semver-checks -p manifold-csg
@@ -111,7 +111,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/patches/*', 'crates/manifold-csg-sys/cache-version') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/patches/*', 'crates/manifold-csg-sys/cache-version') }}
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build
@@ -137,7 +137,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-nopar-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/cache-version') }}
+          key: ${{ runner.os }}-cargo-nopar-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/cache-version') }}
           restore-keys: ${{ runner.os }}-cargo-nopar-
 
       - name: Build (no parallel)
@@ -147,15 +147,8 @@ jobs:
         run: cargo test --no-default-features
 
   emscripten:
-    name: Emscripten (wasm32, scaffold)
+    name: Emscripten (wasm32)
     runs-on: ubuntu-latest
-    # Scaffold lane: build.rs currently panics on this target with a "not yet
-    # implemented" message pointing at docs/plans/wasm-emscripten.md. The lane
-    # is here to set up the infrastructure (toolchain install, cache wiring,
-    # cargo invocation) so that landing the actual implementation is mostly
-    # editing build.rs. continue-on-error keeps the rest of CI green while
-    # this is in progress.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -176,8 +169,23 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-emscripten-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/cache-version') }}
+          key: ${{ runner.os }}-cargo-emscripten-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/cache-version') }}
           restore-keys: ${{ runner.os }}-cargo-emscripten-
 
-      - name: Build (no parallel — TBB requires SharedArrayBuffer setup)
+      # MANIFOLD_PAR is forced off for emscripten regardless of feature flags
+      # (TBB needs SharedArrayBuffer + COOP/COEP HTTP headers from the host).
+      # Build with --no-default-features to reflect that and silence the warning.
+      - name: Build
         run: cargo build --target wasm32-unknown-emscripten --no-default-features
+
+      - name: Build with nalgebra
+        run: cargo build --target wasm32-unknown-emscripten --no-default-features --features nalgebra
+
+      # Run the integration tests under Node. Emscripten emits a JS shim
+      # alongside the wasm; cargo's test runner config invokes it via node.
+      # 11 thread-using tests are expected to be reported as ignored
+      # (#[cfg_attr(target_os = "emscripten", ignore = ...)]).
+      - name: Test under Node
+        env:
+          CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUNNER: node
+        run: cargo test --target wasm32-unknown-emscripten -p manifold-csg --no-default-features --tests

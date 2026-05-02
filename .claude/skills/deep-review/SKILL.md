@@ -52,6 +52,11 @@ This is the highest-risk area for a bindings crate. Verify:
 - Buffer size correctness — when copying data out via `manifold_meshgl*_vert_properties` / `manifold_meshgl*_tri_verts`, verify buffer sizes match what the C API expects
 - `ManifoldManifoldPair` — verify both returned pointers are always consumed (no leak if caller ignores one half of a split)
 
+**Build script (`build.rs`) correctness for cross-compile:**
+- `cfg!(target_os = ...)` / `cfg!(target_arch = ...)` / `cfg!(target_env = ...)` in `build.rs` is a footgun *when used to detect the target* — these macros evaluate at the build-script-host's compile time, NOT the target's. Coincidentally correct as long as we never cross-compile; fails silently the moment we do (e.g. wasm). Use `env::var("CARGO_CFG_TARGET_OS")` / `..._ARCH` / `..._ENV` instead. (`cfg!` is fine when you genuinely want host-side detection — e.g., picking a shell command for the build script's own use.)
+- `cargo:rustc-link-arg=FLAG` from a sys crate's `build.rs` does NOT propagate to downstream link invocations — only `rustc-link-lib` and `rustc-link-search` do. The proper sys-crate idiom for forwarding link flags: emit `cargo:KEY=VALUE` (Cargo translates this into `DEP_<UPPERCASE_LINKS>_<UPPERCASE_KEY>` env var visible to dependents), and have the safe wrapper crate's `build.rs` read it and re-emit `cargo:rustc-link-arg=...`. End-user binaries then need a similar build.rs (or `.cargo/config.toml`). Flag any `cargo:rustc-link-arg=...` in a sys crate that isn't backed by this pattern.
+- The artifact-typed variants (`cargo:rustc-link-arg-bins=`, `-tests=`, `-cdylib=`) are only legal from crates that declare those targets — a library-only sys crate can't use them (cargo rejects with "package does not have a bin target"). Flag any of these in a crate that doesn't have the matching target.
+
 ### 4. Numerical Precision
 
 Precision is our key differentiator (f64/MeshGL64). Verify:
@@ -111,6 +116,8 @@ Assess the test suite:
 - Test isolation — do tests depend on execution order or shared mutable state?
 - `#[ignore]` tests — are they still relevant or should they be deleted/fixed?
 - Assertion quality — are tests checking meaningful properties or just "doesn't panic"?
+- Multi-target gating: tests that depend on host-OS facilities (`std::thread::spawn`, filesystem, sockets, signals) should be gated with `#[cfg_attr(target_os = "...", ignore = "explanation")]` for targets that lack them. The ignore reason should explain *why* it's ignored on this target, not just *that* it is.
+- For cross-compiled targets without a native runner (wasm, embedded), check whether `CARGO_TARGET_<TRIPLE>_RUNNER` is configured (`.cargo/config.toml`, CI workflow env). Without a runner, "build clean" doesn't tell us tests pass.
 
 ### 8. Examples & Documentation Artifacts
 

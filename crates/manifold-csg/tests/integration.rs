@@ -548,6 +548,10 @@ fn extrude_empty_cross_section() {
 // ── Send safety test ────────────────────────────────────────────────────
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn manifold_is_send() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
     let handle = std::thread::spawn(move || cube.volume());
@@ -556,6 +560,10 @@ fn manifold_is_send() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn cross_section_is_send() {
     let cs = CrossSection::square(10.0, 10.0, true);
     let handle = std::thread::spawn(move || cs.area());
@@ -1458,6 +1466,10 @@ fn drop_many_rects_no_leak() {
 // ── Binding-specific: Send across threads ──────────────────────────────
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn manifold_send_across_thread() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
     let vol = std::thread::spawn(move || cube.volume()).join().unwrap();
@@ -1465,6 +1477,10 @@ fn manifold_send_across_thread() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn cross_section_send_across_thread() {
     let cs = CrossSection::square(10.0, 10.0, false);
     let area = std::thread::spawn(move || cs.area()).join().unwrap();
@@ -1472,6 +1488,10 @@ fn cross_section_send_across_thread() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn bounding_box_send_across_thread() {
     let bb = BoundingBox::new([0.0, 0.0, 0.0], [10.0, 10.0, 10.0]);
     let center = std::thread::spawn(move || bb.center()).join().unwrap();
@@ -1479,6 +1499,10 @@ fn bounding_box_send_across_thread() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn rect_send_across_thread() {
     let r = Rect::new([0.0, 0.0], [10.0, 10.0]);
     let center = std::thread::spawn(move || r.center()).join().unwrap();
@@ -1486,6 +1510,10 @@ fn rect_send_across_thread() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn meshgl64_send_across_thread() {
     let cube = Manifold::cube(5.0, 5.0, 5.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();
@@ -1497,6 +1525,10 @@ fn meshgl64_send_across_thread() {
 // ── Binding-specific: Sync (concurrent shared reads) ───────────────────
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn manifold_sync_concurrent_reads() {
     let cube = std::sync::Arc::new(Manifold::cube(10.0, 10.0, 10.0, true));
     let handles: Vec<_> = (0..4)
@@ -1512,6 +1544,10 @@ fn manifold_sync_concurrent_reads() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn cross_section_sync_concurrent_reads() {
     let cs = std::sync::Arc::new(CrossSection::square(10.0, 10.0, false));
     let handles: Vec<_> = (0..4)
@@ -1527,6 +1563,10 @@ fn cross_section_sync_concurrent_reads() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn meshgl64_sync_concurrent_reads() {
     let cube = Manifold::cube(5.0, 5.0, 5.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();
@@ -2163,6 +2203,10 @@ fn manifold_boolean_subtract_and_intersect() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
 fn meshgl_is_send() {
     let cube = Manifold::cube(5.0, 5.0, 5.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f32();
@@ -2183,4 +2227,50 @@ fn invalid_mesh_returns_manifold_status_error() {
     if let Ok(m) = result {
         assert!(m.is_empty() || m.volume().abs() < 0.001);
     }
+}
+
+// ── wasm-specific battle-readiness smoke tests ─────────────────────────
+//
+// Both tests run on every target — they're not wasm-gated. The point on
+// host targets is "still pass after refactors". The point on wasm32 is
+// "validate the C++ exception runtime and the wasm memory.grow path
+// actually work as configured by build.rs's link flags". If either of
+// these traps the wasm module instead of completing, our exception or
+// memory configuration is wrong.
+
+#[test]
+fn wasm_smoke_throw_path_returns_error_not_trap() {
+    // Pass an out-of-bounds triangle index. The C++ kernel must detect
+    // this and either return a degenerate manifold or surface an error
+    // status. On wasm with -fwasm-exceptions correctly set at both
+    // compile and link, internal C++ throws are caught by the C wrapper
+    // and translated to status codes. If -fwasm-exceptions is missing
+    // or mismatched between compile and link, this would trap-and-abort
+    // the wasm module instead.
+    let verts = [0.0f64, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let tris = [0u64, 1, 999]; // index 999 is out of bounds (only 3 verts)
+    let result = Manifold::from_mesh_f64(&verts, 3, &tris);
+    // Pass condition: we got *some* result back without trapping.
+    // Either Ok(empty/degenerate) or Err(status) is fine — both prove
+    // the error path didn't crash the wasm runtime.
+    if let Ok(m) = result {
+        assert!(m.is_empty() || m.volume().abs() < 0.001);
+    }
+}
+
+#[test]
+fn wasm_smoke_memory_growth_path() {
+    // Allocate enough mesh data to push the wasm linear memory past its
+    // initial size (we set INITIAL_MEMORY=64 MiB and ALLOW_MEMORY_GROWTH=1
+    // in build.rs). 30 spheres at 32 segments each = ~30k triangles total
+    // before the union; intermediate boolean state pushes much higher.
+    // If memory growth isn't wired correctly, this traps with OOM.
+    let parts: Vec<_> = (0..30)
+        .map(|i| Manifold::sphere(2.0, 32).translate(i as f64 * 5.0, 0.0, 0.0))
+        .collect();
+    let combined = Manifold::batch_union(&parts);
+    assert!(!combined.is_empty());
+    // Sanity check: 30 disjoint spheres should have nontrivial volume.
+    // 4/3 * pi * r^3 = 33.51 per sphere, * 30 ≈ 1005, allow some slack.
+    assert!(combined.volume() > 800.0);
 }
