@@ -99,12 +99,39 @@ silently downgraded for emscripten via the `build.rs` warning above. Cargo
 doesn't support per-target feature defaults, so the `build.rs` override is
 the correct mechanism.
 
+### Local development
+
+Brew has a current emscripten formula, which is the easiest path:
+
+```bash
+brew install emscripten            # 5.0.7 currently (matches CI pin)
+rustup target add wasm32-unknown-emscripten
+cargo build --target wasm32-unknown-emscripten -p manifold-csg-sys --no-default-features
+```
+
+Three lines, no shell-sourcing, `emcc`/`emcmake`/`emmake` go straight on
+PATH and stay there. Iteration loop is ~30 s for a clean build, <5 s for
+incremental build.rs changes.
+
+If you need a specific emsdk version (e.g., to match CI exactly during a
+debugging session), the raw emsdk install path still works:
+
+```bash
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk && ./emsdk install <version> && ./emsdk activate <version>
+source ./emsdk_env.sh    # per-shell
+```
+
+CI uses the raw-emsdk path via `mymindstorm/setup-emsdk` because there's
+no brew on GitHub runners. The exact version is pinned in `ci.yml` — if
+you bump CI you should also test locally with the matching version.
+
 ### CI
 
 A new `Emscripten (wasm32, scaffold)` lane is **already landed** with
-`continue-on-error: true`. It uses `mymindstorm/setup-emsdk@v14` pinned to
-a specific emsdk version (`3.1.74`) since LLVM ABI shifts between releases
-and floating `latest` breaks builds non-deterministically.
+`continue-on-error: true`. It uses `mymindstorm/setup-emsdk@v16` pinned
+to the current stable emsdk version (`5.0.7`) since LLVM ABI shifts
+between releases and floating `latest` breaks builds non-deterministically.
 
 Once the implementation lands, remove `continue-on-error` and the lane
 becomes a required check.
@@ -140,13 +167,31 @@ emscripten target.
 
 2. **C++ exception strategy mismatch — highest-risk silent correctness
    bug.** Manifold's C wrapper translates internal C++ exceptions into
-   `manifold_status` error codes. emcc requires `-fexceptions` at *both*
-   compile and link time to emit working exception code. Without it,
-   thrown exceptions become trap-and-abort. Our build doesn't pass
-   `-fexceptions` to the C++ compile by default (upstream only adds it
-   under `MANIFOLD_DEBUG`). Will silently fail on any input that triggers
-   a thrown exception. Likely fix: pass `-fexceptions` via `CXXFLAGS` for
-   the emscripten build.
+   `manifold_status` error codes. emcc requires exceptions to be enabled
+   at *both* compile and link time to emit working exception code.
+   Without it, thrown exceptions become trap-and-abort. Our build doesn't
+   pass exception flags to the C++ compile by default (upstream only adds
+   them under `MANIFOLD_DEBUG`). Will silently fail on any input that
+   triggers a thrown exception.
+
+   Two modes to choose from:
+
+   - **`-fwasm-exceptions`** (preferred): native wasm exception handling
+     via the `exception-handling` proposal. Broadly supported in browsers
+     since ~2023 and is becoming the emcc default. More efficient, no JS
+     trampoline. Try this first.
+   - **`-fexceptions` + `-sDISABLE_EXCEPTION_CATCHING=0`** (fallback):
+     older JS-based exception mode. Use only if the toolchain doesn't
+     cooperate with `-fwasm-exceptions` (e.g., pinned emsdk too old).
+
+   Likely fix: pass the chosen flag via `CXXFLAGS` for the emscripten
+   build, plus the matching `cargo:rustc-link-arg-*` so it reaches the
+   final link.
+
+   **Avoid** setting `MANIFOLD_DEBUG=ON` to indirectly enable exceptions
+   — it also turns on verbose `<iostream>` dumps, debug assertions, and
+   the throw/catch paths in `csg_tree.cpp` / `polygon.cpp`, which inflate
+   code size and pull in iostream runtime that release builds don't need.
 
 3. **`find_lib_recursive` and emcc archive layout.** emcc-built static
    archives are still `lib*.a` so this should Just Work. Verify after

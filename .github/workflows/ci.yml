@@ -163,11 +163,11 @@ jobs:
         with:
           targets: wasm32-unknown-emscripten
 
-      - uses: mymindstorm/setup-emsdk@v14
+      - uses: mymindstorm/setup-emsdk@v16
         with:
           # Pin a specific emsdk version. emcc/LLVM ABI changes between
           # releases and floating "latest" makes builds non-reproducible.
-          version: 3.1.74
+          version: 5.0.7
           actions-cache-folder: emsdk-cache
 
       - uses: actions/cache@v4

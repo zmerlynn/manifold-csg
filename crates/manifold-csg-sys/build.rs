@@ -43,7 +43,7 @@ fn main() {
         panic!(
             "wasm32-unknown-emscripten support is not yet implemented. \
              See docs/wasm-emscripten-plan.md for the plan. \
-             Track progress in PRs targeting the emscripten-target-support branch."
+             Implementation tracked on the emscripten-target-support branch."
         );
     }
 
