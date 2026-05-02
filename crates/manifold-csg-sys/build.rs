@@ -35,14 +35,14 @@ fn main() {
         return;
     }
 
-    // Emscripten target support is in progress (see docs/wasm-emscripten-plan.md).
+    // Emscripten target support is in progress (see docs/plans/wasm-emscripten.md).
     // Fail loudly rather than silently invoking host cmake/clang and producing
     // an unlinkable artifact.
     let target = env::var("TARGET").unwrap_or_default();
     if target == "wasm32-unknown-emscripten" {
         panic!(
             "wasm32-unknown-emscripten support is not yet implemented. \
-             See docs/wasm-emscripten-plan.md for the plan. \
+             See docs/plans/wasm-emscripten.md for the plan. \
              Implementation tracked on the emscripten-target-support branch."
         );
     }

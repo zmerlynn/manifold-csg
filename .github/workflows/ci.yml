@@ -150,7 +150,7 @@ jobs:
     name: Emscripten (wasm32, scaffold)
     runs-on: ubuntu-latest
     # Scaffold lane: build.rs currently panics on this target with a "not yet
-    # implemented" message pointing at docs/wasm-emscripten-plan.md. The lane
+    # implemented" message pointing at docs/plans/wasm-emscripten.md. The lane
     # is here to set up the infrastructure (toolchain install, cache wiring,
     # cargo invocation) so that landing the actual implementation is mostly
     # editing build.rs. continue-on-error keeps the rest of CI green while
