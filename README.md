@@ -174,6 +174,13 @@ node crates/manifold-csg/wasm32-uu-runner/run.mjs \
 # wasm32-uu-smoke: smoke_run() = 36 (triangle count, > 0) ✓
 ```
 
+For an interactive end-to-end demo see the **[boolean playground](https://zmerlynn.github.io/manifold-csg/)** —
+a browser app that wires `manifold-csg` into [three.js](https://threejs.org/) via a
+small C ABI and lets you union/diff/intersect cubes/spheres/cylinders with
+transform gizmos. Source under
+[`crates/manifold-csg-playground/`](crates/manifold-csg-playground/) (auto-deployed
+to GitHub Pages).
+
 Notes:
 
 - First build is slow (clones manifold + Clipper2 + wasm-cxx-shim, builds

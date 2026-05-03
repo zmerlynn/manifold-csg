@@ -40,7 +40,12 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 Version bumps happen at publish time, not in feature PRs. Read CLAUDE.md for the versioning scheme, then:
 
-- Check if versions have already been bumped (breaking PRs may have bumped to pass semver CI).
+- **Check if versions have already been bumped** by comparing the workspace + sys crate versions against what's actually published on crates.io:
+  ```sh
+  curl -sS https://crates.io/api/v1/crates/manifold-csg     | python3 -c "import json,sys; print(json.load(sys.stdin)['crate']['max_version'])"
+  curl -sS https://crates.io/api/v1/crates/manifold-csg-sys | python3 -c "import json,sys; print(json.load(sys.stdin)['crate']['max_version'])"
+  ```
+  If the in-repo version is already ahead of the published version, it's pre-bumped — DO NOT bump again. Subsequent feature PRs ride into the pre-bumped version. (Pitfall: assuming the workspace version is the published version. They diverge whenever a PR includes its own bump, which CLAUDE.md says PRs "usually should" do.)
 - If not already bumped:
   - **`manifold-csg-sys`**: bump the patch component (e.g., `3.4.102` → `3.4.103`) whenever the upstream contents differ from the last publish — pinned commit changed, carry-patches added/removed, or FFI declarations changed. If the upstream major.minor changed (new manifold3d release), update major.minor accordingly.
   - **`manifold-csg`** (workspace version): bump patch for additive changes, minor for breaking changes (pre-1.0, minor bumps can break).
@@ -56,9 +61,9 @@ For each patch in `crates/manifold-csg-sys/patches/`:
 - If merged AND included in our pinned commit, warn that the patch can be removed
 - If the patch fails to apply during build, stop — the pin and patches are inconsistent
 
-### 5. Changelog / release notes
+### 5. Release notes
 
-Check if there's a changelog or release tag. Remind the user to tag the release after publishing:
+We don't keep a CHANGELOG file (it gets stale; git log + GitHub Releases cover the same ground). Tag the release after publishing — GitHub auto-generates release notes from PRs since the last tag:
 ```
 git tag -a v<version> -m "Release <version>"
 git push origin v<version>

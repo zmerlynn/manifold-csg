@@ -220,14 +220,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-20 lld-20 libc++-20-dev libc++abi-20-dev wabt
 
+      # Cache key splits the hash into two parts so the restore-keys
+      # prefix can include the "stable" inputs (build.rs + wasm32-uu/**).
+      # Those are the inputs that determine cmake's source-dir layout —
+      # if either changes, a restored target/ would have a CMakeCache.txt
+      # pointing at the old source dir and cmake refuses to reuse it.
+      # Putting them in the restore-keys prefix means a build.rs / wrapper
+      # change forces a fresh build instead of restoring an incompatible
+      # cache. The "volatile" inputs (Cargo.lock, manifold-csg/build.rs)
+      # change frequently but don't move the cmake source dir, so they go
+      # in the suffix where a key miss can fall through to a restore.
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/wasm32-uu/**', 'crates/manifold-csg/build.rs') }}
-          restore-keys: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
+          key: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/wasm32-uu/**') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/wasm32-uu/**') }}-
 
       # Build the sys crate first to surface cmake/clang errors clearly.
       # `unstable-wasm-uu` is required by build.rs for this target.

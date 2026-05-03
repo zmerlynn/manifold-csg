@@ -46,9 +46,9 @@ The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.
 
 ## Carry-patches
 
-`crates/manifold-csg-sys/patches/` contains patches applied to the cloned manifold3d source at build time via `git apply`. These fix upstream bugs or add features not yet in a tagged release.
+`crates/manifold-csg-sys/patches/` (when present) holds patches applied to the cloned manifold3d source at build time via `git apply`. These fix upstream bugs or add features not yet in a tagged release.
 
-No current patches — all previously carried patches have been merged upstream.
+No current patches — the directory isn't on main right now; previously-carried patches have all been merged upstream and the pin moved past them. Recreate the directory if a new carry-patch is needed; `build.rs` discovers patches by globbing `*.patch` in it.
 
 - Patches must have LF line endings (enforced by `.gitattributes` with `*.patch eol=lf`) — Windows Git's autocrlf corrupts unified diff format otherwise.
 - `build.rs` applies patches with `--ignore-whitespace --whitespace=nowarn` for cross-platform reliability.

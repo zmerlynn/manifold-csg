@@ -25,7 +25,7 @@ fn find_lib_recursive(dir: &Path, name: &str) -> Option<PathBuf> {
 }
 
 /// Pinned upstream version — can be a tag (e.g., "v3.4.1"), branch, or commit SHA.
-const MANIFOLD_VERSION: &str = "65943caaab531ff9e135fe061868fde91760a372";
+const MANIFOLD_VERSION: &str = "5f95a3ac0e906f596bb2d27a52d005ef60de58f3";
 
 fn main() {
     // docs.rs builds with --network=none, so we can't clone manifold3d.
@@ -404,14 +404,7 @@ fn main() {
 // build.rs instead of a cmake file).
 
 const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
-const WASM_CXX_SHIM_TAG: &str = "v0.2.0";
-
-// Clipper2 SHA — must match what manifold pins (cmake/manifoldDeps.cmake).
-// If manifold bumps its Clipper2 pin, this must move in lockstep, or the
-// FETCHCONTENT_SOURCE_DIR_CLIPPER2 override + iostream patch may fail to
-// apply against the version manifold actually expects.
-const CLIPPER2_GIT: &str = "https://github.com/AngusJohnson/Clipper2.git";
-const CLIPPER2_SHA: &str = "46f639177fe418f9689e8ddb74f08a870c71f5b4";
+const WASM_CXX_SHIM_TAG: &str = "v0.3.0";
 
 fn build_wasm_unknown_unknown() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -437,7 +430,7 @@ fn build_wasm_unknown_unknown() {
     }
     println!(
         "cargo:warning=manifold-csg-sys: wasm32-unknown-unknown support is \
-         provisional. Carry-patches against upstream manifold and Clipper2; \
+         provisional. Patched manifold and Clipper2 (via wasm-cxx-shim helper); \
          no exception runtime; OBJ I/O disabled. See README for details."
     );
     // Env vars that influence toolchain selection. Without these,
@@ -555,195 +548,29 @@ fn build_wasm_unknown_unknown() {
         }
     }
 
-    // ---- Stage 2: clone + patch Clipper2 --------------------------------
+    // ---- Stage 2: build manifold + Clipper2 via the shim's helper -------
     //
-    // We pin Clipper2 ourselves (matching what manifold pins) and apply
-    // the iostream-strip patch. We then point manifold's FetchContent at
-    // our pre-cloned source via FETCHCONTENT_SOURCE_DIR_CLIPPER2, so
-    // manifold's cmake reuses our patched copy instead of re-cloning.
+    // wasm-cxx-shim v0.3.0 ships `wasm_cxx_shim_add_manifold()`, which
+    // owns the high-change-rate parts of the integration cocktail:
+    // FetchContent of manifold + Clipper2 (with tested-pin defaults, the
+    // three carry-patches, and manifold/Clipper2 CMake options). Our
+    // wrapper at wasm32-uu/CMakeLists.txt sets up the consumer-side
+    // `-isystem` chain (libc++ headers + our `__config_site` override +
+    // the `<mutex>` stub) and calls the helper.
 
-    let clipper2_src = out_dir.join("clipper2-src");
-    let clipper2_stamp = out_dir.join(".clipper2-version-stamp");
-    let clipper2_old = std::fs::read_to_string(&clipper2_stamp).unwrap_or_default();
-    if clipper2_old.trim() != CLIPPER2_SHA && clipper2_src.exists() {
-        let _ = std::fs::remove_dir_all(&clipper2_src);
-    }
-    if !clipper2_src.join("CMakeLists.txt").exists() {
-        if clipper2_src.exists() {
-            let _ = std::fs::remove_dir_all(&clipper2_src);
-        }
-        // Clipper2 doesn't have shallow tags here — clone full history then
-        // checkout the SHA. The repo is small.
-        let status = Command::new("git")
-            .args(["clone", CLIPPER2_GIT, clipper2_src.to_str().unwrap()])
-            .status()
-            .expect("failed to run git clone for Clipper2");
-        assert!(status.success(), "git clone Clipper2 failed");
-
-        let status = Command::new("git")
-            .args(["checkout", CLIPPER2_SHA])
-            .current_dir(&clipper2_src)
-            .status()
-            .expect("failed to checkout Clipper2 SHA");
-        assert!(status.success(), "git checkout Clipper2 failed");
-
-        // Apply iostream patch.
-        let patch = wasm_dir.join("patches/0002-clipper2-strip-iostream.patch");
-        let status = Command::new("git")
-            .args(["apply", "--ignore-whitespace", "-p0"])
-            .arg(&patch)
-            .current_dir(&clipper2_src)
-            .status()
-            .expect("failed to apply Clipper2 iostream patch");
-        assert!(
-            status.success(),
-            "Clipper2 iostream patch failed to apply at SHA {CLIPPER2_SHA}"
-        );
-
-        let _ = std::fs::write(&clipper2_stamp, CLIPPER2_SHA);
-    }
-
-    // ---- Stage 3: clone + patch manifold (separate tree from host build)
-    //
-    // The host/emscripten codepath uses out_dir.join("manifold-src") and
-    // applies its own patches (#1687, #1688). We need the same source but
-    // also our wasm32-uu iostream patch, AND a separate cmake build dir so
-    // the two configurations don't fight.
-    //
-    // Cleanest: a separate clone path so artifacts don't collide.
-
-    let manifold_src = out_dir.join("manifold-src-wasm32-uu");
     let manifold_build = out_dir.join("manifold-build-wasm32-uu");
-    let manifold_stamp = out_dir.join(".manifold-wasm32-uu-version-stamp");
-    let manifold_old = std::fs::read_to_string(&manifold_stamp).unwrap_or_default();
-    if manifold_old.trim() != MANIFOLD_VERSION && manifold_src.exists() {
-        let _ = std::fs::remove_dir_all(&manifold_src);
-        let _ = std::fs::remove_dir_all(&manifold_build);
-    }
-    if !manifold_src.join("CMakeLists.txt").exists() {
-        if manifold_src.exists() {
-            let _ = std::fs::remove_dir_all(&manifold_src);
-        }
-        let status = Command::new("git")
-            .args([
-                "-c",
-                "core.autocrlf=false",
-                "clone",
-                "https://github.com/elalish/manifold.git",
-                manifold_src.to_str().unwrap(),
-            ])
-            .status()
-            .expect("failed to run git clone for manifold (wasm32-uu)");
-        assert!(status.success(), "git clone manifold failed");
-
-        let status = Command::new("git")
-            .args(["checkout", MANIFOLD_VERSION])
-            .current_dir(&manifold_src)
-            .status()
-            .expect("failed to checkout manifold pinned commit");
-        assert!(status.success(), "git checkout manifold failed");
-
-        // Apply our existing carry-patches first (#1687, #1688), then the
-        // wasm32-uu-specific ones.
-        let host_patches_dir = manifest_dir.join("patches");
-        if host_patches_dir.exists() {
-            let mut patches: Vec<_> = std::fs::read_dir(&host_patches_dir)
-                .unwrap()
-                .filter_map(|e| e.ok().map(|e| e.path()))
-                .filter(|p| p.extension().is_some_and(|e| e == "patch"))
-                .collect();
-            patches.sort();
-            for patch in &patches {
-                let status = Command::new("git")
-                    .args(["apply", "--ignore-whitespace", "--whitespace=nowarn"])
-                    .arg(patch)
-                    .current_dir(&manifold_src)
-                    .status()
-                    .expect("failed to apply carry-patch");
-                assert!(
-                    status.success(),
-                    "failed to apply carry-patch {}",
-                    patch.display()
-                );
-            }
-        }
-
-        // wasm32-uu iostream patch.
-        let patch = wasm_dir.join("patches/0001-manifold-ifdef-iostream.patch");
-        let status = Command::new("git")
-            .args(["apply", "--ignore-whitespace", "-p0"])
-            .arg(&patch)
-            .current_dir(&manifold_src)
-            .status()
-            .expect("failed to apply wasm32-uu iostream patch to manifold");
-        assert!(
-            status.success(),
-            "wasm32-uu iostream patch failed to apply against manifold @ {MANIFOLD_VERSION}"
-        );
-
-        let _ = std::fs::write(&manifold_stamp, MANIFOLD_VERSION);
-    }
-
-    // ---- Stage 4: cmake-configure + build manifold for wasm32-uu --------
-    //
-    // The compile flags here mirror what wasm-cxx-shim's
-    // test/manifold-link/CMakeLists.txt sets via add_compile_options. We
-    // pass them via CMAKE_C_FLAGS_INIT / CMAKE_CXX_FLAGS_INIT so they
-    // reach manifold's compile rules without needing a wrapper
-    // CMakeLists.txt.
-
-    // -nostdlibinc (clang-specific) drops standard system include
-    // directories but preserves the compiler resource dir, so builtin
-    // headers like <stdint.h> and <stddef.h> still resolve. Belt-and-
-    // suspenders alongside -nostdinc++: even if the explicit -isystem
-    // chain misbehaves, the host C and C++ system paths stay excluded.
-    let cxxflags = format!(
-        "-fno-exceptions -fno-rtti -nostdlib -nostdinc++ -nostdlibinc \
-         -DMANIFOLD_NO_IOSTREAM=1 \
-         -DCLIPPER2_MAX_DECIMAL_PRECISION=8 \
-         -isystem {wasm_inc} \
-         -isystem {libcxx_inc} \
-         -isystem {shim_libm_inc} \
-         -isystem {shim_libc_inc}",
-        wasm_inc = wasm_dir.join("include").display(),
-        libcxx_inc = libcxx_headers.display(),
-        shim_libm_inc = shim_src.join("libm/include").display(),
-        shim_libc_inc = shim_src.join("libc/include").display(),
-    );
-    let cflags = format!(
-        "-nostdlib -nostdlibinc \
-         -isystem {shim_libc_inc}",
-        shim_libc_inc = shim_src.join("libc/include").display(),
-    );
 
     let status = Command::new("cmake")
         .args([
             "-S",
-            manifold_src.to_str().unwrap(),
+            wasm_dir.to_str().unwrap(),
             "-B",
             manifold_build.to_str().unwrap(),
             &format!("-DCMAKE_TOOLCHAIN_FILE={}", shim_toolchain.display()),
             "-DCMAKE_BUILD_TYPE=Release",
-            &format!("-DCMAKE_C_FLAGS_INIT={cflags}"),
-            &format!("-DCMAKE_CXX_FLAGS_INIT={cxxflags}"),
-            // Use our pre-patched Clipper2 instead of letting manifold clone its own.
-            &format!(
-                "-DFETCHCONTENT_SOURCE_DIR_CLIPPER2={}",
-                clipper2_src.display()
-            ),
-            "-DMANIFOLD_TEST=OFF",
-            "-DMANIFOLD_PYBIND=OFF",
-            "-DMANIFOLD_JSBIND=OFF",
-            "-DMANIFOLD_CBIND=ON",
-            "-DMANIFOLD_CROSS_SECTION=ON",
-            "-DMANIFOLD_PAR=OFF",
-            "-DMANIFOLD_USE_BUILTIN_CLIPPER2=ON",
-            "-DBUILD_SHARED_LIBS=OFF",
-            "-DCMAKE_POSITION_INDEPENDENT_CODE=OFF",
-            // Clipper2 default-on options pull in things we don't have.
-            "-DCLIPPER2_TESTS=OFF",
-            "-DCLIPPER2_UTILS=OFF",
-            "-DCLIPPER2_EXAMPLES=OFF",
+            &format!("-DWASM_CXX_SHIM_DIR={}", shim_src.display()),
+            &format!("-DWASM32_UU_INC_DIR={}", wasm_dir.join("include").display()),
+            &format!("-DLIBCXX_HEADERS={}", libcxx_headers.display()),
         ])
         .status()
         .expect("failed to run cmake configure for manifold (wasm32-uu)");
@@ -840,15 +667,22 @@ fn build_wasm_unknown_unknown() {
     println!("cargo:rustc-link-search=native={}", out_dir.display());
     println!("cargo:rustc-link-lib=static=cxx_extras");
 
-    let manifold_lib_dirs = [
-        manifold_build.join("bindings/c"), // libmanifoldc.a
-        manifold_build.join("src"),        // libmanifold.a
-        manifold_build.join("_deps/clipper2-build"),
-    ];
-    for d in &manifold_lib_dirs {
-        if d.exists() {
-            println!("cargo:rustc-link-search=native={}", d.display());
-        }
+    // FetchContent puts artifacts under <build>/_deps/<name>-build/, with
+    // manifold's libraries further nested under bindings/c and src. Walk
+    // the build dir rather than hardcoding paths, so we stay robust
+    // against helper/cmake layout changes.
+    for libname in ["manifoldc", "manifold", "Clipper2"] {
+        let dir = find_lib_recursive(&manifold_build, libname).unwrap_or_else(|| {
+            panic!(
+                "could not find lib{libname}.a under {}. \
+                 Expected at <build>/_deps/<name>-build/... per the helper's \
+                 FetchContent layout — if this isn't where it landed, the \
+                 wasm-cxx-shim helper or cmake's FetchContent module may have \
+                 changed shape.",
+                manifold_build.display()
+            )
+        });
+        println!("cargo:rustc-link-search=native={}", dir.display());
     }
     println!("cargo:rustc-link-lib=static=manifoldc");
     println!("cargo:rustc-link-lib=static=manifold");
