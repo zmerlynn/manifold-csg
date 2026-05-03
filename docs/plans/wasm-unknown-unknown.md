@@ -17,7 +17,7 @@ The C++ runtime gap (`wasm32-unknown-unknown` ships no libc, no libcxx,
 no libcxxabi) is filled by `wasm-cxx-shim` (pinned to v0.2.0) — a small,
 independently-maintained library providing exactly the C/C++ runtime
 subset that manifold3d (and similar C++-via-Rust crates) need. See the
-shim's `docs/context.md` for the design background.
+shim's [`docs/context.md`](https://github.com/zmerlynn/wasm-cxx-shim/blob/main/docs/context.md) for the design background.
 
 ## Scope
 
