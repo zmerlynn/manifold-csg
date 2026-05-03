@@ -87,11 +87,22 @@
             margin-top: 10px;
         }
         #status.error { color: #ff6b6b; }
+        #about {
+            font-size: 11px;
+            color: #a0a8b8;
+            margin-top: 12px;
+            line-height: 1.5;
+        }
+        #about a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        #about a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <h1>boolean playground</h1>
+        <h1>manifold-csg playground</h1>
 
         <label>Primitive A
             <select id="kind-a">
@@ -133,6 +144,16 @@
         </div>
 
         <div id="status">loading wasm…</div>
+
+        <hr>
+
+        <div id="about">
+            Live demo of <a href="https://github.com/zmerlynn/manifold-csg" target="_blank" rel="noopener">manifold-csg</a> — safe Rust bindings to the <a href="https://github.com/elalish/manifold" target="_blank" rel="noopener">manifold3d</a> CSG kernel, compiled to <code>wasm32-unknown-unknown</code> (no Emscripten, no wasm-bindgen).
+            <br>
+            <a href="https://github.com/zmerlynn/manifold-csg/tree/main/crates/manifold-csg-playground" target="_blank" rel="noopener">Source &amp; build instructions</a> ·
+            <a href="https://crates.io/crates/manifold-csg" target="_blank" rel="noopener">crates.io</a> ·
+            <a href="https://docs.rs/manifold-csg" target="_blank" rel="noopener">docs.rs</a>
+        </div>
     </div>
 
     <script type="importmap">
