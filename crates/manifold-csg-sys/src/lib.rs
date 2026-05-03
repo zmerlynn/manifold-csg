@@ -1469,11 +1469,18 @@ unsafe extern "C" {
     pub fn manifold_reset_to_circular_defaults();
 
     // ── OBJ I/O ─────────────────────────────────────────────────────────
+    //
+    // These four functions live in manifold's iostream-using path, gated by
+    // `MANIFOLD_NO_IOSTREAM` upstream-side. On wasm32-unknown-unknown we
+    // build with that macro defined (the C++ symbols don't exist), so the
+    // FFI declarations are also elided. Consumers reaching for OBJ I/O on
+    // that target should use the binary `MeshGL64` API instead.
 
     /// Import a manifold from a Wavefront obj file.
     ///
     /// The `obj_file` parameter is the content of the obj file (not the filename),
     /// and should be null-terminated.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_read_obj(
         mem: *mut ManifoldManifold,
         obj_file: *const std::ffi::c_char,
@@ -1483,6 +1490,7 @@ unsafe extern "C" {
     ///
     /// The `obj_file` parameter is the content of the obj file (not the filename),
     /// and should be null-terminated.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_meshgl64_read_obj(
         mem: *mut ManifoldMeshGL64,
         obj_file: *const std::ffi::c_char,
@@ -1493,6 +1501,7 @@ unsafe extern "C" {
     /// The callback receives a temporary null-terminated string buffer containing
     /// the obj content, plus a user-provided context pointer. The buffer is freed
     /// automatically after the callback returns.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_write_obj(
         manifold: *const ManifoldManifold,
         callback: Option<unsafe extern "C" fn(*mut std::ffi::c_char, *mut std::ffi::c_void)>,
@@ -1504,6 +1513,7 @@ unsafe extern "C" {
     /// The callback receives a temporary null-terminated string buffer containing
     /// the obj content, plus a user-provided context pointer. The buffer is freed
     /// automatically after the callback returns.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_meshgl64_write_obj(
         mesh: *const ManifoldMeshGL64,
         callback: Option<unsafe extern "C" fn(*mut std::ffi::c_char, *mut std::ffi::c_void)>,

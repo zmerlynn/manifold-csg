@@ -1408,10 +1408,17 @@ impl Manifold {
     }
 
     // ── OBJ I/O ─────────────────────────────────────────────────────
+    //
+    // OBJ I/O is unavailable on `wasm32-unknown-unknown` — manifold's
+    // OBJ paths use `<iostream>` / `<sstream>`, which depend on libc++
+    // localization machinery the freestanding wasm build excludes.
+    // Use the binary `MeshGL64` API to round-trip mesh data on that
+    // target.
 
     /// Parse a Manifold from Wavefront OBJ string content.
     ///
     /// The input should be the content of an .obj file (not a filename).
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn from_obj(obj_content: &str) -> Result<Self, CsgError> {
         let c_str = std::ffi::CString::new(obj_content)
             .map_err(|_| CsgError::InvalidInput("OBJ content contains null byte".into()))?;
@@ -1430,6 +1437,7 @@ impl Manifold {
     }
 
     /// Export this Manifold as a Wavefront OBJ string.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     #[must_use]
     pub fn to_obj(&self) -> String {
         let mut result = String::new();

@@ -1,0 +1,243 @@
+From wasm-cxx-shim Phase-7-B1 work-in-progress.
+Strip <iostream> references from Clipper2 headers so the library compiles
+without libc++'s localization machinery (which is disabled via
+_LIBCPP_HAS_LOCALIZATION=0 in the smoke test's __config_site override).
+
+Originally documented in pca006132's manifold-on-wasm experiment:
+  https://github.com/elalish/manifold/discussions/1046#discussioncomment-11302257
+
+Generated against Clipper2 SHA 46f639177fe418f9689e8ddb74f08a870c71f5b4
+(the SHA manifold v3.4.1 pins via FetchContent).
+
+Upstream PR target: AngusJohnson/Clipper2. Cleaner upstream form would
+guard the stream-using bits with `#ifndef CLIPPER2_NO_IOSTREAM`.
+
+diff --git CPP/Clipper2Lib/include/clipper2/clipper.core.h CPP/Clipper2Lib/include/clipper2/clipper.core.h
+index 99a5205..c692f36 100644
+--- CPP/Clipper2Lib/include/clipper2/clipper.core.h
++++ CPP/Clipper2Lib/include/clipper2/clipper.core.h
+@@ -14,7 +14,7 @@
+ #include <cstdint>
+ #include <vector>
+ #include <string>
+-#include <iostream>
++// #include <iostream>
+ #include <algorithm>
+ #include <numeric>
+ #include <cmath>
+@@ -166,11 +166,11 @@ namespace Clipper2Lib
+ 
+     void SetZ(const z_type z_value) { z = z_value; }
+ 
+-    friend std::ostream& operator<<(std::ostream& os, const Point& point)
+-    {
+-      os << point.x << "," << point.y << "," << point.z;
+-      return os;
+-    }
++    // friend std::ostream& operator<<(std::ostream& os, const Point& point)
++    // {
++      // os << point.x << "," << point.y << "," << point.z;
++      // return os;
++    // }
+ 
+ #else
+ 
+@@ -203,11 +203,11 @@ namespace Clipper2Lib
+       return Point(x * scale, y * scale);
+     }
+ 
+-    friend std::ostream& operator<<(std::ostream& os, const Point& point)
+-    {
+-      os << point.x << "," << point.y;
+-      return os;
+-    }
++    // friend std::ostream& operator<<(std::ostream& os, const Point& point)
++    // {
++      // os << point.x << "," << point.y;
++      // return os;
++    // }
+ #endif
+ 
+     friend bool operator==(const Point& a, const Point& b)
+@@ -396,10 +396,10 @@ namespace Clipper2Lib
+       return result;
+     }
+ 
+-    friend std::ostream& operator<<(std::ostream& os, const Rect<T>& rect) {
+-      os << "(" << rect.left << "," << rect.top << "," << rect.right << "," << rect.bottom << ") ";
+-      return os;
+-    }
++    // friend std::ostream& operator<<(std::ostream& os, const Rect<T>& rect) {
++      // os << "(" << rect.left << "," << rect.top << "," << rect.right << "," << rect.bottom << ") ";
++      // return os;
++    // }
+   };
+ 
+   template <typename T1, typename T2>
+@@ -498,26 +498,26 @@ namespace Clipper2Lib
+     return Rect<T>(xmin, ymin, xmax, ymax);
+   }
+ 
+-  template <typename T>
+-  std::ostream& operator << (std::ostream& outstream, const Path<T>& path)
+-  {
+-    if (!path.empty())
+-    {
+-      auto pt = path.cbegin(), last = path.cend() - 1;
+-      while (pt != last)
+-        outstream << *pt++ << ", ";
+-      outstream << *last << std::endl;
+-    }
+-    return outstream;
+-  }
+-
+-  template <typename T>
+-  std::ostream& operator << (std::ostream& outstream, const Paths<T>& paths)
+-  {
+-    for (auto p : paths)
+-      outstream << p;
+-    return outstream;
+-  }
++  // template <typename T>
++  // std::ostream& operator << (std::ostream& outstream, const Path<T>& path)
++  // {
++    // if (!path.empty())
++    // {
++      // auto pt = path.cbegin(), last = path.cend() - 1;
++      // while (pt != last)
++        // outstream << *pt++ << ", ";
++      // outstream << *last << std::endl;
++    // }
++    // return outstream;
++  // }
++
++  // template <typename T>
++  // std::ostream& operator << (std::ostream& outstream, const Paths<T>& paths)
++  // {
++    // for (auto p : paths)
++      // outstream << p;
++    // return outstream;
++  // }
+ 
+ 
+   template <typename T1, typename T2>
+diff --git CPP/Clipper2Lib/include/clipper2/clipper.h CPP/Clipper2Lib/include/clipper2/clipper.h
+index fe1e299..aff9f60 100644
+--- CPP/Clipper2Lib/include/clipper2/clipper.h
++++ CPP/Clipper2Lib/include/clipper2/clipper.h
+@@ -309,35 +309,35 @@ namespace Clipper2Lib {
+       return true;
+     }
+ 
+-    static void OutlinePolyPath(std::ostream& os,
+-      size_t idx, bool isHole, size_t count, const std::string& preamble)
+-    {
+-      std::string plural = (count == 1) ? "." : "s.";
+-      if (isHole)
+-        os << preamble << "+- Hole (" << idx << ") contains " << count <<
+-        " nested polygon" << plural << std::endl;
+-      else
+-        os << preamble << "+- Polygon (" << idx << ") contains " << count <<
+-          " hole" << plural << std::endl;
+-    }
+-
+-    static void OutlinePolyPath64(std::ostream& os, const PolyPath64& pp,
+-      size_t idx, std::string preamble)
+-    {
+-      OutlinePolyPath(os, idx, pp.IsHole(), pp.Count(), preamble);
+-      for (size_t i = 0; i < pp.Count(); ++i)
+-        if (pp.Child(i)->Count())
+-          details::OutlinePolyPath64(os, *pp.Child(i), i, preamble + "  ");
+-    }
+-
+-    static void OutlinePolyPathD(std::ostream& os, const PolyPathD& pp,
+-      size_t idx, std::string preamble)
+-    {
+-      OutlinePolyPath(os, idx, pp.IsHole(), pp.Count(), preamble);
+-      for (size_t i = 0; i < pp.Count(); ++i)
+-        if (pp.Child(i)->Count())
+-          details::OutlinePolyPathD(os, *pp.Child(i), i, preamble + "  ");
+-    }
++    // static void OutlinePolyPath(std::ostream& os,
++      // size_t idx, bool isHole, size_t count, const std::string& preamble)
++    // {
++      // std::string plural = (count == 1) ? "." : "s.";
++      // if (isHole)
++        // os << preamble << "+- Hole (" << idx << ") contains " << count <<
++        // " nested polygon" << plural << std::endl;
++      // else
++        // os << preamble << "+- Polygon (" << idx << ") contains " << count <<
++          // " hole" << plural << std::endl;
++    // }
++
++    // static void OutlinePolyPath64(std::ostream& os, const PolyPath64& pp,
++      // size_t idx, std::string preamble)
++    // {
++      // OutlinePolyPath(os, idx, pp.IsHole(), pp.Count(), preamble);
++      // for (size_t i = 0; i < pp.Count(); ++i)
++        // if (pp.Child(i)->Count())
++          // details::OutlinePolyPath64(os, *pp.Child(i), i, preamble + "  ");
++    // }
++
++    // static void OutlinePolyPathD(std::ostream& os, const PolyPathD& pp,
++      // size_t idx, std::string preamble)
++    // {
++      // OutlinePolyPath(os, idx, pp.IsHole(), pp.Count(), preamble);
++      // for (size_t i = 0; i < pp.Count(); ++i)
++        // if (pp.Child(i)->Count())
++          // details::OutlinePolyPathD(os, *pp.Child(i), i, preamble + "  ");
++    // }
+ 
+     template<typename T, typename U>
+     inline constexpr void MakePathGeneric(const T an_array,
+@@ -377,28 +377,28 @@ namespace Clipper2Lib {
+ 
+   } // end details namespace
+ 
+-  inline std::ostream& operator<< (std::ostream& os, const PolyTree64& pp)
+-  {
+-    std::string plural = (pp.Count() == 1) ? " polygon." : " polygons.";
+-    os << std::endl << "Polytree with " << pp.Count() << plural << std::endl;
+-      for (size_t i = 0; i < pp.Count(); ++i)
+-        if (pp.Child(i)->Count())
+-          details::OutlinePolyPath64(os, *pp.Child(i), i, "  ");
+-    os << std::endl << std::endl;
+-    return os;
+-  }
+-
+-  inline std::ostream& operator<< (std::ostream& os, const PolyTreeD& pp)
+-  {
+-    std::string plural = (pp.Count() == 1) ? " polygon." : " polygons.";
+-    os << std::endl << "Polytree with " << pp.Count() << plural << std::endl;
+-    for (size_t i = 0; i < pp.Count(); ++i)
+-      if (pp.Child(i)->Count())
+-        details::OutlinePolyPathD(os, *pp.Child(i), i, "  ");
+-    os << std::endl << std::endl;
+-    if (!pp.Level()) os << std::endl;
+-    return os;
+-  }
++  // inline std::ostream& operator<< (std::ostream& os, const PolyTree64& pp)
++  // {
++    // std::string plural = (pp.Count() == 1) ? " polygon." : " polygons.";
++    // os << std::endl << "Polytree with " << pp.Count() << plural << std::endl;
++      // for (size_t i = 0; i < pp.Count(); ++i)
++        // if (pp.Child(i)->Count())
++          // details::OutlinePolyPath64(os, *pp.Child(i), i, "  ");
++    // os << std::endl << std::endl;
++    // return os;
++  // }
++
++  // inline std::ostream& operator<< (std::ostream& os, const PolyTreeD& pp)
++  // {
++    // std::string plural = (pp.Count() == 1) ? " polygon." : " polygons.";
++    // os << std::endl << "Polytree with " << pp.Count() << plural << std::endl;
++    // for (size_t i = 0; i < pp.Count(); ++i)
++      // if (pp.Child(i)->Count())
++        // details::OutlinePolyPathD(os, *pp.Child(i), i, "  ");
++    // os << std::endl << std::endl;
++    // if (!pp.Level()) os << std::endl;
++    // return os;
++  // }
+ 
+   inline Paths64 PolyTreeToPaths64(const PolyTree64& polytree)
+   {

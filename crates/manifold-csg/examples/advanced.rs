@@ -1,9 +1,20 @@
 //! Advanced operations: SDF, warp, OBJ I/O, properties, and threading.
 //!
 //! Run with: `cargo run -p manifold-csg --example advanced`
+//!
+//! Not buildable on `wasm32-unknown-unknown`: this example uses OBJ I/O
+//! (cfg-gated out on that target) and `std::thread::spawn` (no native
+//! threads). The example is replaced with a stub on that target so
+//! `cargo build --examples` succeeds. See `examples/wasm32_uu_smoke.rs`
+//! for what does work there.
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 use manifold_csg::Manifold;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+fn main() {}
+
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 fn main() {
     // -- SDF (signed distance function) --------------------------------------
     // Construct geometry from a mathematical function.

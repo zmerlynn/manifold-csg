@@ -14,9 +14,12 @@ build = "build.rs"
 default = ["parallel"]
 parallel = ["manifold-csg-sys/parallel"]
 nalgebra = ["dep:nalgebra"]
+# Forwarding of the sys-crate's wasm32-unknown-unknown opt-in. See the
+# "Browser without Emscripten" section of the README.
+unstable-wasm-uu = ["manifold-csg-sys/unstable-wasm-uu"]
 
 [dependencies]
-manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.4.104", default-features = false }
+manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.4.105", default-features = false }
 thiserror = "2"
 log = "0.4"
 nalgebra = { version = "0.34", optional = true }

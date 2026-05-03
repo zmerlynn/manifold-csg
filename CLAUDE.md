@@ -6,6 +6,7 @@ Safe Rust bindings to the [manifold3d](https://github.com/elalish/manifold) geom
 
 - `crates/manifold-csg-sys/` — Raw C FFI bindings (`links = "manifold"`)
 - `crates/manifold-csg/` — Safe Rust wrapper (the primary public API)
+- `crates/manifold-csg-sys/wasm32-uu/` — Vendored helper files (config_site, mutex stub, libcxx-extras.cpp, iostream-stripping patches) used only when building for `wasm32-unknown-unknown`. See `docs/plans/wasm-unknown-unknown.md`.
 - `docs/plans/` — Design docs for in-flight or speculative work (e.g. new target support, large refactors). Lives in the repo so it travels with branches and stays reviewable; preferred over scattered GitHub issue prose for anything bigger than a paragraph.
 
 ## Build

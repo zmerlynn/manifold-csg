@@ -1035,6 +1035,7 @@ fn from_sdf_creates_manifold() {
 // ── OBJ I/O tests ───────────────────────────────────────────────────
 
 #[test]
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 fn obj_round_trip() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
     let obj_str = cube.to_obj();
@@ -1047,6 +1048,7 @@ fn obj_round_trip() {
 }
 
 #[test]
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 fn from_obj_invalid_returns_error() {
     let result = Manifold::from_obj("not valid obj data");
     // Either parses as empty or returns error — both are acceptable.
@@ -2088,6 +2090,7 @@ fn cross_section_boolean_subtract() {
 // ── MeshGL64 OBJ I/O ──────────────────────────────────────────────────
 
 #[test]
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 fn meshgl64_obj_round_trip() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();

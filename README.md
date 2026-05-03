@@ -94,7 +94,8 @@ cargo build           # builds both crates
 cargo test --features nalgebra   # runs the test suite
 ```
 
-Tested on Linux, macOS, Windows, and `wasm32-unknown-emscripten` (see below).
+Tested on Linux, macOS, Windows, `wasm32-unknown-emscripten`, and
+`wasm32-unknown-unknown` (see below).
 
 ### Browser / WebAssembly (`wasm32-unknown-emscripten`)
 
@@ -121,9 +122,8 @@ Notes:
   via COOP/COEP HTTP headers. Use `--no-default-features` to opt out cleanly.
 - Tests using `std::thread::spawn` are marked `#[ignore]` on this target for
   the same reason.
-- We do *not* support `wasm32-unknown-unknown` (no libc/libcxx — see
-  [issue #30](https://github.com/zmerlynn/manifold-csg/issues/30) and
-  [docs/plans/wasm-emscripten.md](docs/plans/wasm-emscripten.md) for context).
+- For `wasm32-unknown-unknown` support (the wasm-bindgen-compatible
+  target), see the next section.
 - End-user crates that produce their own `bin`/`cdylib` from a wasm build
   need to forward the same emscripten link flags. Add a one-line `build.rs`
   that re-emits `DEP_MANIFOLD_LINK_ARGS`, or set them via `.cargo/config.toml`.
@@ -131,12 +131,73 @@ Notes:
   `cargo build --example basics --target wasm32-unknown-emscripten -p manifold-csg --no-default-features`
   produces a `.wasm` + `.js` shim you can run with `node target/wasm32-unknown-emscripten/debug/examples/basics.js`.
 
+### Browser without Emscripten (`wasm32-unknown-unknown`)
+
+`manifold-csg` also builds for the bare-wasm target — the same one
+`wasm-bindgen` consumers (Bevy, Leptos, Yew, etc.) target. The C++
+runtime gap (`wasm32-unknown-unknown` ships no libc, no libc++, no
+libc++abi) is filled by [`wasm-cxx-shim`](https://github.com/zmerlynn/wasm-cxx-shim),
+which is cloned and built automatically by `build.rs`.
+
+**This target is provisional.** The build carries patches against upstream
+manifold and Clipper2, ships without an exception runtime (implicit STL
+throws abort), and disables OBJ I/O. To acknowledge these constraints,
+the `unstable-wasm-uu` cargo feature is required for any build targeting
+`wasm32-unknown-unknown`. Without it, `build.rs` aborts with an instructive
+error.
+
+```toml
+manifold-csg = { version = "...", default-features = false, features = ["unstable-wasm-uu"] }
+```
+
+Requirements:
+
+- A wasm-capable LLVM 20+ install:
+  - macOS: `brew install llvm` (then add `/opt/homebrew/opt/llvm@20/bin` to PATH)
+  - Debian: `apt install clang-20 lld-20 libc++-20-dev libc++abi-20-dev`
+- Rust target: `rustup target add wasm32-unknown-unknown`
+- If LLVM is in a non-standard location, set
+  `WASM_CXX_SHIM_LLVM_BIN_DIR=/path/to/llvm/bin` in your environment.
+
+```sh
+cargo build --target wasm32-unknown-unknown -p manifold-csg \
+    --no-default-features --features unstable-wasm-uu
+```
+
+A runnable smoke example exercises a real CSG operation under Node:
+
+```sh
+cargo build --example wasm32_uu_smoke --target wasm32-unknown-unknown \
+    -p manifold-csg --no-default-features --features unstable-wasm-uu
+node crates/manifold-csg/wasm32-uu-runner/run.mjs \
+    target/wasm32-unknown-unknown/debug/examples/wasm32_uu_smoke.wasm
+# wasm32-uu-smoke: smoke_run() = 36 (triangle count, > 0) ✓
+```
+
+Notes:
+
+- First build is slow (clones manifold + Clipper2 + wasm-cxx-shim, builds
+  three cmake projects in cross-compile). Subsequent builds use the cached
+  artifacts.
+- The `parallel` feature is unavailable on this target (no threads in
+  default `wasm32-unknown-unknown`).
+- OBJ I/O is unavailable on this target (`Manifold::from_obj`/`to_obj` and
+  `MeshGL64::from_obj`/`to_obj` are `#[cfg]`-elided). Manifold's iostream-
+  based OBJ paths depend on libc++ machinery the freestanding wasm build
+  excludes; use the binary `MeshGL64` API to round-trip mesh data instead.
+- Exceptions abort. Compiled with `-fno-exceptions`; implicit STL throws
+  (`bad_alloc`, etc.) become unrecoverable wasm traps.
+- See [`docs/plans/wasm-unknown-unknown.md`](docs/plans/wasm-unknown-unknown.md)
+  for the design background and production-readiness checklist.
+- If the build fails, run `bash crates/manifold-csg-sys/wasm32-uu/diagnose.sh > bugreport.txt 2>&1` and attach the output to your issue — it captures the LLVM probe ladder, env vars, and cached build state.
+
 ## Feature flags
 
 | Feature | Default | Description |
 |---------|---------|-------------|
 | `parallel` | yes | Enables TBB-based parallelism for boolean operations |
 | `nalgebra` | no | Adds convenience methods that accept `nalgebra::Matrix3`, `Vector3`, `Point3` |
+| `unstable-wasm-uu` | no | **Required** when targeting `wasm32-unknown-unknown`. Acknowledges that target's provisional status (carry-patches, no exceptions, no OBJ I/O). Has no effect on other targets. |
 
 ## Documentation
 
