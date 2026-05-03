@@ -195,7 +195,7 @@ This crate tracks manifold3d upstream. Verify:
 - Pinned version in `build.rs` — what version are we on? What's latest? What changed?
 - ABI compatibility — have any C API function signatures changed in newer manifold3d releases?
 - Deprecated functions — are we binding any C API functions that upstream has deprecated?
-- **wasm32-unknown-unknown cfg-gates may need revisiting.** Grep for `target_os = "unknown"` across the workspace. Each gated FFI declaration / safe wrapper / test is gated because that C API surface postdates the shim's tested manifold pin. When the shim's tested pin moves to (or past) our host pin, those gates can be removed. Currently gated: `manifold_ray_*` (ray casting). The OBJ I/O gates are gated for a different reason (iostream patches strip them) and stay regardless.
+- **wasm32-unknown-unknown cfg-gates may need revisiting.** Grep for `target_os = "unknown"` across the workspace. Each gated FFI declaration / safe wrapper / test is gated because that C API surface postdates the shim's tested manifold pin. When the shim's tested pin moves to (or past) our host pin, those gates can be removed. The OBJ I/O gates (`manifold_*_obj`) are gated for a different reason (iostream patches strip them) and stay regardless.
 - New capabilities — has upstream added significant new C API surface (new types, new operations) that we're missing?
 - Build system changes — has manifold3d changed its CMake structure, added/removed FetchContent deps, changed library names?
 - Known upstream bugs — check manifold3d issues for bugs affecting functions we bind (especially boolean operations, MeshGL64, CrossSection offset)

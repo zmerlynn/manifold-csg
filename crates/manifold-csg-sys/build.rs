@@ -404,7 +404,11 @@ fn main() {
 // build.rs instead of a cmake file).
 
 const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
-const WASM_CXX_SHIM_TAG: &str = "v0.3.0";
+// v0.4.0-alpha.1 pins manifold to the same commit as our host build
+// (`5f95a3ac`), so the wasm-uu lane sees the same C API surface (including
+// ray_cast). Will move to non-alpha v0.4.0 once upstream manifold#1690
+// (the iostream gating PR the alpha vendors as a carry-patch) merges.
+const WASM_CXX_SHIM_TAG: &str = "v0.4.0-alpha.1+5f95a3ac";
 
 fn build_wasm_unknown_unknown() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -550,13 +554,14 @@ fn build_wasm_unknown_unknown() {
 
     // ---- Stage 2: build manifold + Clipper2 via the shim's helper -------
     //
-    // wasm-cxx-shim v0.3.0 ships `wasm_cxx_shim_add_manifold()`, which
-    // owns the high-change-rate parts of the integration cocktail:
-    // FetchContent of manifold + Clipper2 (with tested-pin defaults, the
-    // three carry-patches, and manifold/Clipper2 CMake options). Our
-    // wrapper at wasm32-uu/CMakeLists.txt sets up the consumer-side
-    // `-isystem` chain (libc++ headers + our `__config_site` override +
-    // the `<mutex>` stub) and calls the helper.
+    // The shim's `wasm_cxx_shim_add_manifold()` helper owns the high-
+    // change-rate parts of the integration cocktail: FetchContent of
+    // manifold + Clipper2 (with tested-pin defaults, carry-patches, and
+    // manifold/Clipper2 CMake options). Our wrapper at
+    // wasm32-uu/CMakeLists.txt sets up the consumer-side `-isystem`
+    // chain (libc++ headers + our `__config_site` override + the
+    // `<mutex>` stub) and calls the helper. See WASM_CXX_SHIM_TAG above
+    // for the pinned version.
 
     let manifold_build = out_dir.join("manifold-build-wasm32-uu");
 

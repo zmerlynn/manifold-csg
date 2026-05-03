@@ -34,6 +34,7 @@ git checkout -b update-upstream-<ref>
 - Otherwise, query upstream master HEAD: `gh api repos/elalish/manifold/git/refs/heads/master --jq '.object.sha'`
 - Show the user: current pin (from `MANIFOLD_VERSION` in `crates/manifold-csg-sys/build.rs`), the target, and a one-line commit summary of what's between them: `gh api repos/elalish/manifold/compare/<current>...<target> --jq '{ahead_by: .ahead_by, commits: [.commits[] | {sha: .sha[0:8], message: (.commit.message | split("\n")[0])}]}'`
 - Confirm before proceeding.
+- **Check shim coverage.** Before committing to the target, verify `wasm-cxx-shim` supports it. Look at the latest shim release's `MANIFOLD_GIT_TAG` default (in the helper at `cmake/WasmCxxShimManifold.cmake`, or in the release notes). If the target SHA is past the shim's tested pin, flag it: either pick a target the shim already supports, or be ready to cfg-gate any new C API on `not(all(target_arch = "wasm32", target_os = "unknown"))` (the wasm-uu lane will fall back to the shim's tested pin via `wasm_cxx_shim_add_manifold()`'s default). Mismatch without gating produces wasm-uu link failures — see CLAUDE.md "Versioning" section.
 
 ### 3. Update the pin
 
