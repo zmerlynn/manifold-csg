@@ -90,6 +90,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_original_id` | [`Manifold::original_id`](crates/manifold-csg/src/manifold.rs#L934) |
 | `manifold_min_gap` | [`Manifold::min_gap`](crates/manifold-csg/src/manifold.rs#L941) |
 | `manifold_status` | Internal |
+| `manifold_status_with_context` | [`Manifold::status_with_context`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_as_original` | [`Manifold::as_original`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_manifold_size` | Not needed (alloc size) |
 | `manifold_manifold_pair_size` | Not needed (alloc size) |
@@ -330,6 +331,16 @@ Used internally by batch operations, decompose, etc.
 | `manifold_cross_section_vec_set` | Not used |
 | `manifold_cross_section_vec_size` | Not used |
 
+## Execution Context (cancellation + progress)
+
+| C API function | Safe wrapper |
+|---|---|
+| `manifold_execution_context` | [`ExecutionContext::new`](crates/manifold-csg/src/execution.rs) |
+| `manifold_execution_context_cancel` | [`ExecutionContext::cancel`](crates/manifold-csg/src/execution.rs) |
+| `manifold_execution_context_cancelled` | [`ExecutionContext::is_cancelled`](crates/manifold-csg/src/execution.rs) |
+| `manifold_execution_context_progress` | [`ExecutionContext::progress`](crates/manifold-csg/src/execution.rs) |
+| `manifold_execution_context_size` | Not needed (alloc size) |
+
 ## Allocation & Deallocation (Internal)
 
 Every `manifold_alloc_*` and `manifold_delete_*`/`manifold_destruct_*` function
@@ -338,9 +349,9 @@ and `Drop` implementations.
 
 | Function group | Count |
 |---|---|
-| `manifold_alloc_*` | 12 |
-| `manifold_delete_*` | 12 |
-| `manifold_destruct_*` | 12 |
+| `manifold_alloc_*` | 13 |
+| `manifold_delete_*` | 13 |
+| `manifold_destruct_*` | 13 |
 
 ---
 

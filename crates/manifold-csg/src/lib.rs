@@ -21,6 +21,7 @@
 
 pub mod bounding_box;
 pub mod cross_section;
+pub mod execution;
 pub mod manifold;
 pub mod mesh;
 pub mod ray;
@@ -30,6 +31,7 @@ pub mod types;
 
 pub use bounding_box::BoundingBox;
 pub use cross_section::{CrossSection, FillRule, JoinType, Rect2};
+pub use execution::ExecutionContext;
 pub use manifold::Manifold;
 pub use manifold::{
     get_circular_segments, reserve_ids, reset_to_circular_defaults, set_circular_segments,

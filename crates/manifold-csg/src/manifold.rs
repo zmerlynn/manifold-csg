@@ -1224,6 +1224,36 @@ impl Manifold {
         unsafe { manifold_min_gap(self.ptr, other.ptr, search_length) }
     }
 
+    // ── Cancellable evaluation ──────────────────────────────────────
+
+    /// Force evaluation of this manifold's lazy CSG tree under a cancellable
+    /// [`ExecutionContext`](crate::ExecutionContext), returning the result
+    /// status.
+    ///
+    /// Manifold operations are lazy: building a CSG tree is cheap and
+    /// synchronous; the actual evaluation happens when something queries
+    /// the result. Calling this method triggers that evaluation while
+    /// observing `ctx` — if `ctx` is cancelled (typically from another
+    /// thread), the evaluation aborts at the next boolean boundary and
+    /// returns a cancellation status. See the [`execution`](crate::execution)
+    /// module docs for the full pattern.
+    ///
+    /// Equivalent to upstream's `manifold_status_with_context`.
+    ///
+    /// Concurrent calls on the same `Manifold` with different contexts are
+    /// permitted (`Manifold: Sync`); upstream synchronizes the lazy-eval
+    /// cache. Each context observes its own progress and cancel state.
+    #[must_use]
+    pub fn status_with_context(
+        &self,
+        ctx: &crate::ExecutionContext,
+    ) -> manifold_csg_sys::ManifoldError {
+        // SAFETY: self.ptr is a valid handle; ctx.as_ptr() is valid for
+        // the lifetime of `ctx`. Upstream documents thread-safe access to
+        // the context, so concurrent cancel from another thread is fine.
+        unsafe { manifold_status_with_context(self.ptr, ctx.as_ptr()) }
+    }
+
     // ── Ray casting ─────────────────────────────────────────────────
 
     /// Cast a ray against this manifold, returning all intersection hits.

@@ -2277,3 +2277,67 @@ fn wasm_smoke_memory_growth_path() {
     // 4/3 * pi * r^3 = 33.51 per sphere, * 30 ≈ 1005, allow some slack.
     assert!(combined.volume() > 800.0);
 }
+
+// ── ExecutionContext tests ──────────────────────────────────────────
+
+#[test]
+fn execution_context_initial_state() {
+    let ctx = manifold_csg::ExecutionContext::new();
+    assert!(!ctx.is_cancelled());
+    assert_eq!(ctx.progress(), 0.0);
+}
+
+#[test]
+fn execution_context_cancel_is_sticky() {
+    let ctx = manifold_csg::ExecutionContext::new();
+    assert!(!ctx.is_cancelled());
+    ctx.cancel();
+    assert!(ctx.is_cancelled());
+    // Sticky: still cancelled on subsequent reads.
+    assert!(ctx.is_cancelled());
+}
+
+#[test]
+#[cfg_attr(
+    target_os = "emscripten",
+    ignore = "default build has no pthreads (-pthread requires SharedArrayBuffer + COOP/COEP from host)"
+)]
+fn execution_context_cross_thread_cancel() {
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::Duration;
+
+    let ctx = Arc::new(manifold_csg::ExecutionContext::new());
+    let cancel = Arc::clone(&ctx);
+
+    let handle = thread::spawn(move || {
+        // Trivially small sleep — we just want to prove cancel from another
+        // thread becomes visible to the original via shared upstream state.
+        thread::sleep(Duration::from_millis(5));
+        cancel.cancel();
+    });
+
+    handle.join().unwrap();
+    assert!(ctx.is_cancelled());
+}
+
+#[test]
+fn manifold_status_with_context_no_cancel() {
+    use manifold_csg_sys::ManifoldError;
+    let cube = Manifold::cube(1.0, 1.0, 1.0, true);
+    let ctx = manifold_csg::ExecutionContext::new();
+    // Trivial Manifold; evaluation finishes immediately.
+    assert_eq!(cube.status_with_context(&ctx), ManifoldError::NoError);
+}
+
+#[test]
+fn manifold_status_with_context_already_cancelled() {
+    let cube = Manifold::cube(1.0, 1.0, 1.0, true);
+    let ctx = manifold_csg::ExecutionContext::new();
+    ctx.cancel();
+    // We don't assert on the specific status code — upstream may surface
+    // cancellation as NoError for trivial work that doesn't poll the flag,
+    // or as a specific cancellation status. We just want to prove the call
+    // is well-formed and doesn't panic / leak / crash.
+    let _ = cube.status_with_context(&ctx);
+}
