@@ -799,7 +799,11 @@ fn min_gap_between_separated_cubes() {
 }
 
 // ── Ray casting tests ──────────────────────────────────────────────
+//
+// `Manifold::ray_cast` is unavailable on `wasm32-unknown-unknown` (the shim's
+// tested manifold pin predates ray casting), so these tests are gated off.
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 #[test]
 fn ray_cast_through_cube() {
     // Cube from [0,0,0] to [10,10,10].
@@ -815,6 +819,7 @@ fn ray_cast_through_cube() {
     assert_relative_eq!(distances[1], 10.0, epsilon = 0.1);
 }
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 #[test]
 fn ray_cast_miss() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
@@ -823,6 +828,7 @@ fn ray_cast_miss() {
     assert!(hits.is_empty());
 }
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 #[test]
 fn ray_cast_hit_has_normal() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);

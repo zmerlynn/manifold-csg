@@ -1231,6 +1231,10 @@ impl Manifold {
     /// The ray goes from `origin` to `end`. Returns a list of [`RayHit`](crate::RayHit)
     /// results, each containing the face ID, distance, hit position, and
     /// surface normal.
+    ///
+    /// Unavailable on `wasm32-unknown-unknown` — that lane builds against the
+    /// shim's tested manifold pin (v3.4.1), which predates ray casting.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     #[must_use]
     pub fn ray_cast(&self, origin: [f64; 3], end: [f64; 3]) -> Vec<crate::RayHit> {
         // SAFETY: manifold_alloc_ray_hit_vec returns a valid handle.
