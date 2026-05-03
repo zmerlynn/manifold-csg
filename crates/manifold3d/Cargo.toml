@@ -13,9 +13,10 @@ categories = ["algorithms", "mathematics"]
 default = ["parallel"]
 parallel = ["manifold-csg/parallel"]
 nalgebra = ["manifold-csg/nalgebra"]
+unstable-wasm-uu = ["manifold-csg/unstable-wasm-uu"]
 
 [dependencies]
-manifold-csg = { path = "../manifold-csg", version = "=0.1.5", default-features = false }
+manifold-csg = { path = "../manifold-csg", version = "=0.1.6", default-features = false }
 
 [package.metadata.docs.rs]
 features = ["nalgebra", "parallel"]

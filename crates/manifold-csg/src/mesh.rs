@@ -555,6 +555,10 @@ impl MeshGL64 {
     }
 
     /// Read a MeshGL64 from a Wavefront OBJ string.
+    ///
+    /// Unavailable on `wasm32-unknown-unknown` (manifold's iostream-based
+    /// OBJ paths are excluded from the freestanding wasm build).
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn from_obj(obj_content: &str) -> Result<Self, crate::types::CsgError> {
         let c_str = std::ffi::CString::new(obj_content).map_err(|_| {
             crate::types::CsgError::InvalidInput("OBJ content contains null byte".into())
@@ -567,6 +571,9 @@ impl MeshGL64 {
     }
 
     /// Export this mesh as a Wavefront OBJ string.
+    ///
+    /// Unavailable on `wasm32-unknown-unknown` (see [`from_obj`](Self::from_obj)).
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     #[must_use]
     pub fn to_obj(&self) -> String {
         let mut result = String::new();

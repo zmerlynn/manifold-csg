@@ -32,8 +32,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/cache-version') }}
-          restore-keys: ${{ runner.os }}-cargo-msrv-
+          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-msrv-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
       # nalgebra 0.34 (unconditional dev-dep) requires Rust 1.87+,
       # so MSRV check verifies the library builds but skips tests.
       - name: Build
@@ -51,8 +51,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/cache-version') }}
-          restore-keys: ${{ runner.os }}-cargo-docs-
+          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-docs-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
       - name: Doc
         run: cargo doc --no-deps --features nalgebra
         env:
@@ -73,8 +73,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-semver-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
-          restore-keys: ${{ runner.os }}-cargo-semver-
+          key: ${{ runner.os }}-cargo-semver-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-semver-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
       - name: Check semver
         run: cargo semver-checks -p manifold-csg
 
@@ -111,8 +111,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/patches/*', 'crates/manifold-csg-sys/cache-version') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          key: ${{ runner.os }}-cargo-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/patches/*') }}
+          restore-keys: ${{ runner.os }}-cargo-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
 
       - name: Build
         run: cargo build --features nalgebra
@@ -137,8 +137,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-nopar-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/cache-version') }}
-          restore-keys: ${{ runner.os }}-cargo-nopar-
+          key: ${{ runner.os }}-cargo-nopar-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-nopar-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
 
       - name: Build (no parallel)
         run: cargo build --no-default-features
@@ -169,8 +169,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-emscripten-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/cache-version') }}
-          restore-keys: ${{ runner.os }}-cargo-emscripten-
+          key: ${{ runner.os }}-cargo-emscripten-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-emscripten-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
 
       # MANIFOLD_PAR is forced off for emscripten regardless of feature flags
       # (TBB needs SharedArrayBuffer + COOP/COEP HTTP headers from the host).
@@ -189,3 +189,82 @@ jobs:
         env:
           CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUNNER: node
         run: cargo test --target wasm32-unknown-emscripten -p manifold-csg --no-default-features --tests
+
+  wasm32-uu:
+    name: Wasm32 (unknown-unknown)
+    runs-on: ubuntu-latest
+    env:
+      # Pinned LLVM bin dir for build.rs's find_llvm() to skip detection
+      # ladder. apt.llvm.org installs the toolchain here on Debian-family.
+      WASM_CXX_SHIM_LLVM_BIN_DIR: /usr/lib/llvm-20/bin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      # Install LLVM 20 with libc++/libc++abi headers and lld for the
+      # wasm-cxx-shim build path. The shim's toolchain file probes
+      # /usr/lib/llvm-N/bin so this layout is what it expects. wabt
+      # provides wasm-objdump for the import-section assertions below.
+      - name: Install LLVM 20 + libc++ + lld + wabt
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-20 lld-20 libc++-20-dev libc++abi-20-dev wabt
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/wasm32-uu/**', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
+
+      # Build the sys crate first to surface cmake/clang errors clearly.
+      # `unstable-wasm-uu` is required by build.rs for this target.
+      - name: Build manifold-csg-sys
+        run: cargo build --target wasm32-unknown-unknown -p manifold-csg-sys --features unstable-wasm-uu
+
+      - name: Build manifold-csg (with tests + examples)
+        # --examples catches new examples that aren't portable to this target
+        # (e.g. an OBJ-using example that needs cfg-gating).
+        run: cargo build --target wasm32-unknown-unknown -p manifold-csg --no-default-features --features unstable-wasm-uu --tests --examples
+
+      # Verify the produced test wasm has zero unexpected imports —
+      # confirms the shim covered every C/C++ runtime symbol manifold needs
+      # and the iostream patches successfully eliminated the OBJ I/O imports.
+      - name: Verify zero imports (integration test wasm)
+        run: |
+          WASM=$(ls -t target/wasm32-unknown-unknown/debug/deps/integration-*.wasm | head -1)
+          echo "Inspecting: $WASM"
+          # wasm-objdump prints "Section not found: Import" when there's no Import section.
+          if wasm-objdump -x -j Import "$WASM" 2>&1 | grep -q "Section not found"; then
+            echo "✓ wasm has no Import section — clean link"
+          else
+            echo "✗ wasm has unexpected imports:"
+            wasm-objdump -x -j Import "$WASM"
+            exit 1
+          fi
+
+      # The smoke wasm was already built by the --examples step above.
+      # Verify it links cleanly and runs under Node — exercises a real
+      # CSG operation (cube + translated cube → boolean union → triangle
+      # count) end-to-end, proving the link cocktail actually works at
+      # runtime, not just at link time.
+      - name: Verify zero imports (smoke example wasm)
+        run: |
+          WASM=target/wasm32-unknown-unknown/debug/examples/wasm32_uu_smoke.wasm
+          if wasm-objdump -x -j Import "$WASM" 2>&1 | grep -q "Section not found"; then
+            echo "✓ smoke wasm has no Import section"
+          else
+            echo "✗ smoke wasm has unexpected imports:"
+            wasm-objdump -x -j Import "$WASM"
+            exit 1
+          fi
+
+      - name: Run smoke under Node
+        run: node crates/manifold-csg/wasm32-uu-runner/run.mjs target/wasm32-unknown-unknown/debug/examples/wasm32_uu_smoke.wasm
