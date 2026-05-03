@@ -6,7 +6,7 @@ Safe Rust bindings to the [manifold3d](https://github.com/elalish/manifold) geom
 
 - `crates/manifold-csg-sys/` — Raw C FFI bindings (`links = "manifold"`)
 - `crates/manifold-csg/` — Safe Rust wrapper (the primary public API)
-- `crates/manifold-csg-sys/wasm32-uu/` — Vendored helper files (config_site, mutex stub, libcxx-extras.cpp, iostream-stripping patches) used only when building for `wasm32-unknown-unknown`. See `docs/plans/wasm-unknown-unknown.md`.
+- `crates/manifold-csg-sys/wasm32-uu/` — Vendored helper files (config_site, mutex stub, libcxx-extras.cpp, iostream-stripping patches) used only when building for `wasm32-unknown-unknown`. See [`docs/plans/wasm-unknown-unknown.md`](docs/plans/wasm-unknown-unknown.md).
 - `crates/manifold-csg-playground/` — Browser-based demo (`publish = false`); also serves as a real-world consumer test for the `wasm32-unknown-unknown` build path. cdylib that exposes a tiny C ABI to a three.js frontend (`web/`) for interactively booleaning two primitives, with Node-side unit tests under `tests/` covering the wasm ABI and the JS/three.js glue.
 - `docs/plans/` — Design docs for in-flight or speculative work (e.g. new target support, large refactors). Lives in the repo so it travels with branches and stays reviewable; preferred over scattered GitHub issue prose for anything bigger than a paragraph.
 

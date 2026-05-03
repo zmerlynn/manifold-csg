@@ -2,16 +2,16 @@
 
 Patches applied to manifold and Clipper2 source trees during the
 `wasm32-unknown-unknown` build path. Sibling to (and distinct from) the
-host carry-patches under `../../patches/`, which target the same
+host carry-patches under [`../../patches/`](../../patches/), which target the same
 manifold tree but a different build configuration.
 
 ## Files
 
-- `0001-manifold-ifdef-iostream.patch` — wraps manifold's iostream-using
+- [`0001-manifold-ifdef-iostream.patch`](0001-manifold-ifdef-iostream.patch) — wraps manifold's iostream-using
   OBJ I/O paths under `MANIFOLD_NO_IOSTREAM`. Generated against our
   pinned manifold SHA (post-3.4.1 master). Three blocks across
   `bindings/c/manifoldc.cpp` and `src/impl.cpp`.
-- `0002-clipper2-strip-iostream.patch` — strips `<iostream>` from
+- [`0002-clipper2-strip-iostream.patch`](0002-clipper2-strip-iostream.patch) — strips `<iostream>` from
   Clipper2 headers. Verbatim from
   [wasm-cxx-shim's reference impl](https://github.com/zmerlynn/wasm-cxx-shim/blob/main/test/manifold-link/patches/0001-clipper2-strip-iostream.patch);
   applies to the SHA manifold pins (`46f6391...`, see
@@ -48,6 +48,6 @@ bump `MANIFOLD_VERSION` in `build.rs` and the wasm32-uu lane fails:
    and `src/impl.cpp` to match the new line numbers.
 4. Regenerate: `git diff --no-prefix bindings/c/manifoldc.cpp src/impl.cpp > new.patch`.
 5. Splice the new patch body under the existing header comment in
-   `0001-manifold-ifdef-iostream.patch`.
+   [`0001-manifold-ifdef-iostream.patch`](0001-manifold-ifdef-iostream.patch).
 
 Same flow for Clipper2 if the upstream pin moves.

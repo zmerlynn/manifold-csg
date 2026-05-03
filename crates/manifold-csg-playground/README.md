@@ -29,7 +29,7 @@ If LLVM 20+ is not on `PATH`, point at it via env var:
 WASM_CXX_SHIM_LLVM_BIN_DIR=/usr/lib/llvm-20/bin bash build.sh
 ```
 
-See `../../docs/plans/wasm-unknown-unknown.md` and the workspace `README.md`
+See [`../../docs/plans/wasm-unknown-unknown.md`](../../docs/plans/wasm-unknown-unknown.md) and the workspace [`README.md`](../../README.md)
 "Browser without Emscripten" section for the full toolchain story.
 
 ## Tests
