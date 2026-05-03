@@ -17,8 +17,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 import {
-    KIND_CUBE, KIND_SPHERE, KIND_CYLINDER,
-    OP_UNION,
+    KIND_CUBE, KIND_SPHERE, KIND_CYLINDER, KIND_MENGER,
+    OP_INTERSECTION,
     pushTransform as pushTransformImpl,
     setPrimitive as setPrimitiveImpl,
     rebuildIntoMesh,
@@ -96,6 +96,10 @@ function makeProxyGeometry(kind) {
             g.rotateX(Math.PI / 2);
             return g;
         }
+        // Menger sponge occupies the same unit-cube bounding box as a cube;
+        // a wireframe box is sufficient for gizmo manipulation. The actual
+        // fractal is rendered from the wasm-side rebuild() output.
+        case KIND_MENGER:   return new THREE.BoxGeometry(1.0, 1.0, 1.0);
     }
     return new THREE.BoxGeometry(1, 1, 1);
 }
@@ -130,8 +134,8 @@ function makeSlot(slotIdx, initialKind, initialPos) {
     return proxy;
 }
 
-const slotA = makeSlot(0, KIND_CUBE, new THREE.Vector3(0, 0, 0));
-const slotB = makeSlot(1, KIND_CUBE, new THREE.Vector3(0.7, 0, 0));
+const slotA = makeSlot(0, KIND_MENGER, new THREE.Vector3(0, 0, 0));
+const slotB = makeSlot(1, KIND_SPHERE, new THREE.Vector3(0.5, 0, 0));
 const slots = [slotA, slotB];
 
 // ── Result mesh ───────────────────────────────────────────────────────
@@ -237,9 +241,9 @@ document.getElementById('op').addEventListener('change', (e) => {
 
 // ── Initial sync (wasm has its own defaults; mirror them) ─────────────
 
-wasm.set_op(OP_UNION);
-setPrimitive(0, KIND_CUBE);
-setPrimitive(1, KIND_CUBE);
+wasm.set_op(OP_INTERSECTION);
+setPrimitive(0, KIND_MENGER);
+setPrimitive(1, KIND_SPHERE);
 slots[0].updateMatrix();
 slots[1].updateMatrix();
 pushTransform(0, slots[0].matrix);

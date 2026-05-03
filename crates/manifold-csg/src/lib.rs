@@ -26,6 +26,7 @@ pub mod manifold;
 pub mod mesh;
 pub mod ray;
 pub mod rect;
+pub mod samples;
 pub mod triangulation;
 pub mod types;
 

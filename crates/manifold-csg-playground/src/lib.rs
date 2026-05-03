@@ -2,7 +2,7 @@
 //! frontend (three.js).
 //!
 //! The state is two primitive "slots" plus a boolean op selector. Each slot
-//! has a kind (cube/sphere/cylinder), shape parameters, and a 4x3 affine
+//! has a kind (cube/sphere/cylinder/menger), shape parameters, and a 4x3 affine
 //! transform pushed in from the JS gizmo. `rebuild()` runs the boolean and
 //! caches the resulting f32 vertex positions + u32 triangle indices in
 //! globally-owned `Vec`s; the frontend reads them via raw pointer + length
@@ -42,6 +42,13 @@ impl Slot {
                 let segs = (self.params[2] as i32).max(8);
                 Manifold::cylinder(self.params[0], self.params[1], self.params[1], segs, true)
             }
+            3 => {
+                // Menger sponge — recursion depth in p0. Clamp to [0, 4]:
+                // upstream warns level 4 already produces ~400k triangles,
+                // and the demo wants to stay interactive.
+                let level = (self.params[0] as i32).clamp(0, 4) as u32;
+                manifold_csg::samples::menger_sponge(level)
+            }
             _ => Manifold::empty(),
         };
         prim.transform(&self.transform)
@@ -59,21 +66,25 @@ struct State {
 fn state() -> &'static Mutex<State> {
     static STATE: OnceLock<Mutex<State>> = OnceLock::new();
     STATE.get_or_init(|| {
+        // Default scene: Menger sponge ∩ sphere, halfway overlapping. Picks
+        // a fast-evaluating boolean that obviously isn't either input shape,
+        // so visitors landing on the demo immediately see "this is doing CSG"
+        // rather than "this is just a cube".
         let mut b_xform = IDENTITY_4X3;
-        b_xform[9] = 0.7; // translate B by +0.7 on X so default scene is non-empty
+        b_xform[9] = 0.5; // sphere center on the menger's +X face
 
         Mutex::new(State {
             a: Slot {
-                kind: 0,
-                params: [1.0, 1.0, 1.0, 0.0],
+                kind: 3,                      // menger sponge
+                params: [2.0, 0.0, 0.0, 0.0], // recursion depth 2
                 transform: IDENTITY_4X3,
             },
             b: Slot {
-                kind: 0,
-                params: [1.0, 1.0, 1.0, 0.0],
+                kind: 1,                       // sphere
+                params: [0.7, 32.0, 0.0, 0.0], // radius, segments
                 transform: b_xform,
             },
-            op: 0,
+            op: 2, // intersection
             last_positions: Vec::new(),
             last_indices: Vec::new(),
         })
@@ -122,12 +133,13 @@ fn slot_mut(s: &mut State, slot: i32) -> &mut Slot {
 }
 
 /// Set primitive kind + parameters for a slot. `slot` is 0 (A) or 1 (B).
-/// `kind` is 0=cube, 1=sphere, 2=cylinder. The four `p*` parameters are
-/// shape-specific:
+/// `kind` is 0=cube, 1=sphere, 2=cylinder, 3=menger. The four `p*`
+/// parameters are shape-specific:
 ///
 /// - cube: `(x, y, z, _)`
 /// - sphere: `(radius, segments, _, _)`
 /// - cylinder: `(height, radius, segments, _)`
+/// - menger: `(level, _, _, _)` — recursion depth, clamped to [0, 4]
 ///
 /// Panics if `slot` is not 0 or 1. (Panics in this crate abort the wasm
 /// instance; the JS frontend is expected to pass valid values.)

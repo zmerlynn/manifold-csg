@@ -8,6 +8,7 @@
 export const KIND_CUBE = 0;
 export const KIND_SPHERE = 1;
 export const KIND_CYLINDER = 2;
+export const KIND_MENGER = 3;
 
 export const OP_UNION = 0;
 export const OP_DIFFERENCE = 1;
@@ -17,6 +18,10 @@ export const DEFAULT_PARAMS = {
     [KIND_CUBE]:     [1.0, 1.0, 1.0, 0.0],
     [KIND_SPHERE]:   [0.7, 32.0, 0.0, 0.0],
     [KIND_CYLINDER]: [1.0, 0.5, 32.0, 0.0],
+    // Menger sponge: p0 = recursion depth (clamped 0..=4 by the wasm side).
+    // Level 2 = ~2k tris (instant); level 3 = ~30k (still snappy);
+    // level 4 = ~400k (wasm-uu single-threaded gets sluggish). Default to 2.
+    [KIND_MENGER]:   [2.0, 0.0, 0.0, 0.0],
 };
 
 // Copy a THREE.Matrix4 (column-major, length 16) into the wasm scratch
