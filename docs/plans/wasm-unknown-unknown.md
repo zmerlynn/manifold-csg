@@ -14,18 +14,24 @@ ecosystem (Bevy, Leptos, Yew, etc.). Supporting `wasm32-unknown-unknown`
 directly unblocks those consumers.
 
 The C++ runtime gap (`wasm32-unknown-unknown` ships no libc, no libcxx,
-no libcxxabi) is filled by `wasm-cxx-shim` (pinned to v0.2.0) — a small,
+no libcxxabi) is filled by `wasm-cxx-shim` (pinned to v0.3.0) — a small,
 independently-maintained library providing exactly the C/C++ runtime
 subset that manifold3d (and similar C++-via-Rust crates) need. See the
 shim's [`docs/context.md`](https://github.com/zmerlynn/wasm-cxx-shim/blob/main/docs/context.md) for the design background.
 
+Since v0.3.0 the shim ships a `wasm_cxx_shim_add_manifold()` CMake helper
+that owns the high-change-rate parts of the integration cocktail
+(FetchContent of manifold + Clipper2 with tested-pin defaults, the three
+carry-patches, and manifold/Clipper2 CMake options). We invoke it from a
+small wrapper at `crates/manifold-csg-sys/wasm32-uu/CMakeLists.txt` which
+adds the consumer-side specifics (the `-isystem` chain).
+
 ## Scope
 
 **In:** Build path for `wasm32-unknown-unknown` that produces a wasm
-module with zero unexpected imports. Carry-patches against the pinned
-manifold + Clipper2 to gate iostream-using paths under `MANIFOLD_NO_IOSTREAM`.
-A consumer-side `libcxx-extras.cpp` providing the libc++ source-file
-symbols the shim deliberately doesn't ship. CI lane.
+module with zero unexpected imports. A consumer-side `libcxx-extras.cpp`
+providing the libc++ source-file symbols the shim deliberately doesn't
+ship. CI lane.
 
 **Out:**
 
@@ -53,27 +59,27 @@ A separate `build_wasm_unknown_unknown()` function dispatched early when
 Steps:
 
 1. Sanity-check `cmake` and `clang` on PATH.
-2. Clone `wasm-cxx-shim` (pinned to `v0.2.0`) into `OUT_DIR` and build its
+2. Clone `wasm-cxx-shim` (pinned to `v0.3.0`) into `OUT_DIR` and build its
    three components (libc, libm, libcxx) via cmake using the shim's own
    wasm32 toolchain file.
-3. Clone Clipper2 separately at the SHA manifold pins, apply our
-   `0002-clipper2-strip-iostream.patch`. Manifold's cmake reuses this
-   pre-cloned source via `FETCHCONTENT_SOURCE_DIR_CLIPPER2`.
-4. Clone manifold into a separate tree (`manifold-src-wasm32-uu`) — the
-   host/emscripten path uses its own clone with different patches and
-   build flags. Apply our existing carry-patches (`#1687`, `#1688`) plus
-   the wasm32-uu-specific `0001-manifold-ifdef-iostream.patch`.
-5. cmake-configure + build manifold using the shim's toolchain file +
-   wasm-specific flags (`-fno-exceptions`, `-fno-rtti`, `-nostdlib`,
-   `-nostdinc++`, `-DMANIFOLD_NO_IOSTREAM=1`, `-DCLIPPER2_MAX_DECIMAL_PRECISION=8`,
-   `MANIFOLD_PAR=OFF`).
-6. Compile `wasm32-uu/libcxx-extras.cpp` to a `.o`, archive it as
+3. cmake-configure + build manifold + Clipper2 via our wrapper at
+   `crates/manifold-csg-sys/wasm32-uu/CMakeLists.txt`. The wrapper sets
+   the `-isystem` chain (libc++ headers + our `__config_site` override +
+   `<mutex>` stub + `-nostdlibinc`) and calls
+   `wasm_cxx_shim_add_manifold()`, which owns the FetchContent pins,
+   the three carry-patches (`MANIFOLD_NO_IOSTREAM`,
+   `MANIFOLD_NO_FILESYSTEM`, `CLIPPER2_NO_IOSTREAM`),
+   manifold/Clipper2 CMake options (`MANIFOLD_TEST=OFF`, `MANIFOLD_PAR=OFF`,
+   `MANIFOLD_PYBIND=OFF`, etc.), and the base compile flags.
+4. Compile `wasm32-uu/libcxx-extras.cpp` to a `.o`, archive it as
    `libcxx_extras.a` via `llvm-ar` (so cargo can emit it as a normal
    `rustc-link-lib=static` and control link order).
-7. Emit `cargo:rustc-link-search` + `cargo:rustc-link-lib` directives in
+5. Emit `cargo:rustc-link-search` + `cargo:rustc-link-lib` directives in
    the validated order: `cxx_extras` → `manifoldc` → `manifold` →
    `Clipper2` → `wasm-cxx-shim-libcxx` → `wasm-cxx-shim-libc` →
-   `wasm-cxx-shim-libm`.
+   `wasm-cxx-shim-libm`. Library paths are discovered via
+   `find_lib_recursive` walking the manifold build tree (FetchContent
+   nests artifacts under `_deps/<name>-build/`).
 
 ### LLVM discovery
 
@@ -131,15 +137,20 @@ Vendored from the wasm-cxx-shim reference implementation
   internals, `std::nothrow`, `std::align`, `bad_weak_ptr` key functions,
   `__throw_bad_alloc`) that the shim's `libcxx` deliberately doesn't
   ship. Each consumer ships their own.
-- `patches/0001-manifold-ifdef-iostream.patch` — wraps manifold's
-  iostream-using OBJ I/O paths under `MANIFOLD_NO_IOSTREAM`. Generated
-  against our pinned manifold SHA `65943ca`. Three blocks:
-  `bindings/c/manifoldc.cpp` C-API OBJ functions, `src/impl.cpp`
-  `FromChars` template, `src/impl.cpp` `WriteOBJWithEpsilon` /
-  `ReadOBJWithEpsilon` / `ReadOBJ` / `WriteOBJ` / `operator<<`.
-- `patches/0002-clipper2-strip-iostream.patch` — strips `<iostream>` from
-  Clipper2 headers. Verbatim from wasm-cxx-shim, generated against
-  Clipper2 SHA `46f6391...` which is what manifold pins.
+- `CMakeLists.txt` — wrapper around the shim's
+  `wasm_cxx_shim_add_manifold()` helper. Sets the consumer-side
+  `-isystem` chain (header order: our `__config_site` override + `<mutex>`
+  stub, then LLVM's libc++ headers, then the shim's libm/libc headers,
+  with `-nostdlibinc` as belt-and-suspenders defense), then calls the
+  helper which absorbs FetchContent + carry-patches + manifold/Clipper2
+  CMake options + base compile flags.
+
+The carry-patches we used to ship under `patches/` (`0001-manifold-ifdef-iostream.patch`,
+`0002-clipper2-strip-iostream.patch`) are now provided by the shim helper
+along with a third patch (`MANIFOLD_NO_FILESYSTEM`). The shim's tested-pin
+default is manifold v3.4.1; if we ever need a different SHA on this lane
+we can override via `wasm_cxx_shim_add_manifold(MANIFOLD_GIT_TAG ...)` in
+the wrapper.
 
 ### Cargo.toml
 
@@ -199,8 +210,10 @@ mention:
 
 - New target supported: `wasm32-unknown-unknown` (bare-wasm browser
   target compatible with `wasm-bindgen`).
-- Build dependency: `wasm-cxx-shim` v0.2.0 (cloned via build.rs into
-  `OUT_DIR`; no Cargo dependency).
+- Build dependency: `wasm-cxx-shim` v0.3.0 (cloned via build.rs into
+  `OUT_DIR`; no Cargo dependency). The integration uses the shim's
+  `wasm_cxx_shim_add_manifold()` CMake helper, so manifold/Clipper2
+  pins, patches, and CMake options live upstream now.
 - New required tooling for this target: a wasm-capable LLVM 20+ install
   (`brew install llvm` on macOS, `apt install clang-20 lld-20 libc++-20-dev`
   on Debian). docs.rs continues to build only for the host target via
