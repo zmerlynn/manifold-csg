@@ -2341,3 +2341,37 @@ fn manifold_status_with_context_already_cancelled() {
     // is well-formed and doesn't panic / leak / crash.
     let _ = cube.status_with_context(&ctx);
 }
+
+// ── Sample constructions ────────────────────────────────────────────
+
+#[test]
+fn menger_sponge_level_0_is_just_the_cube() {
+    use manifold_csg::samples::menger_sponge;
+    // Level 0 = no tunnels carved → original unit cube, volume 1.0. Also
+    // exercises the n=0 early return that prevents the upstream `Fractal`
+    // exit-condition bug from infinite-recursing.
+    let m = menger_sponge(0);
+    assert!(!m.is_empty());
+    assert!((m.volume() - 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn menger_sponge_level_1_produces_six_tunnels() {
+    use manifold_csg::samples::menger_sponge;
+    // Level 1: unit cube minus a 1/3 × 1/3 × 1 square tunnel through each
+    // axis. 6 face-windows total. Volume = 1 - 3*(1/9*1) + corrections at
+    // intersections; we just sanity-check it's a closed manifold with
+    // non-zero volume strictly less than the original cube's.
+    let m = menger_sponge(1);
+    assert!(!m.is_empty());
+    assert!(m.volume() > 0.0);
+    assert!(m.volume() < 1.0);
+}
+
+#[test]
+fn menger_sponge_level_2_has_more_triangles_than_level_1() {
+    use manifold_csg::samples::menger_sponge;
+    let l1 = menger_sponge(1);
+    let l2 = menger_sponge(2);
+    assert!(l2.num_tri() > l1.num_tri());
+}

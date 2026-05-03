@@ -13,6 +13,7 @@ import { loadWasm } from './load_wasm.mjs';
 const KIND_CUBE = 0;
 const KIND_SPHERE = 1;
 const KIND_CYLINDER = 2;
+const KIND_MENGER = 3;
 
 const OP_UNION = 0;
 const OP_DIFFERENCE = 1;
@@ -39,9 +40,10 @@ function pushTransform(wasm, scratchPtr, slot, m12) {
 }
 
 // Set up a fresh wasm instance with two unit cubes (B translated +0.7 X)
-// and union op. Returns { wasm, scratchPtr } that match the browser's
-// initial scene.
-async function defaultScene() {
+// and union op. This is the tests' canonical "known-non-empty" baseline,
+// NOT the wasm-side initial state (which the demo's first impression sets
+// to Menger ∩ Sphere — see `wasm_default_scene_menger_intersect_sphere`).
+async function twoUnitCubesScene() {
     const wasm = await loadWasm();
     const scratchPtr = wasm.alloc(96);
     wasm.set_op(OP_UNION);
@@ -89,15 +91,25 @@ test('alloc/dealloc returns non-null aligned pointer', async () => {
     wasm.dealloc(p, 96);
 });
 
-test('default scene: two unit cubes overlapping → union has > 0 triangles', async () => {
-    const { wasm } = await defaultScene();
+test('two unit cubes overlapping → union has > 0 triangles', async () => {
+    const { wasm } = await twoUnitCubesScene();
     const triCount = wasm.rebuild();
     assert.ok(triCount > 0, `expected non-empty union, got ${triCount}`);
     assertResultConsistent(wasm, triCount, 'default-union');
 });
 
+test('wasm default scene (Menger ∩ Sphere) produces a non-empty result', async () => {
+    // The wasm crate's State::default sets up Menger ∩ Sphere at half-overlap.
+    // No setup calls — just load and rebuild straight from the initial state.
+    // This is what a fresh page load runs before any JS interaction.
+    const wasm = await loadWasm();
+    const triCount = wasm.rebuild();
+    assert.ok(triCount > 0, `expected non-empty Menger ∩ Sphere, got ${triCount}`);
+    assertResultConsistent(wasm, triCount, 'menger-intersect-sphere-default');
+});
+
 test('union vs intersection vs difference produce different triangle counts', async () => {
-    const { wasm } = await defaultScene();
+    const { wasm } = await twoUnitCubesScene();
     wasm.set_op(OP_UNION);
     const u = wasm.rebuild();
     wasm.set_op(OP_INTERSECTION);
@@ -110,7 +122,7 @@ test('union vs intersection vs difference produce different triangle counts', as
 });
 
 test('disjoint operands: intersection is empty, union is non-empty', async () => {
-    const { wasm, scratchPtr } = await defaultScene();
+    const { wasm, scratchPtr } = await twoUnitCubesScene();
     pushTransform(wasm, scratchPtr, 1, TRANSLATE_X(10.0)); // far apart
     wasm.set_op(OP_INTERSECTION);
     assert.equal(wasm.rebuild(), 0, 'disjoint cubes have empty intersection');
@@ -122,11 +134,15 @@ test('disjoint operands: intersection is empty, union is non-empty', async () =>
 });
 
 test('rebuild result is internally consistent across primitive switches', async () => {
-    const { wasm } = await defaultScene();
+    const { wasm } = await twoUnitCubesScene();
     const cases = [
         { a: KIND_CUBE,     b: KIND_SPHERE,   ap: [1, 1, 1, 0],     bp: [0.7, 32, 0, 0] },
         { a: KIND_SPHERE,   b: KIND_CYLINDER, ap: [0.7, 32, 0, 0],  bp: [1, 0.5, 32, 0] },
         { a: KIND_CYLINDER, b: KIND_CUBE,     ap: [1, 0.5, 32, 0],  bp: [1, 1, 1, 0] },
+        // Menger sponge level 1 (small): exercises samples::menger_sponge
+        // through the C ABI so we'd notice an integration regression even
+        // without driving the JS frontend.
+        { a: KIND_MENGER,   b: KIND_CUBE,     ap: [1, 0, 0, 0],     bp: [0.5, 0.5, 0.5, 0] },
     ];
     for (const { a, b, ap, bp } of cases) {
         wasm.set_primitive(0, a, ...ap);
@@ -142,7 +158,7 @@ test('repeated rebuilds with growing/shrinking results stay consistent', async (
     // computeVertexNormals reuse bug in main.js — vertex count fluctuates
     // across rebuilds. The wasm side's job is to keep its own outputs
     // self-consistent; the JS test (rebuild.test.mjs) covers the JS bug.
-    const { wasm, scratchPtr } = await defaultScene();
+    const { wasm, scratchPtr } = await twoUnitCubesScene();
     for (const x of [0.1, 0.4, 0.7, 1.2, 0.3, 0.9, 0.05, 0.6]) {
         pushTransform(wasm, scratchPtr, 1, TRANSLATE_X(x));
         const triCount = wasm.rebuild();
@@ -151,7 +167,7 @@ test('repeated rebuilds with growing/shrinking results stay consistent', async (
 });
 
 test('result pointers are stable across reads but invalidated by next rebuild', async () => {
-    const { wasm } = await defaultScene();
+    const { wasm } = await twoUnitCubesScene();
     wasm.rebuild();
     const p1 = wasm.positions_ptr();
     const p2 = wasm.positions_ptr();

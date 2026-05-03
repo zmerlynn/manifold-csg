@@ -46,7 +46,8 @@ jobs:
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
           sudo apt-get update
-          sudo apt-get install -y clang-20 lld-20 libc++-20-dev libc++abi-20-dev
+          # binaryen ships wasm-opt, which build.sh runs post-cargo for ~20% smaller artifacts.
+          sudo apt-get install -y clang-20 lld-20 libc++-20-dev libc++abi-20-dev binaryen
 
       # Separate cache namespace from CI's wasm32-uu lane so they don't fight.
       # Cache key splits the hash into two parts so the restore-keys prefix
