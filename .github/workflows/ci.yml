@@ -163,14 +163,19 @@ jobs:
           version: 5.0.7
           actions-cache-folder: emsdk-cache
 
+      # The EMSDK path is included in the cache key because cmake bakes it
+      # into target/wasm32-unknown-emscripten/.../CMakeCache.txt. Restoring
+      # a target/ from a run with a different EMSDK install path makes
+      # cmake panic on the now-gone toolchain file. Keying on EMSDK gives
+      # each install path its own cache bucket.
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-emscripten-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
-          restore-keys: ${{ runner.os }}-cargo-emscripten-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
+          key: ${{ runner.os }}-cargo-emscripten-${{ env.EMSDK }}-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-emscripten-${{ env.EMSDK }}-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
 
       # MANIFOLD_PAR is forced off for emscripten regardless of feature flags
       # (TBB needs SharedArrayBuffer + COOP/COEP HTTP headers from the host).

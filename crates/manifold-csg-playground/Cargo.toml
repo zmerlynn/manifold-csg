@@ -1,0 +1,20 @@
+[package]
+name = "manifold-csg-playground"
+description = "Browser-based interactive demo for manifold-csg booleans (wasm32-unknown-unknown)"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# `unstable-wasm-uu` is required by manifold-csg-sys's build.rs when
+# targeting wasm32-unknown-unknown — opts in to the provisional bare-wasm
+# build path. This crate exists specifically to exercise that path.
+manifold-csg = { path = "../manifold-csg", default-features = false, features = ["unstable-wasm-uu"] }
+
+[lints]
+workspace = true
