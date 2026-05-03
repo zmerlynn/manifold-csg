@@ -1,0 +1,78 @@
+name: Deploy playground to Pages
+
+# Builds the manifold-csg-playground wasm and publishes its `web/` directory
+# to GitHub Pages. Triggered by pushes to main that touch the playground or
+# its kernel dependencies, plus manual dispatch.
+#
+# One-time GitHub setup: Settings → Pages → Source = "GitHub Actions".
+# Without that, this workflow will succeed at upload but the deployment job
+# will fail with a clear error.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/manifold-csg-playground/**'
+      - 'crates/manifold-csg-sys/**'
+      - 'crates/manifold-csg/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, but don't cancel in-progress runs —
+# a deployment in flight might be observed by humans, so let it finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build playground wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      # Same toolchain setup as the wasm32-uu CI lane.
+      - name: Install LLVM 20 + libc++ + lld
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-20 lld-20 libc++-20-dev libc++abi-20-dev
+
+      # Separate cache namespace from CI's wasm32-uu lane so they don't fight,
+      # but key on the same files so they invalidate at the same times.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-pages-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/wasm32-uu/**', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-pages-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
+
+      - name: Build playground wasm
+        run: bash crates/manifold-csg-playground/build.sh
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: crates/manifold-csg-playground/web
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
