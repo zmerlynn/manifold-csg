@@ -49,6 +49,10 @@ pub struct ManifoldSimplePolygon {
 }
 
 /// Opaque handle to a manifold3d `RayHitVec` (vector of ray hit results).
+///
+/// Unavailable on `wasm32-unknown-unknown` — that lane builds against the
+/// shim's tested manifold pin (v3.4.1), which predates ray casting.
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 #[repr(C)]
 #[derive(Debug)]
 pub struct ManifoldRayHitVec {
@@ -159,6 +163,10 @@ pub struct ManifoldProperties {
 }
 
 /// Result of a ray-manifold intersection test.
+///
+/// Unavailable on `wasm32-unknown-unknown` — see [`ManifoldRayHitVec`] for
+/// the rationale.
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct ManifoldRayHit {
@@ -268,6 +276,7 @@ unsafe extern "C" {
     pub fn manifold_box_size() -> usize;
     pub fn manifold_rect_size() -> usize;
     pub fn manifold_triangulation_size() -> usize;
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_ray_hit_vec_size() -> usize;
 
     // ── Allocation ─────────────────────────────────────────────────────
@@ -283,6 +292,7 @@ unsafe extern "C" {
     pub fn manifold_alloc_box() -> *mut ManifoldBox;
     pub fn manifold_alloc_rect() -> *mut ManifoldRect;
     pub fn manifold_alloc_triangulation() -> *mut ManifoldTriangulation;
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_alloc_ray_hit_vec() -> *mut ManifoldRayHitVec;
 
     // ── Destruction (destruct only, does not free) ─────────────────────
@@ -298,6 +308,7 @@ unsafe extern "C" {
     pub fn manifold_destruct_box(b: *mut ManifoldBox);
     pub fn manifold_destruct_rect(b: *mut ManifoldRect);
     pub fn manifold_destruct_triangulation(m: *mut ManifoldTriangulation);
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_destruct_ray_hit_vec(v: *mut ManifoldRayHitVec);
 
     // ── Deletion (destruct + free) ─────────────────────────────────────
@@ -313,6 +324,7 @@ unsafe extern "C" {
     pub fn manifold_delete_box(b: *mut ManifoldBox);
     pub fn manifold_delete_rect(b: *mut ManifoldRect);
     pub fn manifold_delete_triangulation(m: *mut ManifoldTriangulation);
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_delete_ray_hit_vec(v: *mut ManifoldRayHitVec);
 
     // ── Polygons ───────────────────────────────────────────────────────
@@ -1060,8 +1072,12 @@ unsafe extern "C" {
     ) -> *mut ManifoldManifold;
 
     // ── Ray casting ─────────────────────────────────────────────────────
+    //
+    // Postdates the manifold v3.4.1 pin the wasm32-uu lane builds against,
+    // so the whole ray-cast surface is cfg-elided on that target.
 
     /// Cast a ray from `origin` to `end` against a manifold, returning all hits.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_ray_cast(
         mem: *mut ManifoldRayHitVec,
         m: *const ManifoldManifold,
@@ -1074,9 +1090,11 @@ unsafe extern "C" {
     ) -> *mut ManifoldRayHitVec;
 
     /// Number of hits in a ray hit vector.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_ray_hit_vec_length(v: *const ManifoldRayHitVec) -> usize;
 
     /// Get a hit by index from a ray hit vector.
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     pub fn manifold_ray_hit_vec_get(v: *const ManifoldRayHitVec, idx: usize) -> ManifoldRayHit;
 
     // ── Bounding box ────────────────────────────────────────────────────

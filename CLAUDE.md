@@ -44,6 +44,13 @@ The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.
 - `Sync` is implemented for `Manifold` and `CrossSection` (upstream synchronizes lazy evaluation with a mutex). `MeshGL`/`MeshGL64` are also `Sync` (pure data, no lazy state)
 - `manifold_meshgl_merge` / `manifold_meshgl64_merge` had an upstream ownership bug (returning the input pointer on failure, causing double-free). This was fixed upstream in #1632 (included in our pinned commit).
 
+## Pin / shim follow-ups
+
+Things to revisit whenever the manifold pin moves OR `wasm-cxx-shim` cuts a new release:
+
+- **Re-evaluate wasm32-unknown-unknown cfg-gates.** Any FFI declaration / safe wrapper / test gated on `not(all(target_arch = "wasm32", target_os = "unknown"))` exists because that surface postdates the shim's tested manifold pin. When the shim's tested pin moves up to (or past) our host pin, those gates can be dropped and the surface unified across targets. Current gated surface: `manifold_ray_*` (ray casting), `manifold_*_obj` (OBJ I/O — gated for a different reason: iostream patches strip it). Grep for `target_os = "unknown"` to enumerate.
+- **Re-evaluate carry-patches.** For each patch in `crates/manifold-csg-sys/patches/` (if any), check whether it's merged upstream and included in the new pin; if so, delete it.
+
 ## Carry-patches
 
 `crates/manifold-csg-sys/patches/` (when present) holds patches applied to the cloned manifold3d source at build time via `git apply`. These fix upstream bugs or add features not yet in a tagged release.
