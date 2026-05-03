@@ -55,6 +55,15 @@ pub struct ManifoldRayHitVec {
     _private: [u8; 0],
 }
 
+/// Opaque handle to a manifold3d `ExecutionContext` — observes progress
+/// and allows cooperative cancellation of long-running boolean evaluations.
+/// The C API documents it as safe to read/write from any thread.
+#[repr(C)]
+#[derive(Debug)]
+pub struct ManifoldExecutionContext {
+    _private: [u8; 0],
+}
+
 /// Opaque handle to a manifold3d `Triangulation` result.
 #[repr(C)]
 #[derive(Debug)]
@@ -269,6 +278,7 @@ unsafe extern "C" {
     pub fn manifold_rect_size() -> usize;
     pub fn manifold_triangulation_size() -> usize;
     pub fn manifold_ray_hit_vec_size() -> usize;
+    pub fn manifold_execution_context_size() -> usize;
 
     // ── Allocation ─────────────────────────────────────────────────────
 
@@ -284,6 +294,7 @@ unsafe extern "C" {
     pub fn manifold_alloc_rect() -> *mut ManifoldRect;
     pub fn manifold_alloc_triangulation() -> *mut ManifoldTriangulation;
     pub fn manifold_alloc_ray_hit_vec() -> *mut ManifoldRayHitVec;
+    pub fn manifold_alloc_execution_context() -> *mut ManifoldExecutionContext;
 
     // ── Destruction (destruct only, does not free) ─────────────────────
 
@@ -299,6 +310,7 @@ unsafe extern "C" {
     pub fn manifold_destruct_rect(b: *mut ManifoldRect);
     pub fn manifold_destruct_triangulation(m: *mut ManifoldTriangulation);
     pub fn manifold_destruct_ray_hit_vec(v: *mut ManifoldRayHitVec);
+    pub fn manifold_destruct_execution_context(ctx: *mut ManifoldExecutionContext);
 
     // ── Deletion (destruct + free) ─────────────────────────────────────
 
@@ -314,6 +326,7 @@ unsafe extern "C" {
     pub fn manifold_delete_rect(b: *mut ManifoldRect);
     pub fn manifold_delete_triangulation(m: *mut ManifoldTriangulation);
     pub fn manifold_delete_ray_hit_vec(v: *mut ManifoldRayHitVec);
+    pub fn manifold_delete_execution_context(ctx: *mut ManifoldExecutionContext);
 
     // ── Polygons ───────────────────────────────────────────────────────
 
@@ -1005,6 +1018,12 @@ unsafe extern "C" {
 
     pub fn manifold_is_empty(m: *const ManifoldManifold) -> c_int;
     pub fn manifold_status(m: *const ManifoldManifold) -> ManifoldError;
+    /// Variant of [`manifold_status`] that observes progress and allows
+    /// cancellation via the [`ManifoldExecutionContext`].
+    pub fn manifold_status_with_context(
+        m: *const ManifoldManifold,
+        ctx: *mut ManifoldExecutionContext,
+    ) -> ManifoldError;
     pub fn manifold_num_vert(m: *const ManifoldManifold) -> usize;
     pub fn manifold_num_edge(m: *const ManifoldManifold) -> usize;
     pub fn manifold_num_tri(m: *const ManifoldManifold) -> usize;
@@ -1078,6 +1097,24 @@ unsafe extern "C" {
 
     /// Get a hit by index from a ray hit vector.
     pub fn manifold_ray_hit_vec_get(v: *const ManifoldRayHitVec, idx: usize) -> ManifoldRayHit;
+
+    // ── Execution context (cancel + progress) ───────────────────────────
+
+    /// Construct an `ExecutionContext` in pre-allocated memory. Pass to
+    /// [`manifold_status_with_context`].
+    pub fn manifold_execution_context(
+        mem: *mut ManifoldExecutionContext,
+    ) -> *mut ManifoldExecutionContext;
+
+    /// Request cancellation of any boolean evaluation observing this context.
+    /// Sticky: once cancelled, the context stays cancelled.
+    pub fn manifold_execution_context_cancel(ctx: *mut ManifoldExecutionContext);
+
+    /// Returns nonzero if the context has been cancelled.
+    pub fn manifold_execution_context_cancelled(ctx: *mut ManifoldExecutionContext) -> c_int;
+
+    /// Progress in [0.0, 1.0] for an in-flight evaluation observing this context.
+    pub fn manifold_execution_context_progress(ctx: *mut ManifoldExecutionContext) -> f64;
 
     // ── Bounding box ────────────────────────────────────────────────────
 
