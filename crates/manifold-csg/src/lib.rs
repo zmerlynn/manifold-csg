@@ -23,7 +23,6 @@ pub mod bounding_box;
 pub mod cross_section;
 pub mod manifold;
 pub mod mesh;
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod ray;
 pub mod rect;
 pub mod triangulation;
@@ -38,7 +37,6 @@ pub use manifold::{
 };
 pub use manifold_csg_sys::ManifoldOpType as OpType;
 pub use mesh::{MeshGL, MeshGL64};
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub use ray::RayHit;
 pub use rect::Rect;
 pub use triangulation::triangulate_polygons;

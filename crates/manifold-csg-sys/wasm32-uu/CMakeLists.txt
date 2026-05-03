@@ -66,11 +66,12 @@ add_compile_options(
 )
 
 # FetchContent + patches + manifold/Clipper2 options + base compile flags.
-# Uses the helper's tested-pin defaults (manifold v3.4.1, Clipper2 matching
-# SHA). The host build pins newer SHAs to pick up post-3.4.1 fixes; FFI
-# declarations and safe wrappers for any C API surface that postdates v3.4.1
-# (e.g., manifold_ray_cast) are cfg-gated off on this target so the wasm
-# produced here has no unresolved imports against the helper's pin.
+# Uses the helper's tested-pin default. As of shim v0.4.0-alpha.1 the
+# helper's default pin matches our host pin (`5f95a3ac`), so the wasm-uu
+# lane sees the same C API surface as the host build (including ray_cast).
+# When the host pin moves past the helper's tested pin again, either
+# override via `MANIFOLD_GIT_TAG` here or cfg-gate the new surface on
+# this target — see the "Pin / shim follow-ups" section in CLAUDE.md.
 wasm_cxx_shim_add_manifold()
 
 # Force the manifold + Clipper2 archives to build by default. Without

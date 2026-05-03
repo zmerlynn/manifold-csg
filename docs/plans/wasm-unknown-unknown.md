@@ -14,12 +14,12 @@ ecosystem (Bevy, Leptos, Yew, etc.). Supporting `wasm32-unknown-unknown`
 directly unblocks those consumers.
 
 The C++ runtime gap (`wasm32-unknown-unknown` ships no libc, no libcxx,
-no libcxxabi) is filled by `wasm-cxx-shim` (pinned to v0.3.0) — a small,
+no libcxxabi) is filled by `wasm-cxx-shim` (pinned to v0.4.0-alpha.1) — a small,
 independently-maintained library providing exactly the C/C++ runtime
 subset that manifold3d (and similar C++-via-Rust crates) need. See the
 shim's [`docs/context.md`](https://github.com/zmerlynn/wasm-cxx-shim/blob/main/docs/context.md) for the design background.
 
-Since v0.3.0 the shim ships a `wasm_cxx_shim_add_manifold()` CMake helper
+Since v0.4.0-alpha.1 the shim ships a `wasm_cxx_shim_add_manifold()` CMake helper
 that owns the high-change-rate parts of the integration cocktail
 (FetchContent of manifold + Clipper2 with tested-pin defaults, the three
 carry-patches, and manifold/Clipper2 CMake options). We invoke it from a
@@ -59,7 +59,7 @@ A separate `build_wasm_unknown_unknown()` function dispatched early when
 Steps:
 
 1. Sanity-check `cmake` and `clang` on PATH.
-2. Clone `wasm-cxx-shim` (pinned to `v0.3.0`) into `OUT_DIR` and build its
+2. Clone `wasm-cxx-shim` (pinned to `v0.4.0-alpha.1`) into `OUT_DIR` and build its
    three components (libc, libm, libcxx) via cmake using the shim's own
    wasm32 toolchain file.
 3. cmake-configure + build manifold + Clipper2 via our wrapper at
@@ -210,7 +210,7 @@ mention:
 
 - New target supported: `wasm32-unknown-unknown` (bare-wasm browser
   target compatible with `wasm-bindgen`).
-- Build dependency: `wasm-cxx-shim` v0.3.0 (cloned via build.rs into
+- Build dependency: `wasm-cxx-shim` v0.4.0-alpha.1 (cloned via build.rs into
   `OUT_DIR`; no Cargo dependency). The integration uses the shim's
   `wasm_cxx_shim_add_manifold()` CMake helper, so manifold/Clipper2
   pins, patches, and CMake options live upstream now.
