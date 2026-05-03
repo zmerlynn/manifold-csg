@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>manifold-csg boolean playground</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --panel-bg: rgba(20, 22, 28, 0.85);
+            --panel-fg: #e6e8ee;
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --accent: #7aa2ff;
+        }
+        html, body { height: 100%; margin: 0; }
+        body {
+            background: #0b0d12;
+            color: var(--panel-fg);
+            font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+            overflow: hidden;
+        }
+        canvas { display: block; }
+        #ui {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 14px 16px;
+            backdrop-filter: blur(10px);
+            min-width: 220px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+        #ui h1 {
+            font-size: 13px;
+            font-weight: 600;
+            margin: 0 0 10px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #a0a8b8;
+        }
+        #ui label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 6px 0;
+            font-size: 12px;
+        }
+        #ui select {
+            background: #1a1d25;
+            color: var(--panel-fg);
+            border: 1px solid var(--panel-border);
+            border-radius: 5px;
+            padding: 4px 6px;
+            font: inherit;
+            min-width: 110px;
+        }
+        #ui hr {
+            border: none;
+            border-top: 1px solid var(--panel-border);
+            margin: 10px 0;
+        }
+        #ui .row {
+            display: flex;
+            gap: 4px;
+            margin: 6px 0;
+        }
+        #ui .row button {
+            flex: 1;
+            background: #1a1d25;
+            color: var(--panel-fg);
+            border: 1px solid var(--panel-border);
+            border-radius: 5px;
+            padding: 4px 6px;
+            font: inherit;
+            cursor: pointer;
+        }
+        #ui .row button.active {
+            background: var(--accent);
+            color: #0b0d12;
+            border-color: var(--accent);
+        }
+        #status {
+            font-size: 11px;
+            color: #7a8090;
+            margin-top: 10px;
+        }
+        #status.error { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1>boolean playground</h1>
+
+        <label>Primitive A
+            <select id="kind-a">
+                <option value="0">Cube</option>
+                <option value="1">Sphere</option>
+                <option value="2">Cylinder</option>
+            </select>
+        </label>
+
+        <label>Primitive B
+            <select id="kind-b">
+                <option value="0">Cube</option>
+                <option value="1">Sphere</option>
+                <option value="2">Cylinder</option>
+            </select>
+        </label>
+
+        <label>Operation
+            <select id="op">
+                <option value="0">Union (A + B)</option>
+                <option value="1">Difference (A − B)</option>
+                <option value="2">Intersection (A ∩ B)</option>
+            </select>
+        </label>
+
+        <hr>
+
+        <div style="font-size: 11px; color: #a0a8b8; margin-bottom: 4px;">Gizmo target</div>
+        <div class="row">
+            <button data-target="0" class="target-btn active">A</button>
+            <button data-target="1" class="target-btn">B</button>
+        </div>
+
+        <div style="font-size: 11px; color: #a0a8b8; margin: 8px 0 4px;">Gizmo mode</div>
+        <div class="row">
+            <button data-mode="translate" class="mode-btn active">Translate</button>
+            <button data-mode="rotate"    class="mode-btn">Rotate</button>
+            <button data-mode="scale"     class="mode-btn">Scale</button>
+        </div>
+
+        <div id="status">loading wasm…</div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="./main.js"></script>
+</body>
+</html>

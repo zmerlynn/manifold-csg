@@ -1,0 +1,13 @@
+{
+  "name": "manifold-csg-playground-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Node-side tests for the manifold-csg-playground browser demo. Not published; not consumed by web/ at runtime (browser uses an import map for three.js).",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "three": "^0.169.0"
+  }
+}
