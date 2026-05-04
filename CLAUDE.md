@@ -49,7 +49,7 @@ The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.
 
 Things to revisit whenever the manifold pin moves OR `wasm-cxx-shim` cuts a new release:
 
-- **Re-evaluate wasm32-unknown-unknown cfg-gates.** Any FFI declaration / safe wrapper / test gated on `not(all(target_arch = "wasm32", target_os = "unknown"))` exists because that surface postdates the shim's tested manifold pin. When the shim's tested pin moves up to (or past) our host pin, those gates can be dropped and the surface unified across targets. Current gated surface: `manifold_*_obj` (OBJ I/O — gated for a different reason: iostream patches strip it; this stays regardless). Ray casting is **no longer gated** as of shim v0.4.0-alpha.1, whose tested pin matches our host pin. Grep for `target_os = "unknown"` to enumerate.
+- **Re-evaluate wasm32-unknown-unknown cfg-gates.** Any FFI declaration / safe wrapper / test gated on `not(all(target_arch = "wasm32", target_os = "unknown"))` exists because that surface postdates the shim's tested manifold pin. When the shim's tested pin moves up to (or past) our host pin, those gates can be dropped and the surface unified across targets. Current gated surface: `manifold_*_obj` (OBJ I/O — gated for a different reason: iostream patches strip it; this stays regardless). The shim's tested pin currently matches our host pin (no extra gating needed). Grep for `target_os = "unknown"` to enumerate.
 - **Re-evaluate carry-patches.** For each patch in `crates/manifold-csg-sys/patches/` (if any), check whether it's merged upstream and included in the new pin; if so, delete it.
 
 ## Carry-patches
