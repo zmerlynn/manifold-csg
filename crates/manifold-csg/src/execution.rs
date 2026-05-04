@@ -39,7 +39,7 @@
 //! # let _ = status;
 //! ```
 //!
-//! Available since manifold3d's `5f95a3a` master commit (post-v3.4.1).
+//! Available since manifold3d's post-v3.4.1 master.
 
 use manifold_csg_sys::{
     ManifoldExecutionContext, manifold_alloc_execution_context, manifold_delete_execution_context,

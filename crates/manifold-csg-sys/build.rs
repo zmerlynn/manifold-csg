@@ -25,7 +25,7 @@ fn find_lib_recursive(dir: &Path, name: &str) -> Option<PathBuf> {
 }
 
 /// Pinned upstream version — can be a tag (e.g., "v3.4.1"), branch, or commit SHA.
-const MANIFOLD_VERSION: &str = "5f95a3ac0e906f596bb2d27a52d005ef60de58f3";
+const MANIFOLD_VERSION: &str = "3ce9622b851f3d459566bf5ab55adacd93708b5d";
 
 fn main() {
     // docs.rs builds with --network=none, so we can't clone manifold3d.
@@ -404,11 +404,12 @@ fn main() {
 // build.rs instead of a cmake file).
 
 const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
-// v0.4.0-alpha.1 pins manifold to the same commit as our host build
-// (`5f95a3ac`), so the wasm-uu lane sees the same C API surface (including
-// ray_cast). Will move to non-alpha v0.4.0 once upstream manifold#1690
-// (the iostream gating PR the alpha vendors as a carry-patch) merges.
-const WASM_CXX_SHIM_TAG: &str = "v0.4.0-alpha.1+5f95a3ac";
+// v0.4.0 dropped the iostream carry-patch (upstream manifold#1690 merged)
+// and pins manifold to `3ce9622b`, currently matching our host pin. The
+// wasm-uu lane sees the same C API surface as the host, no cfg-gating
+// needed. If the host pin moves past the shim's tested pin in a future
+// bump, see CLAUDE.md "Versioning" for the override-or-cfg-gate playbook.
+const WASM_CXX_SHIM_TAG: &str = "v0.4.0";
 
 fn build_wasm_unknown_unknown() {
     println!("cargo:rerun-if-changed=build.rs");
