@@ -1,3 +1,15 @@
+//! Apply `*.patch` files from the carry-patches directory to a cloned
+//! manifold source tree.
+//!
+//! Each patch is checked with `git apply --check` first; only those that
+//! apply cleanly are actually applied. This lets a partially-applied
+//! cache survive across runs (a stamp mismatch caused a fresh clone, but
+//! some patches now match upstream and don't need to apply).
+//!
+//! No-op when the patches directory doesn't exist, which is the common
+//! case after our outstanding carry-patches landed upstream. Called by
+//! `super::fetch` after the source tree is on disk.
+
 use std::{path::Path, process::Command};
 
 pub fn patch(patches_dir: &Path, manifold_src: &Path) {

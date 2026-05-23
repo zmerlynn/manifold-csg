@@ -1,8 +1,20 @@
+//! Clone and check out the pinned upstream manifold source.
+//!
+//! Caches the clone in `$OUT_DIR/manifold-src/`. Stamp files
+//! (`.version-stamp`, `.patch-stamp`) track the pinned commit SHA and the
+//! hash of the carry-patches directory; when either changes between runs,
+//! the cached source tree is wiped and re-cloned so a stale checkout
+//! never lingers across pin bumps. Delegates patch application to
+//! `super::patch`. Called from the host/emscripten build paths; the
+//! wasm32-unknown-unknown path has its own FetchContent-based flow inside
+//! `super::wasm`.
+
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-/// Pinned upstream version — can be a tag (e.g., "v3.4.1"), branch, or commit SHA.
+/// Pinned upstream version. Accepts a tag (e.g., "v3.4.1"), branch, or
+/// commit SHA. Prefer SHAs for reproducibility, tags for tagged releases.
 const MANIFOLD_VERSION: &str = "3ce9622b851f3d459566bf5ab55adacd93708b5d";
 
 // Compute a hash of the patches directory so we can detect when patches

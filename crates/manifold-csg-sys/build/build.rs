@@ -1,3 +1,18 @@
+//! cmake-configure and build the (already-cloned, already-patched)
+//! manifold source tree, for host and emscripten targets.
+//!
+//! Picks up `parallel` (TBB), `MANIFOLD_CROSS_SECTION`, and standard
+//! manifold options. On emscripten, swaps the cmake driver to
+//! `emcmake`/`emmake` and sets the appropriate flags
+//! (`-fwasm-exceptions`, `MANIFOLD_PAR=OFF`). Emits the
+//! `cargo:rustc-link-lib=static` directives at the end, with library
+//! paths discovered via [`super::find_lib_recursive`] so we don't have to
+//! hardcode cmake's internal layout.
+//!
+//! Does NOT cover the wasm32-unknown-unknown path; that lives in
+//! `super::wasm`, which uses the shim's CMake helper instead of driving
+//! manifold's own cmake directly.
+
 use std::{env, path::Path, process::Command};
 
 use super::find_lib_recursive;
