@@ -493,9 +493,6 @@ unsafe extern "C" {
     /// Get the number of triangle runs.
     pub fn manifold_meshgl_num_run(m: *const ManifoldMeshGL) -> usize;
 
-    /// Update normals based on run transforms and backside flags, then clear them.
-    pub fn manifold_meshgl_update_normals(m: *mut ManifoldMeshGL, normal_idx: c_int);
-
     // ── MeshGL64 construction (f64 vertices, u64 indices) ───────────────
 
     /// Create a `MeshGL64` from f64 vertex properties and u64 triangle indices.
@@ -619,9 +616,6 @@ unsafe extern "C" {
 
     /// Get the number of triangle runs.
     pub fn manifold_meshgl64_num_run(m: *const ManifoldMeshGL64) -> usize;
-
-    /// Update normals based on run transforms and backside flags, then clear them.
-    pub fn manifold_meshgl64_update_normals(m: *mut ManifoldMeshGL64, normal_idx: c_int);
 
     // ── SDF (level set) ────────────────────────────────────────────────
 
@@ -1018,12 +1012,15 @@ unsafe extern "C" {
 
     pub fn manifold_is_empty(m: *const ManifoldManifold) -> c_int;
     pub fn manifold_status(m: *const ManifoldManifold) -> ManifoldError;
-    /// Variant of [`manifold_status`] that observes progress and allows
-    /// cancellation via the [`ManifoldExecutionContext`].
-    pub fn manifold_status_with_context(
+    /// Returns a copy of `m` with `ctx` attached. The attachment is
+    /// consumed by the next eager op (`manifold_status`, `manifold_refine*`).
+    /// Deferred ops (booleans, transforms, batch) ignore any attached
+    /// context and produce results with no attached context.
+    pub fn manifold_with_context(
+        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         ctx: *mut ManifoldExecutionContext,
-    ) -> ManifoldError;
+    ) -> *mut ManifoldManifold;
     pub fn manifold_num_vert(m: *const ManifoldManifold) -> usize;
     pub fn manifold_num_edge(m: *const ManifoldManifold) -> usize;
     pub fn manifold_num_tri(m: *const ManifoldManifold) -> usize;
@@ -1100,8 +1097,9 @@ unsafe extern "C" {
 
     // ── Execution context (cancel + progress) ───────────────────────────
 
-    /// Construct an `ExecutionContext` in pre-allocated memory. Pass to
-    /// [`manifold_status_with_context`].
+    /// Construct an `ExecutionContext` in pre-allocated memory. Attach
+    /// to a manifold via [`manifold_with_context`]; subsequent eager
+    /// operations on the result observe the context.
     pub fn manifold_execution_context(
         mem: *mut ManifoldExecutionContext,
     ) -> *mut ManifoldExecutionContext;

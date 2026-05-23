@@ -2281,10 +2281,14 @@ fn wasm_smoke_memory_growth_path() {
 // ── ExecutionContext tests ──────────────────────────────────────────
 
 #[test]
-fn execution_context_initial_state() {
+fn execution_context_initial_state_not_cancelled() {
     let ctx = manifold_csg::ExecutionContext::new();
     assert!(!ctx.is_cancelled());
-    assert_eq!(ctx.progress(), 0.0);
+    // progress() on an unattached context is meaningful only after an
+    // eager op runs against a manifold the context is attached to.
+    // We don't lock in a specific initial value; upstream has shifted it
+    // (0.0 in pre-3.5.0, 1.0 in 3.5.0+ meaning "nothing in flight").
+    let _ = ctx.progress();
 }
 
 #[test]
@@ -2322,24 +2326,52 @@ fn execution_context_cross_thread_cancel() {
 }
 
 #[test]
-fn manifold_status_with_context_no_cancel() {
+fn manifold_with_context_then_status_no_cancel() {
     use manifold_csg_sys::ManifoldError;
     let cube = Manifold::cube(1.0, 1.0, 1.0, true);
     let ctx = manifold_csg::ExecutionContext::new();
-    // Trivial Manifold; evaluation finishes immediately.
-    assert_eq!(cube.status_with_context(&ctx), ManifoldError::NoError);
+    // Trivial Manifold; evaluation finishes immediately. Exercises the
+    // 3.5.0 attach-then-eager-op pattern.
+    assert_eq!(cube.with_context(&ctx).status(), ManifoldError::NoError);
 }
 
 #[test]
-fn manifold_status_with_context_already_cancelled() {
+fn manifold_with_context_already_cancelled() {
     let cube = Manifold::cube(1.0, 1.0, 1.0, true);
     let ctx = manifold_csg::ExecutionContext::new();
     ctx.cancel();
-    // We don't assert on the specific status code — upstream may surface
+    // Don't assert on the specific status code: upstream may surface
     // cancellation as NoError for trivial work that doesn't poll the flag,
-    // or as a specific cancellation status. We just want to prove the call
-    // is well-formed and doesn't panic / leak / crash.
-    let _ = cube.status_with_context(&ctx);
+    // or as a specific cancellation status. Just proves the attach + eager
+    // call is well-formed and doesn't panic / leak / crash.
+    let _ = cube.with_context(&ctx).status();
+}
+
+#[test]
+fn manifold_status_returns_no_error_for_basic_cube() {
+    use manifold_csg_sys::ManifoldError;
+    let cube = Manifold::cube(1.0, 1.0, 1.0, true);
+    // Bare status() with no context attached: just forces lazy eval.
+    assert_eq!(cube.status(), ManifoldError::NoError);
+}
+
+#[test]
+fn manifold_with_context_survives_ctx_drop() {
+    use manifold_csg_sys::ManifoldError;
+    // A bare cube is a leaf; status() on it can short-circuit without
+    // consulting the attached context. Use a real CSG tree so the eager
+    // evaluation has to traverse the deferred boolean under the context.
+    let tree = &Manifold::cube(1.0, 1.0, 1.0, true) - &Manifold::sphere(0.6, 32);
+    let attached = {
+        let ctx = manifold_csg::ExecutionContext::new();
+        tree.with_context(&ctx)
+        // ctx drops here. Upstream's WithContext copied ctx's internal
+        // shared_ptr into `attached`, so the state must stay alive.
+    };
+    // If the shared_ptr story were wrong, status() (and the subsequent
+    // num_tri()) would read freed memory while walking the boolean.
+    assert_eq!(attached.status(), ManifoldError::NoError);
+    assert!(attached.num_tri() > 0);
 }
 
 // ── Sample constructions ────────────────────────────────────────────

@@ -1226,32 +1226,74 @@ impl Manifold {
 
     // ── Cancellable evaluation ──────────────────────────────────────
 
-    /// Force evaluation of this manifold's lazy CSG tree under a cancellable
-    /// [`ExecutionContext`](crate::ExecutionContext), returning the result
-    /// status.
+    /// Force evaluation of this manifold's lazy CSG tree and return the
+    /// result status.
     ///
     /// Manifold operations are lazy: building a CSG tree is cheap and
     /// synchronous; the actual evaluation happens when something queries
-    /// the result. Calling this method triggers that evaluation while
-    /// observing `ctx` — if `ctx` is cancelled (typically from another
-    /// thread), the evaluation aborts at the next boolean boundary and
-    /// returns a cancellation status. See the [`execution`](crate::execution)
-    /// module docs for the full pattern.
+    /// the result. Most queries (`num_tri`, mesh extraction, volume,
+    /// etc.) also force evaluation as a side effect, so this method is
+    /// rarely needed standalone. Its main use is checking evaluation
+    /// status under an attached [`ExecutionContext`](crate::ExecutionContext)
+    /// without consuming a property.
     ///
-    /// Equivalent to upstream's `manifold_status_with_context`.
+    /// To run the evaluation under a cancellable
+    /// [`ExecutionContext`](crate::ExecutionContext), use
+    /// [`Manifold::with_context`] first:
     ///
-    /// Concurrent calls on the same `Manifold` with different contexts are
-    /// permitted (`Manifold: Sync`); upstream synchronizes the lazy-eval
-    /// cache. Each context observes its own progress and cancel state.
+    /// ```no_run
+    /// # use manifold_csg::{ExecutionContext, Manifold};
+    /// # let manifold = Manifold::cube(1.0, 1.0, 1.0, true);
+    /// let ctx = ExecutionContext::new();
+    /// let status = manifold.with_context(&ctx).status();
+    /// # let _ = status;
+    /// ```
     #[must_use]
-    pub fn status_with_context(
-        &self,
-        ctx: &crate::ExecutionContext,
-    ) -> manifold_csg_sys::ManifoldError {
-        // SAFETY: self.ptr is a valid handle; ctx.as_ptr() is valid for
-        // the lifetime of `ctx`. Upstream documents thread-safe access to
-        // the context, so concurrent cancel from another thread is fine.
-        unsafe { manifold_status_with_context(self.ptr, ctx.as_ptr()) }
+    pub fn status(&self) -> manifold_csg_sys::ManifoldError {
+        // SAFETY: self.ptr is a valid handle.
+        unsafe { manifold_status(self.ptr) }
+    }
+
+    /// Return a copy of this manifold with `ctx` attached. The next
+    /// eager op (such as [`status`](Self::status), `refine*`, mesh
+    /// extraction) on the returned value observes `ctx`. Deferred ops
+    /// (booleans, transforms, batch ops) ignore the attached context
+    /// and produce results with no attached context.
+    ///
+    /// See the [`execution`](crate::execution) module docs for the
+    /// full pattern. Equivalent to upstream's `manifold_with_context`.
+    ///
+    /// The returned `Manifold` internally holds a `shared_ptr` to the
+    /// context's state (managed on the C++ side via `std::atomic_store`),
+    /// so it remains valid even if `ctx` is dropped before the eager op
+    /// runs:
+    ///
+    /// ```no_run
+    /// # use manifold_csg::{ExecutionContext, Manifold};
+    /// // Build a deferred CSG tree whose eager evaluation will need to
+    /// // consult the attached context, then attach + drop ctx + eval.
+    /// let tree = &Manifold::cube(1.0, 1.0, 1.0, true)
+    ///     - &Manifold::sphere(0.6, 32);
+    /// let attached = {
+    ///     let ctx = ExecutionContext::new();
+    ///     tree.with_context(&ctx)
+    ///     // ctx drops here; `attached` still holds the inner state
+    ///     // via shared_ptr, so the eager op below is safe.
+    /// };
+    /// let status = attached.status();
+    /// # let _ = status;
+    /// ```
+    #[must_use]
+    pub fn with_context(&self, ctx: &crate::ExecutionContext) -> Self {
+        // SAFETY: manifold_alloc_manifold returns a valid handle;
+        // manifold_with_context constructs into it from self + ctx.
+        let mem = unsafe { manifold_alloc_manifold() };
+        // SAFETY: mem just-allocated; self.ptr and ctx.as_ptr() valid.
+        // Upstream copies ctx's internal shared_ptr into the returned
+        // Manifold, so ctx is safe to drop before the returned Manifold's
+        // eager op runs.
+        let ptr = unsafe { manifold_with_context(mem, self.ptr, ctx.as_ptr()) };
+        Self { ptr }
     }
 
     // ── Ray casting ─────────────────────────────────────────────────

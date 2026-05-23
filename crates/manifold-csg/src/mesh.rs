@@ -265,17 +265,6 @@ impl MeshGL {
         unsafe { manifold_meshgl_run_flags(buf.as_mut_ptr(), self.ptr) };
         buf
     }
-
-    /// Update normals based on run transforms and backside flags, then clear
-    /// those fields to avoid double-applying on round-trip.
-    ///
-    /// `normal_idx` specifies the first of three consecutive property channels
-    /// forming the (x, y, z) normals. Must be >= 3 and `num_prop` must be at
-    /// least `normal_idx + 3`.
-    pub fn update_normals(&mut self, normal_idx: i32) {
-        // SAFETY: self.ptr is valid (invariant), mutation is exclusive via &mut self.
-        unsafe { manifold_meshgl_update_normals(self.ptr, normal_idx) };
-    }
 }
 
 impl Clone for MeshGL {
@@ -541,17 +530,6 @@ impl MeshGL64 {
         // SAFETY: buf has capacity len, self.ptr is valid.
         unsafe { manifold_meshgl64_run_flags(buf.as_mut_ptr(), self.ptr) };
         buf
-    }
-
-    /// Update normals based on run transforms and backside flags, then clear
-    /// those fields to avoid double-applying on round-trip.
-    ///
-    /// `normal_idx` specifies the first of three consecutive property channels
-    /// forming the (x, y, z) normals. Must be >= 3 and `num_prop` must be at
-    /// least `normal_idx + 3`.
-    pub fn update_normals(&mut self, normal_idx: i32) {
-        // SAFETY: self.ptr is valid (invariant), mutation is exclusive via &mut self.
-        unsafe { manifold_meshgl64_update_normals(self.ptr, normal_idx) };
     }
 
     /// Read a MeshGL64 from a Wavefront OBJ string.

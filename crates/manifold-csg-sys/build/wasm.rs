@@ -30,12 +30,14 @@ use std::{
 // build.rs instead of a cmake file).
 
 const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
-// v0.4.0 dropped the iostream carry-patch (upstream manifold#1690 merged)
-// and pins manifold to `3ce9622b`, currently matching our host pin. The
-// wasm-uu lane sees the same C API surface as the host, no cfg-gating
-// needed. If the host pin moves past the shim's tested pin in a future
-// bump, see CLAUDE.md "Versioning" for the override-or-cfg-gate playbook.
-const WASM_CXX_SHIM_TAG: &str = "v0.4.0";
+// v0.5.0 catches up to manifold v3.5.0: adds `assert.h` to libc and
+// `<memory>` shared_ptr atomic-free-function stubs to libcxx, both
+// surfaced by v3.5.0's new ExecutionContext-attached-via-shared_ptr
+// model. Default `MANIFOLD_GIT_TAG` is now `v3.5.0`, matching our host
+// pin. Build.rs still passes `-DMANIFOLD_GIT_TAG=<our pin>` so future
+// host bumps past the shim's default don't break the wasm-uu lane
+// silently (see CLAUDE.md "Versioning" for the playbook).
+const WASM_CXX_SHIM_TAG: &str = "v0.5.0";
 
 /// Diagnostic context populated up-front in `build_wasm_unknown_unknown()`,
 /// passed to `bail_with_diagnostics()` so cmake/clang failures emit the
@@ -351,6 +353,7 @@ pub fn build_wasm_unknown_unknown() {
                 &format!("-DCMAKE_TOOLCHAIN_FILE={}", shim_toolchain.display()),
                 "-DCMAKE_BUILD_TYPE=Release",
             ])
+            .args(crate::cmake_launcher_args())
             .status()
             .expect("failed to run cmake configure for wasm-cxx-shim");
         if !status.success() {
@@ -396,7 +399,13 @@ pub fn build_wasm_unknown_unknown() {
             &format!("-DWASM_CXX_SHIM_DIR={}", shim_src.display()),
             &format!("-DWASM32_UU_INC_DIR={}", wasm_dir.join("include").display()),
             &format!("-DLIBCXX_HEADERS={}", libcxx_headers.display()),
+            // Override the shim's tested-pin default so wasm-uu builds
+            // against the same manifold pin as host. Otherwise our FFI
+            // declarations target the host's (newer) C API surface and
+            // the wasm link fails with unresolved imports.
+            &format!("-DMANIFOLD_GIT_TAG={}", crate::MANIFOLD_VERSION),
         ])
+        .args(crate::cmake_launcher_args())
         .status()
         .expect("failed to run cmake configure for manifold (wasm32-uu)");
     if !status.success() {
