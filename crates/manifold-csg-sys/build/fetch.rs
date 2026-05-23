@@ -13,9 +13,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-/// Pinned upstream version. Accepts a tag (e.g., "v3.4.1"), branch, or
-/// commit SHA. Prefer SHAs for reproducibility, tags for tagged releases.
-const MANIFOLD_VERSION: &str = "3ce9622b851f3d459566bf5ab55adacd93708b5d";
+use crate::MANIFOLD_VERSION;
 
 // Compute a hash of the patches directory so we can detect when patches
 // change and invalidate the cached (possibly stale) source checkout.

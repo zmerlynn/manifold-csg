@@ -89,8 +89,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_bounding_box` | [`Manifold::bounding_box`](crates/manifold-csg/src/manifold.rs#L571) |
 | `manifold_original_id` | [`Manifold::original_id`](crates/manifold-csg/src/manifold.rs#L934) |
 | `manifold_min_gap` | [`Manifold::min_gap`](crates/manifold-csg/src/manifold.rs#L941) |
-| `manifold_status` | Internal |
-| `manifold_status_with_context` | [`Manifold::status_with_context`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_status` | [`Manifold::status`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_with_context` | [`Manifold::with_context`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_as_original` | [`Manifold::as_original`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_manifold_size` | Not needed (alloc size) |
 | `manifold_manifold_pair_size` | Not needed (alloc size) |
@@ -192,8 +192,6 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_meshgl64_run_flags` | [`MeshGL64::run_flags`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_run_flags_length` | Internal |
 | `manifold_meshgl64_run_flags_length` | Internal |
-| `manifold_meshgl_update_normals` | [`MeshGL::update_normals`](crates/manifold-csg/src/mesh.rs) |
-| `manifold_meshgl64_update_normals` | [`MeshGL64::update_normals`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_merge` | [`MeshGL::merge`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_merge` | [`MeshGL64::merge`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_merge_from_vert` | [`MeshGL::merge_from_vert`](crates/manifold-csg/src/mesh.rs) |
@@ -366,7 +364,7 @@ and `Drop` implementations.
 | Manifold hull/decompose/mesh | 10 | 0 |
 | CrossSection construction & booleans | 13 | 0 |
 | CrossSection transforms & queries | 15 | 0 |
-| MeshGL/MeshGL64 | 22 | 6 |
+| MeshGL/MeshGL64 | 20 | 6 |
 | Triangulation | 1 | 2 |
 | Quality globals | 6 | 0 |
 | Box3D (BoundingBox) | 16 | 0 |
@@ -374,7 +372,7 @@ and `Drop` implementations.
 | Polygon helpers | 0 | 7 |
 | Vector containers | 0 | 10 |
 | Alloc/delete/destruct | 0 | 24 |
-| **Total** | **152** | **49** |
+| **Total** | **150** | **49** |
 
 Unwrapped functions are primarily allocation infrastructure (`destruct_*` variants,
 unused vector ops), internal size queries, and specialized construction variants.

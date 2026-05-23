@@ -97,4 +97,42 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space) {
     return r;
 }
 
+// std::__hash_memory — libc++'s out-of-line memory hash, used by every
+// hash-container instantiation (unordered_map, unordered_set, ...).
+// Under LLVM 20 the symbol was elsewhere or inlined; LLVM 21 makes it
+// an undefined extern that libc++ expects the runtime to provide. The
+// shim doesn't ship libc++.a/.dylib, so we provide it here. Quality
+// (avalanche, distribution) doesn't have to match libc++'s upstream
+// implementation byte-for-byte — hash containers stay correct as long
+// as the function is deterministic and a function of all input bytes.
+// FNV-1a fits the bill in ~10 lines. Uses 32-bit constants because
+// size_t is 32-bit on wasm32.
+//
+// LLVM 21 declares `__hash_memory` in `<__functional/hash.h>` with a
+// `_LIBCPP_NOESCAPE` parameter attribute (expands to
+// `[[_Clang::__noescape__]]`). Definition must match the declaration's
+// parameter attributes or clang flags "conflicting types". We pull in
+// the declaration if it exists (LLVM 21+) and use `_LIBCPP_NOESCAPE`
+// in the definition (macro is defined unconditionally in `<__config>`
+// across LLVM 20+, expanding to either the attribute or nothing).
+}}  // close std::__1 to include libc++ headers at translation-unit scope
+
+#if __has_include(<__functional/hash.h>)
+#  include <__functional/hash.h>
+#endif
+
+namespace std { inline namespace __1 {
+
+_LIBCPP_EXPORTED_FROM_ABI size_t __hash_memory(_LIBCPP_NOESCAPE const void* key, size_t length) noexcept {
+    constexpr size_t fnv_offset_basis = 2166136261u;
+    constexpr size_t fnv_prime        = 16777619u;
+    size_t h = fnv_offset_basis;
+    const unsigned char* p = static_cast<const unsigned char*>(key);
+    for (size_t i = 0; i < length; ++i) {
+        h ^= static_cast<size_t>(p[i]);
+        h *= fnv_prime;
+    }
+    return h;
+}
+
 }}  // namespace std::__1

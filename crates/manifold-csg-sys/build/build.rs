@@ -15,7 +15,7 @@
 
 use std::{env, path::Path, process::Command};
 
-use super::find_lib_recursive;
+use super::{cmake_launcher_args, find_lib_recursive};
 
 pub fn build(
     is_emscripten: bool,
@@ -71,6 +71,11 @@ pub fn build(
         // input. Must match the link-time -fwasm-exceptions emitted below.
         cmake_args.push("-DCMAKE_CXX_FLAGS=-fwasm-exceptions".to_string());
     }
+
+    // Route C/C++ compiles through sccache when available so rebuilds after
+    // `cargo clean` reuse object files rather than recompiling manifold from
+    // scratch. No-op when sccache isn't installed.
+    cmake_args.extend(cmake_launcher_args());
 
     // emcmake / emmake wrap cmake invocations to inject Emscripten's toolchain
     // file and substitute em++/emcc as the C++/C compiler.

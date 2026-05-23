@@ -66,13 +66,16 @@ add_compile_options(
 )
 
 # FetchContent + manifold/Clipper2 options + base compile flags.
-# Uses the helper's tested-pin default. As of shim v0.4.0 the helper's
-# default pin matches our host pin (`3ce9622b`), so the wasm-uu lane sees
-# the same C API surface as the host build. When the host pin moves past
-# the helper's tested pin again, either override via `MANIFOLD_GIT_TAG`
-# here or cfg-gate the new surface on this target — see the "Pin / shim
-# follow-ups" section in CLAUDE.md.
-wasm_cxx_shim_add_manifold()
+# Host build.rs passes -DMANIFOLD_GIT_TAG so the wasm-uu lane builds
+# against the same manifold commit the host pins. The shim's tested-pin
+# default (currently 3ce9622b) is older than typical host pins; without
+# this override, the wasm-uu lane would link against an older C API
+# surface than our FFI declarations target.
+if(MANIFOLD_GIT_TAG)
+    wasm_cxx_shim_add_manifold(MANIFOLD_GIT_TAG ${MANIFOLD_GIT_TAG})
+else()
+    wasm_cxx_shim_add_manifold()
+endif()
 
 # Force the manifold + Clipper2 archives to build by default. Without
 # this, `cmake --build` only builds targets marked ALL; FetchContent

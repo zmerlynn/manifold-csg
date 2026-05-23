@@ -2,7 +2,8 @@
 //!
 //! Manifold operations are lazy: building a CSG tree is cheap, and the
 //! actual evaluation happens when you query results (e.g., via
-//! [`Manifold::status_with_context`](crate::Manifold::status_with_context),
+//! [`Manifold::with_context`](crate::Manifold::with_context) followed by
+//! [`Manifold::status`](crate::Manifold::status),
 //! `num_tri`, mesh extraction, etc.). An [`ExecutionContext`] lets you
 //! observe an in-flight evaluation from another thread and ask it to stop
 //! early.
@@ -33,7 +34,7 @@
 //! });
 //!
 //! let result = Manifold::cube(1.0, 1.0, 1.0, true);
-//! let status = result.status_with_context(&ctx);
+//! let status = result.with_context(&ctx).status();
 //! // `status` will be `NoError` for trivial work that finishes before
 //! // cancel fires; for a heavy boolean tree it would surface cancellation.
 //! # let _ = status;
@@ -91,8 +92,10 @@ impl ExecutionContext {
     }
 
     /// Progress of an in-flight evaluation as a fraction in `[0.0, 1.0]`.
-    /// Reads `0.0` before any evaluation has started and `1.0` after one
-    /// has finished.
+    /// Meaningful only after this context has been attached to a manifold
+    /// via [`Manifold::with_context`](crate::Manifold::with_context) and an
+    /// eager op has started. For an unattached context, upstream reads
+    /// `1.0` ("nothing in flight, complete").
     #[must_use]
     pub fn progress(&self) -> f64 {
         // SAFETY: self.ptr is a valid handle; upstream documents thread-safe access.
