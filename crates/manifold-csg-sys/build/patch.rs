@@ -23,14 +23,14 @@ pub fn patch(patches_dir: &Path, manifold_src: &Path) {
                 "--whitespace=nowarn",
             ])
             .arg(patch)
-            .current_dir(&manifold_src)
+            .current_dir(manifold_src)
             .output()
             .expect("failed to check patch");
         if check.status.success() {
             let apply = Command::new("git")
                 .args(["apply", "--ignore-whitespace", "--whitespace=nowarn"])
                 .arg(patch)
-                .current_dir(&manifold_src)
+                .current_dir(manifold_src)
                 .output()
                 .expect("failed to apply patch");
             assert!(

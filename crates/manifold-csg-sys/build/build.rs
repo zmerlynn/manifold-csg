@@ -101,7 +101,7 @@ pub fn build(
     // We use find_lib_recursive to handle both layouts reliably.
     let required_libs = ["manifoldc", "manifold", "Clipper2"];
     for lib_name in &required_libs {
-        if let Some(lib_dir) = find_lib_recursive(&build_dir, lib_name) {
+        if let Some(lib_dir) = find_lib_recursive(build_dir, lib_name) {
             println!("cargo:rustc-link-search=native={}", lib_dir.display());
         }
     }
@@ -118,7 +118,7 @@ pub fn build(
         let tbb_names = ["tbb", "tbb12", "tbb12_static"];
         let mut found_tbb = false;
         for name in &tbb_names {
-            if let Some(tbb_dir) = find_lib_recursive(&build_dir, name) {
+            if let Some(tbb_dir) = find_lib_recursive(build_dir, name) {
                 println!("cargo:rustc-link-search=native={}", tbb_dir.display());
                 println!("cargo:rustc-link-lib=static={name}");
                 found_tbb = true;

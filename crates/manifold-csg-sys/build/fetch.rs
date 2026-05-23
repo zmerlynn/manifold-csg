@@ -9,7 +9,7 @@ const MANIFOLD_VERSION: &str = "3ce9622b851f3d459566bf5ab55adacd93708b5d";
 // change and invalidate the cached (possibly stale) source checkout.
 fn compute_patch_stamp(patches_dir: &Path) -> String {
     let mut entries: Vec<String> = Vec::new();
-    if let Ok(dir) = std::fs::read_dir(&patches_dir) {
+    if let Ok(dir) = std::fs::read_dir(patches_dir) {
         for e in dir.flatten() {
             let path = e.path();
             if path.extension().is_none_or(|ext| ext != "patch") {
@@ -54,32 +54,32 @@ pub fn fetch(out_dir: &Path, manifold_src: &Path, build_dir: &Path, patches_dir:
     let old_commit = fs::read_to_string(&commit_stamp_file).unwrap_or_default();
 
     if old_commit.trim() != MANIFOLD_VERSION && manifold_src.exists() {
-        if fs::remove_dir_all(&manifold_src).is_err() {
+        if fs::remove_dir_all(manifold_src).is_err() {
             let _ = Command::new("git")
                 .args(["checkout", "."])
-                .current_dir(&manifold_src)
+                .current_dir(manifold_src)
                 .status();
         }
-        let _ = fs::remove_dir_all(&build_dir);
+        let _ = fs::remove_dir_all(build_dir);
     }
-    let current_stamp = compute_patch_stamp(&patches_dir);
+    let current_stamp = compute_patch_stamp(patches_dir);
     let patch_stamp = out_dir.join(".patch-stamp");
 
     let old_patch_stamp = std::fs::read_to_string(&patch_stamp).unwrap_or_default();
     if current_stamp != old_patch_stamp && manifold_src.exists() {
         // Patches changed — delete cached source so it gets re-cloned and re-patched.
         // If removal fails (e.g. read-only files on Windows), reset via git instead.
-        if std::fs::remove_dir_all(&manifold_src).is_err() {
+        if std::fs::remove_dir_all(manifold_src).is_err() {
             let _ = Command::new("git")
                 .args(["checkout", "."])
-                .current_dir(&manifold_src)
+                .current_dir(manifold_src)
                 .status();
         }
-        let _ = std::fs::remove_dir_all(&build_dir);
+        let _ = std::fs::remove_dir_all(build_dir);
     }
 
     if !manifold_src.join("CMakeLists.txt").exists() {
-        clone_manifold3d(&manifold_src, &commit_stamp_file)
+        clone_manifold3d(manifold_src, &commit_stamp_file)
     }
 
     super::patch::patch(patches_dir, manifold_src);
