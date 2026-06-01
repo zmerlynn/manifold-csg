@@ -24,6 +24,7 @@ use std::ops;
 
 use crate::bounding_box::BoundingBox;
 use crate::cross_section::CrossSection;
+use crate::mesh::{MeshGL, MeshGL64};
 use crate::types::CsgError;
 
 /// A safe wrapper around a manifold3d Manifold object.
@@ -145,6 +146,23 @@ impl Manifold {
         Ok(Self { ptr: manifold })
     }
 
+    pub fn from_meshgl_f64(meshgl: &MeshGL64) -> Result<Self, CsgError> {
+        // SAFETY: manifold_alloc_manifold returns a valid handle.
+        let manifold = unsafe { manifold_alloc_manifold() };
+        // SAFETY: manifold and meshgl are valid handles.
+        unsafe { manifold_of_meshgl64(manifold, meshgl.ptr) };
+
+        // SAFETY: manifold is valid. Read-only status query.
+        let status = unsafe { manifold_status(manifold) };
+        if status != ManifoldError::NoError {
+            // SAFETY: manifold is valid. Frees the allocation on error path.
+            unsafe { manifold_delete_manifold(manifold) };
+            return Err(CsgError::ManifoldStatus(status));
+        }
+
+        Ok(Self { ptr: manifold })
+    }
+
     /// Create a Manifold from f32 vertex data and u32 triangle indices.
     ///
     /// Uses MeshGL (f32) internally. Prefer [`from_mesh_f64`](Self::from_mesh_f64)
@@ -185,6 +203,23 @@ impl Manifold {
         unsafe { manifold_of_meshgl(manifold, meshgl) };
         // SAFETY: meshgl is valid and no longer needed.
         unsafe { manifold_delete_meshgl(meshgl) };
+
+        // SAFETY: manifold is valid. Read-only status query.
+        let status = unsafe { manifold_status(manifold) };
+        if status != ManifoldError::NoError {
+            // SAFETY: manifold is valid. Frees the allocation on error path.
+            unsafe { manifold_delete_manifold(manifold) };
+            return Err(CsgError::ManifoldStatus(status));
+        }
+
+        Ok(Self { ptr: manifold })
+    }
+
+    pub fn from_meshgl_f32(meshgl: &MeshGL) -> Result<Self, CsgError> {
+        // SAFETY: manifold_alloc_manifold returns a valid handle.
+        let manifold = unsafe { manifold_alloc_manifold() };
+        // SAFETY: manifold and meshgl are valid handles.
+        unsafe { manifold_of_meshgl(manifold, meshgl.ptr) };
 
         // SAFETY: manifold is valid. Read-only status query.
         let status = unsafe { manifold_status(manifold) };

@@ -11,7 +11,17 @@ use manifold_csg_sys::*;
 /// See the [upstream `MeshGL` docs](https://elalish.github.io/manifold/docs/html/structmanifold_1_1_mesh_g_l_p.html)
 /// for field semantics (run indices, merge vectors, tangents, etc.).
 pub struct MeshGL {
-    ptr: *mut ManifoldMeshGL,
+    pub(crate) ptr: *mut ManifoldMeshGL,
+}
+
+/// Options for constructing a `MeshGL` with additional metadata.
+#[derive(Default)]
+pub struct MeshGLOptions<'a> {
+    pub run_indices: &'a [u32],
+    pub run_original_ids: &'a [u32],
+    pub merge_from_vert: &'a [u32],
+    pub merge_to_vert: &'a [u32],
+    pub halfedge_tangents: &'a [f32],
 }
 
 // SAFETY: MeshGL owns its heap allocation with no thread-local state.
@@ -103,6 +113,71 @@ impl MeshGL {
                 tri_indices.as_ptr(),
                 n_tris,
                 halfedge_tangent.as_ptr(),
+            );
+        }
+        Self { ptr }
+    }
+
+    /// Create a MeshGL with options data.
+    ///
+    /// # Panics
+    ///
+    /// Same as [`new`](Self::new).
+    #[must_use]
+    pub fn new_with_options(
+        vert_props: &[f32],
+        n_props: usize,
+        tri_indices: &[u32],
+        options: &MeshGLOptions,
+    ) -> Self {
+        assert!(n_props >= 3, "n_props must be >= 3");
+        assert!(vert_props.len() % n_props == 0);
+        assert!(tri_indices.len() % 3 == 0);
+        assert_eq!(options.merge_from_vert.len(), options.merge_to_vert.len());
+        let n_verts = vert_props.len() / n_props;
+        let n_tris = tri_indices.len() / 3;
+
+        // SAFETY: manifold_alloc_meshgl returns a valid handle.
+        let ptr = unsafe { manifold_alloc_meshgl() };
+        // SAFETY: ptr valid, all slices valid with correct lengths.
+        unsafe {
+            manifold_meshgl_w_options(
+                ptr,
+                vert_props.as_ptr(),
+                n_verts,
+                n_props,
+                tri_indices.as_ptr(),
+                n_tris,
+                &ManifoldMeshGLOptions {
+                    run_indices: options
+                        .run_indices
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.run_indices.as_ptr()),
+                    run_indices_length: options.run_indices.len(),
+                    run_original_ids: options
+                        .run_original_ids
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.run_original_ids.as_ptr()),
+                    run_original_ids_length: options.run_original_ids.len(),
+                    merge_from_vert: options
+                        .merge_from_vert
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.merge_from_vert.as_ptr()),
+                    merge_to_vert: options
+                        .merge_to_vert
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.merge_to_vert.as_ptr()),
+                    merge_verts_length: options.merge_to_vert.len(),
+                    halfedge_tangents: options
+                        .halfedge_tangents
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.halfedge_tangents.as_ptr()),
+                },
             );
         }
         Self { ptr }
@@ -285,7 +360,17 @@ impl Clone for MeshGL {
 /// See the [upstream `MeshGL` docs](https://elalish.github.io/manifold/docs/html/structmanifold_1_1_mesh_g_l_p.html)
 /// for field semantics (run indices, merge vectors, tangents, etc.).
 pub struct MeshGL64 {
-    ptr: *mut ManifoldMeshGL64,
+    pub(crate) ptr: *mut ManifoldMeshGL64,
+}
+
+/// Options for constructing a `MeshGL64` with additional metadata.
+#[derive(Default)]
+pub struct MeshGL64Options<'a> {
+    pub run_indices: &'a [u64],
+    pub run_original_ids: &'a [u32],
+    pub merge_from_vert: &'a [u64],
+    pub merge_to_vert: &'a [u64],
+    pub halfedge_tangents: &'a [f64],
 }
 
 // SAFETY: MeshGL64 owns its heap allocation with no thread-local state.
@@ -369,6 +454,71 @@ impl MeshGL64 {
                 tri_indices.as_ptr(),
                 n_tris,
                 halfedge_tangent.as_ptr(),
+            );
+        }
+        Self { ptr }
+    }
+
+    /// Create a MeshGL64 with options data.
+    ///
+    /// # Panics
+    ///
+    /// Same as [`new`](Self::new).
+    #[must_use]
+    pub fn new_with_options(
+        vert_props: &[f64],
+        n_props: usize,
+        tri_indices: &[u64],
+        options: &MeshGL64Options,
+    ) -> Self {
+        assert!(n_props >= 3, "n_props must be >= 3");
+        assert!(vert_props.len() % n_props == 0);
+        assert!(tri_indices.len() % 3 == 0);
+        assert_eq!(options.merge_from_vert.len(), options.merge_to_vert.len());
+        let n_verts = vert_props.len() / n_props;
+        let n_tris = tri_indices.len() / 3;
+
+        // SAFETY: manifold_alloc_meshgl returns a valid handle.
+        let ptr = unsafe { manifold_alloc_meshgl64() };
+        // SAFETY: ptr valid, all slices valid with correct lengths.
+        unsafe {
+            manifold_meshgl64_w_options(
+                ptr,
+                vert_props.as_ptr(),
+                n_verts,
+                n_props,
+                tri_indices.as_ptr(),
+                n_tris,
+                &ManifoldMeshGL64Options {
+                    run_indices: options
+                        .run_indices
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.run_indices.as_ptr()),
+                    run_indices_length: options.run_indices.len(),
+                    run_original_ids: options
+                        .run_original_ids
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.run_original_ids.as_ptr()),
+                    run_original_ids_length: options.run_original_ids.len(),
+                    merge_from_vert: options
+                        .merge_from_vert
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.merge_from_vert.as_ptr()),
+                    merge_to_vert: options
+                        .merge_to_vert
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.merge_to_vert.as_ptr()),
+                    merge_verts_length: options.merge_to_vert.len(),
+                    halfedge_tangents: options
+                        .halfedge_tangents
+                        .is_empty()
+                        .then(|| std::ptr::null())
+                        .unwrap_or_else(|| options.halfedge_tangents.as_ptr()),
+                },
             );
         }
         Self { ptr }

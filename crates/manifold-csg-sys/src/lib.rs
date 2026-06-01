@@ -181,28 +181,28 @@ pub struct ManifoldRayHit {
 #[repr(C)]
 #[derive(Debug)]
 pub struct ManifoldMeshGLOptions {
-    pub run_indices: *mut u32,
+    pub run_indices: *const u32,
     pub run_indices_length: usize,
-    pub run_original_ids: *mut u32,
+    pub run_original_ids: *const u32,
     pub run_original_ids_length: usize,
-    pub merge_from_vert: *mut u32,
-    pub merge_to_vert: *mut u32,
+    pub merge_from_vert: *const u32,
+    pub merge_to_vert: *const u32,
     pub merge_verts_length: usize,
-    pub halfedge_tangents: *mut f32,
+    pub halfedge_tangents: *const f32,
 }
 
 /// Options for constructing a `MeshGL64` with additional metadata.
 #[repr(C)]
 #[derive(Debug)]
 pub struct ManifoldMeshGL64Options {
-    pub run_indices: *mut u64,
+    pub run_indices: *const u64,
     pub run_indices_length: usize,
-    pub run_original_ids: *mut u32,
+    pub run_original_ids: *const u32,
     pub run_original_ids_length: usize,
-    pub merge_from_vert: *mut u64,
-    pub merge_to_vert: *mut u64,
+    pub merge_from_vert: *const u64,
+    pub merge_to_vert: *const u64,
     pub merge_verts_length: usize,
-    pub halfedge_tangents: *mut f64,
+    pub halfedge_tangents: *const f64,
 }
 
 // ── Enums ───────────────────────────────────────────────────────────────

@@ -176,8 +176,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_meshgl64_tri_length` | Internal |
 | `manifold_meshgl_copy` | Internal (Clone impl) |
 | `manifold_meshgl64_copy` | Internal (Clone impl) |
-| `manifold_meshgl_w_options` | Not wrapped |
-| `manifold_meshgl64_w_options` | Not wrapped |
+| `manifold_meshgl_w_options` | [`MeshGL::new_with_options`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_w_options` | [`MeshGL64::new_with_options`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_w_tangents` | [`MeshGL::new_with_tangents`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_w_tangents` | [`MeshGL64::new_with_tangents`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_halfedge_tangent` | [`MeshGL::halfedge_tangent`](crates/manifold-csg/src/mesh.rs) |
