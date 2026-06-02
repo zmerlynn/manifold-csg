@@ -12,13 +12,14 @@ Safe Rust bindings to the [manifold3d](https://github.com/elalish/manifold) geom
 
 ## Build
 
-The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.4.1) via git and builds with cmake. Requires:
+The sys crate clones manifold3d (currently pinned to v3.5.0) via git and builds with cmake. Requires:
 - git, cmake, a C++ compiler
 - First build is slow (clones + compiles manifold3d); subsequent builds are cached
 
 ## Versioning
 
 - **`manifold-csg-sys`** uses version `{major}.{minor}.{patch}` where major.minor tracks the upstream manifold3d version and patch >= 100 is our release number. For example, `3.4.100` tracks manifold3d v3.4.1, and `3.4.101` would be our next release against the same upstream. Patch bumps (e.g., `3.4.101` → `3.4.102`) must be semver-compatible: no removed or changed function signatures, only additions.
+- Exception: `3.5.101` completes `ManifoldError` to match bundled manifold3d 3.5.0 status codes (`InvalidTangents`, `Cancelled`), marks `ManifoldError` `#[non_exhaustive]`, and tightens the public `ManifoldMeshGLOptions` / `ManifoldMeshGL64Options` input pointers from `*mut` to `*const`. These are documented patch-level binding corrections: the previous incomplete enum could construct invalid Rust enum values from safe status queries, the non-exhaustive marker prevents recurring downstream match breaks when upstream adds status codes, and the option pointers are input-only fields that should not require safe wrappers to cast shared slices to mutable pointers.
 - **`manifold-csg`** uses standard semver (`0.1.0`, etc.) independent of the upstream version. Its `Cargo.toml` pins the sys crate version it depends on.
 - When bumping the manifold3d pin in `build.rs`, the sys crate version must be updated to match (e.g., manifold3d v3.5.0 -> sys crate `3.5.100`).
 - **Before bumping `MANIFOLD_VERSION`, check that `wasm-cxx-shim` supports the new pin.** The shim's helper (`wasm_cxx_shim_add_manifold()`) ships carry-patches generated against a specific manifold commit; pins past that point may not patch cleanly, and FFI declarations for any C API added in the gap will produce wasm-uu link failures. Two paths if the shim hasn't caught up: (1) wait for a shim release that pins past your target SHA, or (2) cfg-gate the new FFI surface on `not(all(target_arch = "wasm32", target_os = "unknown"))` so the wasm-uu lane stays on the shim's tested pin. The "Pin / shim follow-ups" section below covers the post-bump cleanups for path (2).
@@ -41,6 +42,7 @@ The sys crate clones manifold3d (pinned to a specific commit on master, post-v3.
 - Every `manifold_alloc_*` must be paired with `manifold_delete_*` on all code paths
 - All `Drop` impls must null-check before freeing
 - All FFI callback trampolines must use `catch_unwind` to prevent panic-across-FFI UB
+- `FnMut` callback trampolines are valid only for upstream callbacks that are sequential in the pinned source. In v3.5.0, `Warp` and non-null `SetProperties` callbacks use sequential execution; parallel callbacks must use `Sync`/shared-state-safe bounds like `from_sdf`.
 - `unsafe impl Send` requires documented justification on each type
 - `Sync` is implemented for `Manifold` and `CrossSection` (upstream synchronizes lazy evaluation with a mutex). `MeshGL`/`MeshGL64` are also `Sync` (pure data, no lazy state)
 - `manifold_meshgl_merge` / `manifold_meshgl64_merge` had an upstream ownership bug (returning the input pointer on failure, causing double-free). This was fixed upstream in #1632 (included in our pinned commit).

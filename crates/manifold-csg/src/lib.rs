@@ -38,9 +38,8 @@ pub use manifold::{
     get_circular_segments, reserve_ids, reset_to_circular_defaults, set_circular_segments,
     set_min_circular_angle, set_min_circular_edge_length,
 };
-pub use manifold_csg_sys::ManifoldOpType as OpType;
-pub use mesh::{MeshGL, MeshGL64};
+pub use mesh::{MeshGL, MeshGL64, MeshGL64Options, MeshGLOptions};
 pub use ray::RayHit;
 pub use rect::Rect;
 pub use triangulation::triangulate_polygons;
-pub use types::CsgError;
+pub use types::{CsgError, OpType};

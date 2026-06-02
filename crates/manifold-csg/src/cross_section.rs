@@ -6,14 +6,17 @@
 
 use manifold_csg_sys::*;
 use std::ops;
+use std::sync::Mutex;
 
-use crate::manifold::read_polygons;
+use crate::manifold::{read_polygons, with_quality_lock_if_auto_segments};
 use crate::rect::Rect;
+use crate::types::{OpType, PanicPayload, store_panic, take_stored_panic};
 
 /// Join type for [`CrossSection::offset`].
 ///
 /// Determines how corners are handled when inflating/deflating a 2D shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum JoinType {
     /// Square (flat) corners.
     Square,
@@ -41,6 +44,7 @@ impl JoinType {
 /// Determines how self-intersecting or overlapping polygon contours are
 /// interpreted when creating a [`CrossSection`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FillRule {
     /// Alternating inside/outside based on crossing count parity.
     EvenOdd,
@@ -109,10 +113,8 @@ pub struct CrossSection {
 impl std::fmt::Debug for CrossSection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CrossSection")
-            .field("is_empty", &self.is_empty())
-            .field("area", &self.area())
-            .field("num_vert", &self.num_vert())
-            .finish()
+            .field("ptr", &self.ptr)
+            .finish_non_exhaustive()
     }
 }
 
@@ -144,6 +146,12 @@ impl Drop for CrossSection {
     }
 }
 
+impl Default for CrossSection {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 impl CrossSection {
     // ── Constructors ────────────────────────────────────────────────
 
@@ -172,19 +180,22 @@ impl CrossSection {
     pub fn circle(radius: f64, segments: i32) -> Self {
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe { manifold_cross_section_circle(ptr, radius, segments) };
+        with_quality_lock_if_auto_segments(segments, || {
+            // SAFETY: ptr is valid from alloc.
+            unsafe { manifold_cross_section_circle(ptr, radius, segments) };
+        });
         Self { ptr }
     }
 
     /// Create a cross-section from polygon rings.
     ///
-    /// The first ring is the outer boundary; subsequent rings are holes.
-    /// Uses EvenOdd fill rule. For self-intersecting or overlapping polygons,
-    /// use [`from_polygons_with_fill_rule`](Self::from_polygons_with_fill_rule).
+    /// Uses the upstream default [`FillRule::Positive`], which treats
+    /// positively oriented contours as filled regions and negatively oriented
+    /// contours as holes. For other winding semantics, use
+    /// [`from_polygons_with_fill_rule`](Self::from_polygons_with_fill_rule).
     #[must_use]
     pub fn from_polygons(polygons: &[Vec<[f64; 2]>]) -> Self {
-        Self::from_polygons_with_fill_rule(polygons, FillRule::EvenOdd)
+        Self::from_polygons_with_fill_rule(polygons, FillRule::Positive)
     }
 
     /// Create a cross-section from polygon rings with a specified fill rule.
@@ -219,9 +230,22 @@ impl CrossSection {
 
     /// Create a cross-section from a single simple polygon (no holes).
     ///
+    /// Uses the upstream default [`FillRule::Positive`]. For other winding
+    /// semantics, use
+    /// [`from_simple_polygon_with_fill_rule`](Self::from_simple_polygon_with_fill_rule).
+    ///
     /// For polygons with holes, use [`from_polygons`](Self::from_polygons).
     #[must_use]
-    pub fn from_simple_polygon(points: &[[f64; 2]], fill_rule: FillRule) -> Self {
+    pub fn from_simple_polygon(points: &[[f64; 2]]) -> Self {
+        Self::from_simple_polygon_with_fill_rule(points, FillRule::Positive)
+    }
+
+    /// Create a cross-section from a single simple polygon with a specified
+    /// fill rule.
+    ///
+    /// For polygons with holes, use [`from_polygons`](Self::from_polygons).
+    #[must_use]
+    pub fn from_simple_polygon_with_fill_rule(points: &[[f64; 2]], fill_rule: FillRule) -> Self {
         if points.is_empty() {
             return Self::empty();
         }
@@ -335,11 +359,11 @@ impl CrossSection {
     /// [`difference`](Self::difference), [`intersection`](Self::intersection))
     /// or operator overloads for readability.
     #[must_use]
-    pub fn boolean(&self, other: &Self, op: ManifoldOpType) -> Self {
+    pub fn boolean(&self, other: &Self, op: OpType) -> Self {
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
         // SAFETY: all three pointers are valid.
-        unsafe { manifold_cross_section_boolean(ptr, self.ptr, other.ptr, op) };
+        unsafe { manifold_cross_section_boolean(ptr, self.ptr, other.ptr, op.to_ffi()) };
         Self { ptr }
     }
 
@@ -365,17 +389,19 @@ impl CrossSection {
     ) -> Self {
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe {
-            manifold_cross_section_offset(
-                ptr,
-                self.ptr,
-                delta,
-                join_type.to_ffi(),
-                miter_limit,
-                circular_segments,
-            );
-        }
+        with_quality_lock_if_auto_segments(circular_segments, || {
+            // SAFETY: ptr and self.ptr are valid.
+            unsafe {
+                manifold_cross_section_offset(
+                    ptr,
+                    self.ptr,
+                    delta,
+                    join_type.to_ffi(),
+                    miter_limit,
+                    circular_segments,
+                );
+            }
+        });
         Self { ptr }
     }
 
@@ -545,7 +571,7 @@ impl CrossSection {
 
     /// Batch boolean: apply `op` across multiple cross-sections.
     #[must_use]
-    pub fn batch_boolean(sections: &[Self], op: crate::OpType) -> Self {
+    pub fn batch_boolean(sections: &[Self], op: OpType) -> Self {
         if sections.is_empty() {
             return Self::empty();
         }
@@ -566,7 +592,7 @@ impl CrossSection {
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
         // SAFETY: ptr and vec_ptr are valid.
-        unsafe { manifold_cross_section_batch_boolean(ptr, vec_ptr, op) };
+        unsafe { manifold_cross_section_batch_boolean(ptr, vec_ptr, op.to_ffi()) };
         // SAFETY: vec_ptr is valid and no longer needed.
         unsafe { manifold_delete_cross_section_vec(vec_ptr) };
         Self { ptr }
@@ -575,7 +601,7 @@ impl CrossSection {
     /// Batch union of multiple cross-sections.
     #[must_use]
     pub fn batch_union(sections: &[Self]) -> Self {
-        Self::batch_boolean(sections, crate::OpType::Add)
+        Self::batch_boolean(sections, OpType::Add)
     }
 
     /// Batch hull of multiple cross-sections.
@@ -653,6 +679,11 @@ impl CrossSection {
     where
         F: FnMut(f64, f64) -> [f64; 2],
     {
+        struct Context<'a, F> {
+            f: &'a mut F,
+            panic: Mutex<Option<PanicPayload>>,
+        }
+
         unsafe extern "C" fn trampoline<F>(
             x: f64,
             y: f64,
@@ -663,23 +694,42 @@ impl CrossSection {
         {
             // Catch panics to prevent UB from unwinding through C stack frames.
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                // SAFETY: ctx was created from a &mut F and is valid for the call duration.
-                let f = unsafe { &mut *(ctx as *mut F) };
-                f(x, y)
+                // SAFETY: ctx was created from a &mut Context and is valid for
+                // the call duration.
+                let ctx = unsafe { &mut *(ctx as *mut Context<'_, F>) };
+                (ctx.f)(x, y)
             }));
             match result {
                 Ok([rx, ry]) => ManifoldVec2 { x: rx, y: ry },
-                // Return the original point on panic to avoid UB from unwinding through C.
-                Err(_) => ManifoldVec2 { x, y },
+                Err(payload) => {
+                    // Return the original point to avoid UB from unwinding
+                    // through C, then resume after the FFI call.
+                    // SAFETY: ctx was created from a &mut Context below and is
+                    // valid for the duration of the cross-section warp call.
+                    let ctx = unsafe { &*(ctx as *const Context<'_, F>) };
+                    store_panic(&ctx.panic, payload);
+                    ManifoldVec2 { x, y }
+                }
             }
         }
 
         let mut closure = f;
-        let ctx = &mut closure as *mut F as *mut std::ffi::c_void;
+        let mut ctx = Context {
+            f: &mut closure,
+            panic: Mutex::new(None),
+        };
+        let ctx_ptr = &mut ctx as *mut Context<'_, F> as *mut std::ffi::c_void;
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
         // SAFETY: ptr valid from alloc, self.ptr valid (invariant), trampoline+ctx valid.
-        unsafe { manifold_cross_section_warp_context(ptr, self.ptr, Some(trampoline::<F>), ctx) };
+        unsafe {
+            manifold_cross_section_warp_context(ptr, self.ptr, Some(trampoline::<F>), ctx_ptr)
+        };
+        if let Some(payload) = take_stored_panic(&ctx.panic) {
+            // SAFETY: ptr was allocated above and will not be returned.
+            unsafe { manifold_delete_cross_section(ptr) };
+            std::panic::resume_unwind(payload);
+        }
         Self { ptr }
     }
 

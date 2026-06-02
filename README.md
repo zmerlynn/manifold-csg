@@ -217,6 +217,7 @@ Notes:
 - **Migration guides** — one per breaking-change version pair, each structured for AI-assisted migration:
   - [from 0.0.6](MIGRATION_FROM_0.0.6.md) — original `manifold3d` crate line (pre-transfer to this project).
   - [0.1.8 → 0.2.0](MIGRATION_0.1.8_TO_0.2.0.md) — `ExecutionContext` attachment API reshape.
+  - [0.2.0 → 0.3.0](MIGRATION_0.2.0_TO_0.3.0.md) — more idiomatic `Result` status/mesh APIs and upstream-aligned defaults.
 
 ## License
 
