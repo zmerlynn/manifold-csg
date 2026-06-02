@@ -1,8 +1,7 @@
 # API Coverage
 
-This document maps every function in the manifold3d C API (pinned to master
-post-v3.4.1) to its status in `manifold-csg-sys` (raw FFI) and `manifold-csg`
-(safe wrapper).
+This document maps every function in the bundled manifold3d 3.5.x C API to its
+status in `manifold-csg-sys` (raw FFI) and `manifold-csg` (safe wrapper).
 
 All C API functions are bound in `manifold-csg-sys`. The safe crate wraps the
 most commonly needed operations; infrastructure functions (allocation, vectors,
@@ -19,19 +18,19 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_cube` | [`Manifold::cube`](crates/manifold-csg/src/manifold.rs#L276) |
-| `manifold_cylinder` | [`Manifold::cylinder`](crates/manifold-csg/src/manifold.rs#L289) |
-| `manifold_sphere` | [`Manifold::sphere`](crates/manifold-csg/src/manifold.rs#L305) |
-| `manifold_tetrahedron` | [`Manifold::tetrahedron`](crates/manifold-csg/src/manifold.rs#L786) |
-| `manifold_empty` | [`Manifold::empty`](crates/manifold-csg/src/manifold.rs#L315) |
-| `manifold_of_meshgl` | [`Manifold::from_mesh_f32`](crates/manifold-csg/src/manifold.rs#L147) |
-| `manifold_of_meshgl64` | [`Manifold::from_mesh_f64`](crates/manifold-csg/src/manifold.rs#L97) |
-| `manifold_extrude` | [`Manifold::extrude`](crates/manifold-csg/src/manifold.rs#L467), [`extrude_with_options`](crates/manifold-csg/src/manifold.rs#L812) |
-| `manifold_revolve` | [`Manifold::revolve`](crates/manifold-csg/src/manifold.rs#L796) |
-| `manifold_compose` | [`Manifold::compose`](crates/manifold-csg/src/manifold.rs#L835) |
-| `manifold_copy` | [`Clone` impl](crates/manifold-csg/src/manifold.rs#L56) |
-| `manifold_level_set` | [`Manifold::from_sdf`](crates/manifold-csg/src/manifold.rs#L1114) |
-| `manifold_read_obj` | [`Manifold::from_obj`](crates/manifold-csg/src/manifold.rs#L1063) |
+| `manifold_cube` | [`Manifold::cube`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_cylinder` | [`Manifold::cylinder`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_sphere` | [`Manifold::sphere`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_tetrahedron` | [`Manifold::tetrahedron`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_empty` | [`Manifold::empty`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_of_meshgl` | [`Manifold::from_meshgl`](crates/manifold-csg/src/manifold.rs), [`from_mesh_f32`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_of_meshgl64` | [`Manifold::from_meshgl64`](crates/manifold-csg/src/manifold.rs), [`from_mesh_f64`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_extrude` | [`Manifold::extrude`](crates/manifold-csg/src/manifold.rs), [`extrude_with_options`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_revolve` | [`Manifold::revolve`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_compose` | [`Manifold::compose`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_copy` | [`Clone` impl](crates/manifold-csg/src/manifold.rs) |
+| `manifold_level_set` | [`Manifold::from_sdf`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_read_obj` | [`Manifold::from_obj`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_smooth` | [`Manifold::smooth_f32`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_smooth64` | [`Manifold::smooth_f64`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_level_set_seq` | [`Manifold::from_sdf_seq`](crates/manifold-csg/src/manifold.rs) |
@@ -40,55 +39,55 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_union` | [`Manifold::union`](crates/manifold-csg/src/manifold.rs#L607), `&a + &b` |
-| `manifold_difference` | [`Manifold::difference`](crates/manifold-csg/src/manifold.rs#L592), `&a - &b` |
-| `manifold_intersection` | [`Manifold::intersection`](crates/manifold-csg/src/manifold.rs#L622), `&a ^ &b` |
+| `manifold_union` | [`Manifold::union`](crates/manifold-csg/src/manifold.rs), `&a + &b` |
+| `manifold_difference` | [`Manifold::difference`](crates/manifold-csg/src/manifold.rs), `&a - &b` |
+| `manifold_intersection` | [`Manifold::intersection`](crates/manifold-csg/src/manifold.rs), `&a ^ &b` |
 | `manifold_boolean` | [`Manifold::boolean`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_batch_boolean` | [`Manifold::batch_union`](crates/manifold-csg/src/manifold.rs#L489), [`batch_difference`](crates/manifold-csg/src/manifold.rs#L495) |
-| `manifold_batch_hull` | [`Manifold::batch_hull`](crates/manifold-csg/src/manifold.rs#L673) |
-| `manifold_split` | [`Manifold::split`](crates/manifold-csg/src/manifold.rs#L859) |
-| `manifold_split_by_plane` | [`Manifold::split_by_plane`](crates/manifold-csg/src/manifold.rs#L389) |
+| `manifold_batch_boolean` | [`Manifold::batch_union`](crates/manifold-csg/src/manifold.rs), [`batch_difference`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_batch_hull` | [`Manifold::batch_hull`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_split` | [`Manifold::split`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_split_by_plane` | [`Manifold::split_by_plane`](crates/manifold-csg/src/manifold.rs) |
 
 ## Manifold — Transforms
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_translate` | [`Manifold::translate`](crates/manifold-csg/src/manifold.rs#L327) |
-| `manifold_rotate` | [`Manifold::rotate`](crates/manifold-csg/src/manifold.rs#L348) |
-| `manifold_scale` | [`Manifold::scale`](crates/manifold-csg/src/manifold.rs#L337) |
-| `manifold_transform` | [`Manifold::transform`](crates/manifold-csg/src/manifold.rs#L366) |
-| `manifold_mirror` | [`Manifold::mirror`](crates/manifold-csg/src/manifold.rs#L716) |
-| `manifold_warp` | [`Manifold::warp`](crates/manifold-csg/src/manifold.rs#L974) |
-| `manifold_refine` | [`Manifold::refine`](crates/manifold-csg/src/manifold.rs#L728) |
-| `manifold_refine_to_length` | [`Manifold::refine_to_length`](crates/manifold-csg/src/manifold.rs#L738) |
-| `manifold_refine_to_tolerance` | [`Manifold::refine_to_tolerance`](crates/manifold-csg/src/manifold.rs#L748) |
+| `manifold_translate` | [`Manifold::translate`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_rotate` | [`Manifold::rotate`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_scale` | [`Manifold::scale`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_transform` | [`Manifold::transform`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_mirror` | [`Manifold::mirror`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_warp` | [`Manifold::warp`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_refine` | [`Manifold::refine`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_refine_to_length` | [`Manifold::refine_to_length`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_refine_to_tolerance` | [`Manifold::refine_to_tolerance`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_set_tolerance` | [`Manifold::set_tolerance`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_simplify` | [`Manifold::simplify`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_smooth_by_normals` | [`Manifold::smooth_by_normals`](crates/manifold-csg/src/manifold.rs#L761) |
-| `manifold_smooth_out` | [`Manifold::smooth_out`](crates/manifold-csg/src/manifold.rs#L774) |
-| `manifold_calculate_normals` | [`Manifold::calculate_normals`](crates/manifold-csg/src/manifold.rs#L950) |
-| `manifold_calculate_curvature` | [`Manifold::calculate_curvature`](crates/manifold-csg/src/manifold.rs#L960) |
-| `manifold_set_properties` | [`Manifold::set_properties`](crates/manifold-csg/src/manifold.rs#L1011) |
-| `manifold_trim_by_plane` | [`Manifold::trim_by_plane`](crates/manifold-csg/src/manifold.rs#L409) |
+| `manifold_smooth_by_normals` | [`Manifold::smooth_by_normals`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_smooth_out` | [`Manifold::smooth_out`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_calculate_normals` | [`Manifold::calculate_normals`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_calculate_curvature` | [`Manifold::calculate_curvature`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_set_properties` | [`Manifold::set_properties`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_trim_by_plane` | [`Manifold::trim_by_plane`](crates/manifold-csg/src/manifold.rs) |
 
 ## Manifold — Queries
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_is_empty` | [`Manifold::is_empty`](crates/manifold-csg/src/manifold.rs#L534) |
-| `manifold_volume` | [`Manifold::volume`](crates/manifold-csg/src/manifold.rs#L541) |
-| `manifold_surface_area` | [`Manifold::surface_area`](crates/manifold-csg/src/manifold.rs#L548) |
-| `manifold_num_vert` | [`Manifold::num_vert`](crates/manifold-csg/src/manifold.rs#L555) |
-| `manifold_num_tri` | [`Manifold::num_tri`](crates/manifold-csg/src/manifold.rs#L562) |
-| `manifold_num_edge` | [`Manifold::num_edge`](crates/manifold-csg/src/manifold.rs#L906) |
-| `manifold_num_prop` | [`Manifold::num_prop`](crates/manifold-csg/src/manifold.rs#L912) |
-| `manifold_epsilon` | [`Manifold::epsilon`](crates/manifold-csg/src/manifold.rs#L920) |
+| `manifold_is_empty` | [`Manifold::is_empty`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_volume` | [`Manifold::volume`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_surface_area` | [`Manifold::surface_area`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_num_vert` | [`Manifold::num_vert`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_num_tri` | [`Manifold::num_tri`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_num_edge` | [`Manifold::num_edge`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_num_prop` | [`Manifold::num_prop`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_epsilon` | [`Manifold::epsilon`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_get_tolerance` | [`Manifold::get_tolerance`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_num_prop_vert` | [`Manifold::num_prop_vert`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_genus` | [`Manifold::genus`](crates/manifold-csg/src/manifold.rs#L927) |
-| `manifold_bounding_box` | [`Manifold::bounding_box`](crates/manifold-csg/src/manifold.rs#L571) |
-| `manifold_original_id` | [`Manifold::original_id`](crates/manifold-csg/src/manifold.rs#L934) |
-| `manifold_min_gap` | [`Manifold::min_gap`](crates/manifold-csg/src/manifold.rs#L941) |
+| `manifold_genus` | [`Manifold::genus`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_bounding_box` | [`Manifold::bounding_box`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_original_id` | [`Manifold::original_id`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_min_gap` | [`Manifold::min_gap`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_status` | [`Manifold::status`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_with_context` | [`Manifold::with_context`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_as_original` | [`Manifold::as_original`](crates/manifold-csg/src/manifold.rs) |
@@ -99,36 +98,36 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_hull` | [`Manifold::hull`](crates/manifold-csg/src/manifold.rs#L663) |
-| `manifold_hull_pts` | [`Manifold::hull_pts`](crates/manifold-csg/src/manifold.rs#L700) |
-| `manifold_decompose` | [`Manifold::decompose`](crates/manifold-csg/src/manifold.rs#L637) |
-| `manifold_slice` | [`Manifold::slice_at_z`](crates/manifold-csg/src/manifold.rs#L428), [`slice_to_cross_section`](crates/manifold-csg/src/manifold.rs#L445) |
-| `manifold_project` | [`Manifold::project`](crates/manifold-csg/src/manifold.rs#L891) |
-| `manifold_minkowski_sum` | [`Manifold::minkowski_sum`](crates/manifold-csg/src/manifold.rs#L871) |
-| `manifold_minkowski_difference` | [`Manifold::minkowski_difference`](crates/manifold-csg/src/manifold.rs#L881) |
-| `manifold_get_meshgl` | [`Manifold::to_mesh_f32`](crates/manifold-csg/src/manifold.rs#L235) |
-| `manifold_get_meshgl64` | [`Manifold::to_mesh_f64`](crates/manifold-csg/src/manifold.rs#L197) |
-| `manifold_write_obj` | [`Manifold::to_obj`](crates/manifold-csg/src/manifold.rs#L1082) |
-| `manifold_get_meshgl_w_normals` | [`Manifold::to_mesh_f32_with_normals`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_get_meshgl64_w_normals` | [`Manifold::to_mesh_f64_with_normals`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_hull` | [`Manifold::hull`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_hull_pts` | [`Manifold::hull_pts`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_decompose` | [`Manifold::decompose`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_slice` | [`Manifold::slice_at_z`](crates/manifold-csg/src/manifold.rs), [`slice_to_cross_section`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_project` | [`Manifold::project`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_minkowski_sum` | [`Manifold::minkowski_sum`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_minkowski_difference` | [`Manifold::minkowski_difference`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_get_meshgl` | [`Manifold::to_meshgl`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f32`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_get_meshgl64` | [`Manifold::to_meshgl64`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f64`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_write_obj` | [`Manifold::to_obj`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_get_meshgl_w_normals` | [`Manifold::to_meshgl_with_normals`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f32_with_normals`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_get_meshgl64_w_normals` | [`Manifold::to_meshgl64_with_normals`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f64_with_normals`](crates/manifold-csg/src/manifold.rs) |
 
 ## CrossSection — Construction & Booleans
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_cross_section_empty` | [`CrossSection::empty`](crates/manifold-csg/src/cross_section.rs#L104) |
-| `manifold_cross_section_square` | [`CrossSection::square`](crates/manifold-csg/src/cross_section.rs#L114) |
-| `manifold_cross_section_circle` | [`CrossSection::circle`](crates/manifold-csg/src/cross_section.rs#L124) |
-| `manifold_cross_section_of_polygons` | [`CrossSection::from_polygons`](crates/manifold-csg/src/cross_section.rs#L137) |
-| `manifold_cross_section_copy` | [`Clone` impl](crates/manifold-csg/src/cross_section.rs#L79) |
-| `manifold_cross_section_union` | [`CrossSection::union`](crates/manifold-csg/src/cross_section.rs#L166), `&a + &b` |
-| `manifold_cross_section_difference` | [`CrossSection::difference`](crates/manifold-csg/src/cross_section.rs#L176), `&a - &b` |
-| `manifold_cross_section_intersection` | [`CrossSection::intersection`](crates/manifold-csg/src/cross_section.rs#L186), `&a ^ &b` |
+| `manifold_cross_section_empty` | [`CrossSection::empty`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_square` | [`CrossSection::square`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_circle` | [`CrossSection::circle`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_of_polygons` | [`CrossSection::from_polygons`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_copy` | [`Clone` impl](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_union` | [`CrossSection::union`](crates/manifold-csg/src/cross_section.rs), `&a + &b` |
+| `manifold_cross_section_difference` | [`CrossSection::difference`](crates/manifold-csg/src/cross_section.rs), `&a - &b` |
+| `manifold_cross_section_intersection` | [`CrossSection::intersection`](crates/manifold-csg/src/cross_section.rs), `&a ^ &b` |
 | `manifold_cross_section_boolean` | [`CrossSection::boolean`](crates/manifold-csg/src/cross_section.rs) |
-| `manifold_cross_section_batch_boolean` | [`CrossSection::batch_boolean`](crates/manifold-csg/src/cross_section.rs#L349), [`batch_union`](crates/manifold-csg/src/cross_section.rs#L376) |
-| `manifold_cross_section_batch_hull` | [`CrossSection::batch_hull`](crates/manifold-csg/src/cross_section.rs#L382) |
-| `manifold_cross_section_hull` | [`CrossSection::hull`](crates/manifold-csg/src/cross_section.rs#L234) |
-| `manifold_cross_section_compose` | [`CrossSection::compose`](crates/manifold-csg/src/cross_section.rs#L409) |
+| `manifold_cross_section_batch_boolean` | [`CrossSection::batch_boolean`](crates/manifold-csg/src/cross_section.rs), [`batch_union`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_batch_hull` | [`CrossSection::batch_hull`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_hull` | [`CrossSection::hull`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_compose` | [`CrossSection::compose`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_of_simple_polygon` | [`CrossSection::from_simple_polygon`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_hull_polygons` | [`CrossSection::hull_polygons`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_hull_simple_polygon` | [`CrossSection::hull_simple_polygon`](crates/manifold-csg/src/cross_section.rs) |
@@ -138,19 +137,19 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_cross_section_translate` | [`CrossSection::translate`](crates/manifold-csg/src/cross_section.rs#L246) |
-| `manifold_cross_section_rotate` | [`CrossSection::rotate`](crates/manifold-csg/src/cross_section.rs#L256) |
-| `manifold_cross_section_scale` | [`CrossSection::scale`](crates/manifold-csg/src/cross_section.rs#L266) |
-| `manifold_cross_section_mirror` | [`CrossSection::mirror`](crates/manifold-csg/src/cross_section.rs#L276) |
-| `manifold_cross_section_offset` | [`CrossSection::offset`](crates/manifold-csg/src/cross_section.rs#L207) |
-| `manifold_cross_section_simplify` | [`CrossSection::simplify`](crates/manifold-csg/src/cross_section.rs#L339) |
-| `manifold_cross_section_warp_context` | [`CrossSection::warp`](crates/manifold-csg/src/cross_section.rs#L447) |
-| `manifold_cross_section_area` | [`CrossSection::area`](crates/manifold-csg/src/cross_section.rs#L288) |
-| `manifold_cross_section_num_vert` | [`CrossSection::num_vert`](crates/manifold-csg/src/cross_section.rs#L295) |
-| `manifold_cross_section_num_contour` | [`CrossSection::num_contour`](crates/manifold-csg/src/cross_section.rs#L302) |
-| `manifold_cross_section_is_empty` | [`CrossSection::is_empty`](crates/manifold-csg/src/cross_section.rs#L309) |
-| `manifold_cross_section_bounds` | [`CrossSection::bounds`](crates/manifold-csg/src/cross_section.rs#L316) |
-| `manifold_cross_section_to_polygons` | [`CrossSection::to_polygons`](crates/manifold-csg/src/cross_section.rs#L479) |
+| `manifold_cross_section_translate` | [`CrossSection::translate`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_rotate` | [`CrossSection::rotate`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_scale` | [`CrossSection::scale`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_mirror` | [`CrossSection::mirror`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_offset` | [`CrossSection::offset`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_simplify` | [`CrossSection::simplify`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_warp_context` | [`CrossSection::warp`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_area` | [`CrossSection::area`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_num_vert` | [`CrossSection::num_vert`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_num_contour` | [`CrossSection::num_contour`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_is_empty` | [`CrossSection::is_empty`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_bounds` | [`CrossSection::bounds`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_to_polygons` | [`CrossSection::to_polygons`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_transform` | [`CrossSection::transform`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_size` | Not needed (alloc size) |
 
@@ -158,26 +157,26 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_meshgl` | [`MeshGL::new`](crates/manifold-csg/src/mesh.rs#L35) |
-| `manifold_meshgl_num_vert` | [`MeshGL::num_vert`](crates/manifold-csg/src/mesh.rs#L51) |
-| `manifold_meshgl_num_tri` | [`MeshGL::num_tri`](crates/manifold-csg/src/mesh.rs#L58) |
-| `manifold_meshgl_num_prop` | [`MeshGL::num_prop`](crates/manifold-csg/src/mesh.rs#L65) |
-| `manifold_meshgl_vert_properties` | [`MeshGL::vert_properties`](crates/manifold-csg/src/mesh.rs#L72) |
-| `manifold_meshgl_tri_verts` | [`MeshGL::tri_verts`](crates/manifold-csg/src/mesh.rs#L83) |
-| `manifold_meshgl64` | [`MeshGL64::new`](crates/manifold-csg/src/mesh.rs#L120) |
-| `manifold_meshgl64_num_vert` | [`MeshGL64::num_vert`](crates/manifold-csg/src/mesh.rs#L136) |
-| `manifold_meshgl64_num_tri` | [`MeshGL64::num_tri`](crates/manifold-csg/src/mesh.rs#L143) |
-| `manifold_meshgl64_num_prop` | [`MeshGL64::num_prop`](crates/manifold-csg/src/mesh.rs#L150) |
-| `manifold_meshgl64_vert_properties` | [`MeshGL64::vert_properties`](crates/manifold-csg/src/mesh.rs#L157) |
-| `manifold_meshgl64_tri_verts` | [`MeshGL64::tri_verts`](crates/manifold-csg/src/mesh.rs#L168) |
+| `manifold_meshgl` | [`MeshGL::new`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_num_vert` | [`MeshGL::num_vert`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_num_tri` | [`MeshGL::num_tri`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_num_prop` | [`MeshGL::num_prop`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_vert_properties` | [`MeshGL::vert_properties`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_tri_verts` | [`MeshGL::tri_verts`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64` | [`MeshGL64::new`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_num_vert` | [`MeshGL64::num_vert`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_num_tri` | [`MeshGL64::num_tri`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_num_prop` | [`MeshGL64::num_prop`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_vert_properties` | [`MeshGL64::vert_properties`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_tri_verts` | [`MeshGL64::tri_verts`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_vert_properties_length` | Internal |
 | `manifold_meshgl_tri_length` | Internal |
 | `manifold_meshgl64_vert_properties_length` | Internal |
 | `manifold_meshgl64_tri_length` | Internal |
 | `manifold_meshgl_copy` | Internal (Clone impl) |
 | `manifold_meshgl64_copy` | Internal (Clone impl) |
-| `manifold_meshgl_w_options` | Not wrapped |
-| `manifold_meshgl64_w_options` | Not wrapped |
+| `manifold_meshgl_w_options` | [`MeshGL::new_with_options`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_w_options` | [`MeshGL64::new_with_options`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_w_tangents` | [`MeshGL::new_with_tangents`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_w_tangents` | [`MeshGL64::new_with_tangents`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_halfedge_tangent` | [`MeshGL::halfedge_tangent`](crates/manifold-csg/src/mesh.rs) |
@@ -225,7 +224,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_triangulate` | [`triangulate_polygons`](crates/manifold-csg/src/triangulation.rs#L22) |
+| `manifold_triangulate` | [`triangulate_polygons`](crates/manifold-csg/src/triangulation.rs) |
 | `manifold_triangulation_num_tri` | Internal |
 | `manifold_triangulation_tri_verts` | Internal |
 | `manifold_triangulation_size` | Not used |
@@ -234,12 +233,12 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_set_min_circular_angle` | [`set_min_circular_angle`](crates/manifold-csg/src/manifold.rs#L1288) |
-| `manifold_set_min_circular_edge_length` | [`set_min_circular_edge_length`](crates/manifold-csg/src/manifold.rs#L1296) |
-| `manifold_set_circular_segments` | [`set_circular_segments`](crates/manifold-csg/src/manifold.rs#L1304) |
-| `manifold_reset_to_circular_defaults` | [`reset_to_circular_defaults`](crates/manifold-csg/src/manifold.rs#L1312) |
-| `manifold_get_circular_segments` | [`get_circular_segments`](crates/manifold-csg/src/manifold.rs#L1319) |
-| `manifold_reserve_ids` | [`reserve_ids`](crates/manifold-csg/src/manifold.rs#L1326) |
+| `manifold_set_min_circular_angle` | [`set_min_circular_angle`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_set_min_circular_edge_length` | [`set_min_circular_edge_length`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_set_circular_segments` | [`set_circular_segments`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_reset_to_circular_defaults` | [`reset_to_circular_defaults`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_get_circular_segments` | [`get_circular_segments`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_reserve_ids` | [`reserve_ids`](crates/manifold-csg/src/manifold.rs) |
 
 ## Box3D Operations (`BoundingBox`)
 

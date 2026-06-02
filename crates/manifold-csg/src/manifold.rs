@@ -21,10 +21,12 @@
 
 use manifold_csg_sys::*;
 use std::ops;
+use std::sync::Mutex;
 
 use crate::bounding_box::BoundingBox;
 use crate::cross_section::CrossSection;
-use crate::types::CsgError;
+use crate::mesh::{MeshGL, MeshGL64};
+use crate::types::{CsgError, OpType, PanicPayload, store_panic, take_stored_panic};
 
 /// A safe wrapper around a manifold3d Manifold object.
 ///
@@ -40,10 +42,8 @@ pub struct Manifold {
 impl std::fmt::Debug for Manifold {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Manifold")
-            .field("is_empty", &self.is_empty())
-            .field("num_vert", &self.num_vert())
-            .field("num_tri", &self.num_tri())
-            .finish()
+            .field("ptr", &self.ptr)
+            .finish_non_exhaustive()
     }
 }
 
@@ -77,6 +77,12 @@ impl Drop for Manifold {
     }
 }
 
+impl Default for Manifold {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 impl Manifold {
     // ── Construction from raw mesh data ─────────────────────────────
 
@@ -94,52 +100,37 @@ impl Manifold {
     ///
     /// # Errors
     ///
-    /// Returns `CsgError::InvalidInput` if `n_props < 3`,
-    /// `CsgError::EmptyMesh` if no triangles, or `CsgError::ManifoldStatus`
-    /// if the mesh is invalid.
+    /// Returns `CsgError::InvalidInput` if the mesh buffers have invalid
+    /// shape, or `CsgError::ManifoldStatus` if the mesh is invalid.
     pub fn from_mesh_f64(
         vert_props: &[f64],
         n_props: usize,
         tri_indices: &[u64],
     ) -> Result<Self, CsgError> {
-        if tri_indices.is_empty() {
-            return Err(CsgError::EmptyMesh);
-        }
-        if n_props < 3 {
-            return Err(CsgError::InvalidInput(
-                "n_props must be >= 3 (x, y, z)".into(),
-            ));
-        }
-        let n_verts = vert_props.len() / n_props;
-        let n_tris = tri_indices.len() / 3;
+        let meshgl = MeshGL64::new(vert_props, n_props, tri_indices)?;
+        Self::from_meshgl64(&meshgl)
+    }
 
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: meshgl is valid. vert_props and tri_indices are valid slices.
-        unsafe {
-            manifold_meshgl64(
-                meshgl,
-                vert_props.as_ptr(),
-                n_verts,
-                n_props,
-                tri_indices.as_ptr(),
-                n_tris,
-            );
-        }
-
+    /// Create a Manifold from a [`MeshGL64`] container.
+    ///
+    /// Use this when the mesh was constructed with metadata via
+    /// [`MeshGL64::new_with_options`].
+    ///
+    /// # Errors
+    ///
+    /// Returns `CsgError::ManifoldStatus` if the mesh is invalid.
+    pub fn from_meshgl64(meshgl: &MeshGL64) -> Result<Self, CsgError> {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let manifold = unsafe { manifold_alloc_manifold() };
         // SAFETY: manifold and meshgl are valid handles.
-        unsafe { manifold_of_meshgl64(manifold, meshgl) };
-        // SAFETY: meshgl is valid and no longer needed.
-        unsafe { manifold_delete_meshgl64(meshgl) };
+        unsafe { manifold_of_meshgl64(manifold, meshgl.ptr) };
 
         // SAFETY: manifold is valid. Read-only status query.
         let status = unsafe { manifold_status(manifold) };
-        if status != ManifoldError::NoError {
+        if let Err(err) = CsgError::from_status(status) {
             // SAFETY: manifold is valid. Frees the allocation on error path.
             unsafe { manifold_delete_manifold(manifold) };
-            return Err(CsgError::ManifoldStatus(status));
+            return Err(err);
         }
 
         Ok(Self { ptr: manifold })
@@ -154,44 +145,30 @@ impl Manifold {
         n_props: usize,
         tri_indices: &[u32],
     ) -> Result<Self, CsgError> {
-        if tri_indices.is_empty() {
-            return Err(CsgError::EmptyMesh);
-        }
-        if n_props < 3 {
-            return Err(CsgError::InvalidInput(
-                "n_props must be >= 3 (x, y, z)".into(),
-            ));
-        }
-        let n_verts = vert_props.len() / n_props;
-        let n_tris = tri_indices.len() / 3;
+        let meshgl = MeshGL::new(vert_props, n_props, tri_indices)?;
+        Self::from_meshgl(&meshgl)
+    }
 
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: meshgl is valid. vert_props and tri_indices are valid slices.
-        unsafe {
-            manifold_meshgl(
-                meshgl,
-                vert_props.as_ptr(),
-                n_verts,
-                n_props,
-                tri_indices.as_ptr(),
-                n_tris,
-            );
-        }
-
+    /// Create a Manifold from a [`MeshGL`] container.
+    ///
+    /// Use this when the mesh was constructed with metadata via
+    /// [`MeshGL::new_with_options`].
+    ///
+    /// # Errors
+    ///
+    /// Returns `CsgError::ManifoldStatus` if the mesh is invalid.
+    pub fn from_meshgl(meshgl: &MeshGL) -> Result<Self, CsgError> {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let manifold = unsafe { manifold_alloc_manifold() };
         // SAFETY: manifold and meshgl are valid handles.
-        unsafe { manifold_of_meshgl(manifold, meshgl) };
-        // SAFETY: meshgl is valid and no longer needed.
-        unsafe { manifold_delete_meshgl(meshgl) };
+        unsafe { manifold_of_meshgl(manifold, meshgl.ptr) };
 
         // SAFETY: manifold is valid. Read-only status query.
         let status = unsafe { manifold_status(manifold) };
-        if status != ManifoldError::NoError {
+        if let Err(err) = CsgError::from_status(status) {
             // SAFETY: manifold is valid. Frees the allocation on error path.
             unsafe { manifold_delete_manifold(manifold) };
-            return Err(CsgError::ManifoldStatus(status));
+            return Err(err);
         }
 
         Ok(Self { ptr: manifold })
@@ -220,22 +197,7 @@ impl Manifold {
             ));
         }
 
-        let n_verts = vert_props.len() / n_props;
-        let n_tris = tri_indices.len() / 3;
-
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: meshgl valid, slices valid with correct lengths.
-        unsafe {
-            manifold_meshgl64(
-                meshgl,
-                vert_props.as_ptr(),
-                n_verts,
-                n_props,
-                tri_indices.as_ptr(),
-                n_tris,
-            );
-        }
+        let meshgl = MeshGL64::new(vert_props, n_props, tri_indices)?;
 
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let manifold = unsafe { manifold_alloc_manifold() };
@@ -243,21 +205,19 @@ impl Manifold {
         unsafe {
             manifold_smooth64(
                 manifold,
-                meshgl,
+                meshgl.ptr,
                 half_edges.as_ptr(),
                 smoothness.as_ptr(),
                 half_edges.len(),
             );
         }
-        // SAFETY: meshgl is valid and no longer needed.
-        unsafe { manifold_delete_meshgl64(meshgl) };
 
         // SAFETY: manifold is valid. Read-only status query.
         let status = unsafe { manifold_status(manifold) };
-        if status != ManifoldError::NoError {
+        if let Err(err) = CsgError::from_status(status) {
             // SAFETY: manifold is valid. Frees the allocation on error path.
             unsafe { manifold_delete_manifold(manifold) };
-            return Err(CsgError::ManifoldStatus(status));
+            return Err(err);
         }
 
         Ok(Self { ptr: manifold })
@@ -279,22 +239,7 @@ impl Manifold {
             ));
         }
 
-        let n_verts = vert_props.len() / n_props;
-        let n_tris = tri_indices.len() / 3;
-
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: meshgl valid, slices valid with correct lengths.
-        unsafe {
-            manifold_meshgl(
-                meshgl,
-                vert_props.as_ptr(),
-                n_verts,
-                n_props,
-                tri_indices.as_ptr(),
-                n_tris,
-            );
-        }
+        let meshgl = MeshGL::new(vert_props, n_props, tri_indices)?;
 
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let manifold = unsafe { manifold_alloc_manifold() };
@@ -302,21 +247,19 @@ impl Manifold {
         unsafe {
             manifold_smooth(
                 manifold,
-                meshgl,
+                meshgl.ptr,
                 half_edges.as_ptr(),
                 smoothness.as_ptr(),
                 half_edges.len(),
             );
         }
-        // SAFETY: meshgl is valid and no longer needed.
-        unsafe { manifold_delete_meshgl(meshgl) };
 
         // SAFETY: manifold is valid. Read-only status query.
         let status = unsafe { manifold_status(manifold) };
-        if status != ManifoldError::NoError {
+        if let Err(err) = CsgError::from_status(status) {
             // SAFETY: manifold is valid. Frees the allocation on error path.
             unsafe { manifold_delete_manifold(manifold) };
-            return Err(CsgError::ManifoldStatus(status));
+            return Err(err);
         }
 
         Ok(Self { ptr: manifold })
@@ -324,35 +267,44 @@ impl Manifold {
 
     /// Extract mesh data as f64 vertex properties and u64 triangle indices.
     ///
-    /// Returns `(vert_props, n_props, tri_indices)`.
+    /// Returns the full [`MeshGL64`] container, including run metadata, face
+    /// IDs, merge vectors, and tangents when present.
     #[must_use]
-    pub fn to_mesh_f64(&self) -> (Vec<f64>, usize, Vec<u64>) {
+    pub fn to_meshgl64(&self) -> MeshGL64 {
         // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
         let meshgl = unsafe { manifold_alloc_meshgl64() };
         // SAFETY: self.ptr and meshgl are valid handles.
         unsafe { manifold_get_meshgl64(meshgl, self.ptr) };
 
-        // SAFETY: meshgl is valid. Read-only query.
-        let n_verts = unsafe { manifold_meshgl64_num_vert(meshgl) };
-        // SAFETY: meshgl is valid. Read-only query.
-        let n_tris = unsafe { manifold_meshgl64_num_tri(meshgl) };
-        // SAFETY: meshgl is valid. Read-only query.
-        let n_props = unsafe { manifold_meshgl64_num_prop(meshgl) };
+        MeshGL64 { ptr: meshgl }
+    }
 
-        // SAFETY: meshgl is valid. Returns total element count.
-        let vp_len = unsafe { manifold_meshgl64_vert_properties_length(meshgl) };
-        let mut vp_buf = vec![0.0f64; vp_len];
-        // SAFETY: vp_buf has capacity vp_len.
-        unsafe { manifold_meshgl64_vert_properties(vp_buf.as_mut_ptr(), meshgl) };
+    /// Extract mesh data as f64 with normals baked into vertex properties.
+    ///
+    /// Returns the full [`MeshGL64`] container. See
+    /// [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) for the
+    /// `normal_idx` semantics.
+    #[must_use]
+    pub fn to_meshgl64_with_normals(&self, normal_idx: i32) -> MeshGL64 {
+        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
+        let meshgl = unsafe { manifold_alloc_meshgl64() };
+        // SAFETY: self.ptr and meshgl are valid handles.
+        unsafe { manifold_get_meshgl64_w_normals(meshgl, self.ptr, normal_idx) };
 
-        // SAFETY: meshgl is valid. Returns total element count.
-        let tri_len = unsafe { manifold_meshgl64_tri_length(meshgl) };
-        let mut tri_buf = vec![0u64; tri_len];
-        // SAFETY: tri_buf has capacity tri_len.
-        unsafe { manifold_meshgl64_tri_verts(tri_buf.as_mut_ptr(), meshgl) };
+        MeshGL64 { ptr: meshgl }
+    }
 
-        // SAFETY: meshgl is valid and no longer needed.
-        unsafe { manifold_delete_meshgl64(meshgl) };
+    /// Extract mesh data as f64 vertex properties and u64 triangle indices.
+    ///
+    /// Returns `(vert_props, n_props, tri_indices)`.
+    #[must_use]
+    pub fn to_mesh_f64(&self) -> (Vec<f64>, usize, Vec<u64>) {
+        let meshgl = self.to_meshgl64();
+        let n_verts = meshgl.num_vert();
+        let n_tris = meshgl.num_tri();
+        let n_props = meshgl.num_prop();
+        let vp_buf = meshgl.vert_properties();
+        let tri_buf = meshgl.tri_verts();
 
         debug_assert_eq!(vp_buf.len(), n_verts * n_props);
         debug_assert_eq!(tri_buf.len(), n_tris * 3);
@@ -369,29 +321,9 @@ impl Manifold {
     /// Returns `(vert_props, n_props, tri_indices)`.
     #[must_use]
     pub fn to_mesh_f64_with_normals(&self, normal_idx: i32) -> (Vec<f64>, usize, Vec<u64>) {
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: self.ptr and meshgl are valid handles.
-        unsafe { manifold_get_meshgl64_w_normals(meshgl, self.ptr, normal_idx) };
-
-        // SAFETY: meshgl is valid. Read-only query.
-        let n_props = unsafe { manifold_meshgl64_num_prop(meshgl) };
-        // SAFETY: meshgl is valid. Returns total element count.
-        let vp_len = unsafe { manifold_meshgl64_vert_properties_length(meshgl) };
-        let mut vp_buf = vec![0.0f64; vp_len];
-        // SAFETY: vp_buf has capacity vp_len.
-        unsafe { manifold_meshgl64_vert_properties(vp_buf.as_mut_ptr(), meshgl) };
-
-        // SAFETY: meshgl is valid. Returns total element count.
-        let tri_len = unsafe { manifold_meshgl64_tri_length(meshgl) };
-        let mut tri_buf = vec![0u64; tri_len];
-        // SAFETY: tri_buf has capacity tri_len.
-        unsafe { manifold_meshgl64_tri_verts(tri_buf.as_mut_ptr(), meshgl) };
-
-        // SAFETY: meshgl is valid and no longer needed.
-        unsafe { manifold_delete_meshgl64(meshgl) };
-
-        (vp_buf, n_props, tri_buf)
+        let meshgl = self.to_meshgl64_with_normals(normal_idx);
+        let n_props = meshgl.num_prop();
+        (meshgl.vert_properties(), n_props, meshgl.tri_verts())
     }
 
     /// Extract mesh data as f32 with normals baked into vertex properties.
@@ -399,29 +331,38 @@ impl Manifold {
     /// See [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) for details.
     #[must_use]
     pub fn to_mesh_f32_with_normals(&self, normal_idx: i32) -> (Vec<f32>, usize, Vec<u32>) {
+        let meshgl = self.to_meshgl_with_normals(normal_idx);
+        let n_props = meshgl.num_prop();
+        (meshgl.vert_properties(), n_props, meshgl.tri_verts())
+    }
+
+    /// Extract mesh data as f32 vertex properties and u32 triangle indices.
+    ///
+    /// Returns the full [`MeshGL`] container, including run metadata, face IDs,
+    /// merge vectors, and tangents when present.
+    #[must_use]
+    pub fn to_meshgl(&self) -> MeshGL {
+        // SAFETY: manifold_alloc_meshgl returns a valid handle.
+        let meshgl = unsafe { manifold_alloc_meshgl() };
+        // SAFETY: self.ptr and meshgl are valid handles.
+        unsafe { manifold_get_meshgl(meshgl, self.ptr) };
+
+        MeshGL { ptr: meshgl }
+    }
+
+    /// Extract mesh data as f32 with normals baked into vertex properties.
+    ///
+    /// Returns the full [`MeshGL`] container. See
+    /// [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) for the
+    /// `normal_idx` semantics.
+    #[must_use]
+    pub fn to_meshgl_with_normals(&self, normal_idx: i32) -> MeshGL {
         // SAFETY: manifold_alloc_meshgl returns a valid handle.
         let meshgl = unsafe { manifold_alloc_meshgl() };
         // SAFETY: self.ptr and meshgl are valid handles.
         unsafe { manifold_get_meshgl_w_normals(meshgl, self.ptr, normal_idx) };
 
-        // SAFETY: meshgl is valid. Read-only query.
-        let n_props = unsafe { manifold_meshgl_num_prop(meshgl) };
-        // SAFETY: meshgl is valid. Returns total element count.
-        let vp_len = unsafe { manifold_meshgl_vert_properties_length(meshgl) };
-        let mut vp_buf = vec![0.0f32; vp_len];
-        // SAFETY: vp_buf has capacity vp_len.
-        unsafe { manifold_meshgl_vert_properties(vp_buf.as_mut_ptr(), meshgl) };
-
-        // SAFETY: meshgl is valid. Returns total element count.
-        let tri_len = unsafe { manifold_meshgl_tri_length(meshgl) };
-        let mut tri_buf = vec![0u32; tri_len];
-        // SAFETY: tri_buf has capacity tri_len.
-        unsafe { manifold_meshgl_tri_verts(tri_buf.as_mut_ptr(), meshgl) };
-
-        // SAFETY: meshgl is valid and no longer needed.
-        unsafe { manifold_delete_meshgl(meshgl) };
-
-        (vp_buf, n_props, tri_buf)
+        MeshGL { ptr: meshgl }
     }
 
     /// Extract mesh data as f32 vertex properties and u32 triangle indices.
@@ -429,32 +370,12 @@ impl Manifold {
     /// Returns `(vert_props, n_props, tri_indices)`.
     #[must_use]
     pub fn to_mesh_f32(&self) -> (Vec<f32>, usize, Vec<u32>) {
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: self.ptr and meshgl are valid handles.
-        unsafe { manifold_get_meshgl(meshgl, self.ptr) };
-
-        // SAFETY: meshgl is valid. Read-only query.
-        let n_verts = unsafe { manifold_meshgl_num_vert(meshgl) };
-        // SAFETY: meshgl is valid. Read-only query.
-        let n_tris = unsafe { manifold_meshgl_num_tri(meshgl) };
-        // SAFETY: meshgl is valid. Read-only query.
-        let n_props = unsafe { manifold_meshgl_num_prop(meshgl) };
-
-        // SAFETY: meshgl is valid. Returns total element count.
-        let vp_len = unsafe { manifold_meshgl_vert_properties_length(meshgl) };
-        let mut vp_buf = vec![0.0f32; vp_len];
-        // SAFETY: vp_buf has capacity vp_len.
-        unsafe { manifold_meshgl_vert_properties(vp_buf.as_mut_ptr(), meshgl) };
-
-        // SAFETY: meshgl is valid. Returns total element count.
-        let tri_len = unsafe { manifold_meshgl_tri_length(meshgl) };
-        let mut tri_buf = vec![0u32; tri_len];
-        // SAFETY: tri_buf has capacity tri_len.
-        unsafe { manifold_meshgl_tri_verts(tri_buf.as_mut_ptr(), meshgl) };
-
-        // SAFETY: meshgl is valid and no longer needed.
-        unsafe { manifold_delete_meshgl(meshgl) };
+        let meshgl = self.to_meshgl();
+        let n_verts = meshgl.num_vert();
+        let n_tris = meshgl.num_tri();
+        let n_props = meshgl.num_prop();
+        let vp_buf = meshgl.vert_properties();
+        let tri_buf = meshgl.tri_verts();
 
         debug_assert_eq!(vp_buf.len(), n_verts * n_props);
         debug_assert_eq!(tri_buf.len(), n_tris * 3);
@@ -491,17 +412,19 @@ impl Manifold {
     ) -> Self {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe {
-            manifold_cylinder(
-                ptr,
-                height,
-                radius_low,
-                radius_high,
-                segments,
-                i32::from(center),
-            )
-        };
+        with_quality_lock_if_auto_segments(segments, || {
+            // SAFETY: ptr is valid from alloc.
+            unsafe {
+                manifold_cylinder(
+                    ptr,
+                    height,
+                    radius_low,
+                    radius_high,
+                    segments,
+                    i32::from(center),
+                )
+            };
+        });
         Self { ptr }
     }
 
@@ -510,8 +433,10 @@ impl Manifold {
     pub fn sphere(radius: f64, segments: i32) -> Self {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe { manifold_sphere(ptr, radius, segments) };
+        with_quality_lock_if_auto_segments(segments, || {
+            // SAFETY: ptr is valid from alloc.
+            unsafe { manifold_sphere(ptr, radius, segments) };
+        });
         Self { ptr }
     }
 
@@ -650,7 +575,7 @@ impl Manifold {
         let cs_ptr = unsafe { manifold_alloc_cross_section() };
         // SAFETY: cs_ptr and poly_ptr are valid.
         unsafe {
-            manifold_cross_section_of_polygons(cs_ptr, poly_ptr, ManifoldFillRule::EvenOdd);
+            manifold_cross_section_of_polygons(cs_ptr, poly_ptr, ManifoldFillRule::Positive);
         }
 
         // SAFETY: poly_ptr is valid and no longer needed.
@@ -685,16 +610,16 @@ impl Manifold {
     /// Batch union: combine multiple manifolds in a single operation.
     #[must_use]
     pub fn batch_union(manifolds: &[Self]) -> Self {
-        Self::batch_boolean(manifolds, ManifoldOpType::Add)
+        Self::batch_boolean(manifolds, OpType::Add)
     }
 
     /// Batch difference: subtract all subsequent manifolds from the first.
     #[must_use]
     pub fn batch_difference(manifolds: &[Self]) -> Self {
-        Self::batch_boolean(manifolds, ManifoldOpType::Subtract)
+        Self::batch_boolean(manifolds, OpType::Subtract)
     }
 
-    fn batch_boolean(manifolds: &[Self], op: ManifoldOpType) -> Self {
+    fn batch_boolean(manifolds: &[Self], op: OpType) -> Self {
         if manifolds.is_empty() {
             return Self::empty();
         }
@@ -719,7 +644,7 @@ impl Manifold {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let result_ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: result_ptr and vec_ptr are valid.
-        unsafe { manifold_batch_boolean(result_ptr, vec_ptr, op) };
+        unsafe { manifold_batch_boolean(result_ptr, vec_ptr, op.to_ffi()) };
 
         // SAFETY: vec_ptr is valid and no longer needed.
         unsafe { manifold_delete_manifold_vec(vec_ptr) };
@@ -789,11 +714,6 @@ impl Manifold {
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: all three pointers are valid.
         unsafe { manifold_difference(ptr, self.ptr, other.ptr) };
-        // SAFETY: ptr is valid.
-        let status = unsafe { manifold_status(ptr) };
-        if status != ManifoldError::NoError {
-            log::warn!("CSG difference produced error status: {status:?}");
-        }
         Self { ptr }
     }
 
@@ -804,11 +724,6 @@ impl Manifold {
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: all three pointers are valid.
         unsafe { manifold_union(ptr, self.ptr, other.ptr) };
-        // SAFETY: ptr is valid.
-        let status = unsafe { manifold_status(ptr) };
-        if status != ManifoldError::NoError {
-            log::warn!("CSG union produced error status: {status:?}");
-        }
         Self { ptr }
     }
 
@@ -819,11 +734,6 @@ impl Manifold {
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: all three pointers are valid.
         unsafe { manifold_intersection(ptr, self.ptr, other.ptr) };
-        // SAFETY: ptr is valid.
-        let status = unsafe { manifold_status(ptr) };
-        if status != ManifoldError::NoError {
-            log::warn!("CSG intersection produced error status: {status:?}");
-        }
         Self { ptr }
     }
 
@@ -834,11 +744,11 @@ impl Manifold {
     /// or operator overloads (`+`, `-`, `^`) for readability. This method
     /// is useful when the operation type is determined at runtime.
     #[must_use]
-    pub fn boolean(&self, other: &Self, op: ManifoldOpType) -> Self {
+    pub fn boolean(&self, other: &Self, op: OpType) -> Self {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: all three pointers are valid.
-        unsafe { manifold_boolean(ptr, self.ptr, other.ptr, op) };
+        unsafe { manifold_boolean(ptr, self.ptr, other.ptr, op.to_ffi()) };
         Self { ptr }
     }
 
@@ -1040,8 +950,10 @@ impl Manifold {
         unsafe { manifold_cross_section_to_polygons(poly_ptr, cross_section.ptr) };
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, poly_ptr is valid.
-        unsafe { manifold_revolve(ptr, poly_ptr, circular_segments, revolve_degrees) };
+        with_quality_lock_if_auto_segments(circular_segments, || {
+            // SAFETY: ptr is valid from alloc, poly_ptr is valid.
+            unsafe { manifold_revolve(ptr, poly_ptr, circular_segments, revolve_degrees) };
+        });
         // SAFETY: poly_ptr is valid and no longer needed.
         unsafe { manifold_delete_polygons(poly_ptr) };
         Self { ptr }
@@ -1226,15 +1138,14 @@ impl Manifold {
 
     // ── Cancellable evaluation ──────────────────────────────────────
 
-    /// Force evaluation of this manifold's lazy CSG tree and return the
-    /// result status.
+    /// Force evaluation of this manifold's lazy CSG tree.
     ///
     /// Manifold operations are lazy: building a CSG tree is cheap and
     /// synchronous; the actual evaluation happens when something queries
     /// the result. Most queries (`num_tri`, mesh extraction, volume,
-    /// etc.) also force evaluation as a side effect, so this method is
-    /// rarely needed standalone. Its main use is checking evaluation
-    /// status under an attached [`ExecutionContext`](crate::ExecutionContext)
+    /// etc.) also force evaluation as a side effect, but not all of them
+    /// observe an attached [`ExecutionContext`](crate::ExecutionContext).
+    /// This method is the primary way to force evaluation under a context
     /// without consuming a property.
     ///
     /// To run the evaluation under a cancellable
@@ -1245,18 +1156,26 @@ impl Manifold {
     /// # use manifold_csg::{ExecutionContext, Manifold};
     /// # let manifold = Manifold::cube(1.0, 1.0, 1.0, true);
     /// let ctx = ExecutionContext::new();
-    /// let status = manifold.with_context(&ctx).status();
-    /// # let _ = status;
+    /// manifold.with_context(&ctx).status()?;
+    /// # Ok::<(), manifold_csg::CsgError>(())
     /// ```
+    pub fn status(&self) -> Result<(), CsgError> {
+        CsgError::from_status(self.raw_status())
+    }
+
+    /// Force evaluation of this manifold's lazy CSG tree and return the raw
+    /// manifold3d status code.
+    ///
+    /// Prefer [`status`](Self::status) when you only need success/failure.
     #[must_use]
-    pub fn status(&self) -> manifold_csg_sys::ManifoldError {
+    pub fn raw_status(&self) -> manifold_csg_sys::ManifoldError {
         // SAFETY: self.ptr is a valid handle.
         unsafe { manifold_status(self.ptr) }
     }
 
-    /// Return a copy of this manifold with `ctx` attached. The next
-    /// eager op (such as [`status`](Self::status), `refine*`, mesh
-    /// extraction) on the returned value observes `ctx`. Deferred ops
+    /// Return a copy of this manifold with `ctx` attached. The next eager op
+    /// that consumes an execution context (such as [`status`](Self::status)
+    /// or `refine*`) on the returned value observes `ctx`. Deferred ops
     /// (booleans, transforms, batch ops) ignore the attached context
     /// and produce results with no attached context.
     ///
@@ -1280,8 +1199,8 @@ impl Manifold {
     ///     // ctx drops here; `attached` still holds the inner state
     ///     // via shared_ptr, so the eager op below is safe.
     /// };
-    /// let status = attached.status();
-    /// # let _ = status;
+    /// attached.status()?;
+    /// # Ok::<(), manifold_csg::CsgError>(())
     /// ```
     #[must_use]
     pub fn with_context(&self, ctx: &crate::ExecutionContext) -> Self {
@@ -1363,6 +1282,11 @@ impl Manifold {
     where
         F: FnMut(f64, f64, f64) -> [f64; 3],
     {
+        struct Context<'a, F> {
+            f: &'a mut F,
+            panic: Mutex<Option<PanicPayload>>,
+        }
+
         unsafe extern "C" fn trampoline<F>(
             x: f64,
             y: f64,
@@ -1373,10 +1297,10 @@ impl Manifold {
             F: FnMut(f64, f64, f64) -> [f64; 3],
         {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                // SAFETY: ctx was created from a &mut F below and is valid for
-                // the duration of the manifold_warp call.
-                let f = unsafe { &mut *(ctx as *mut F) };
-                f(x, y, z)
+                // SAFETY: ctx was created from a &mut Context below and is valid
+                // for the duration of the manifold_warp call.
+                let ctx = unsafe { &mut *(ctx as *mut Context<'_, F>) };
+                (ctx.f)(x, y, z)
             }));
             match result {
                 Ok([rx, ry, rz]) => ManifoldVec3 {
@@ -1384,18 +1308,34 @@ impl Manifold {
                     y: ry,
                     z: rz,
                 },
-                // Return the original point on panic to avoid UB from unwinding through C.
-                Err(_) => ManifoldVec3 { x, y, z },
+                Err(payload) => {
+                    // Return the original point to avoid UB from unwinding
+                    // through C, then resume the panic after the FFI call.
+                    // SAFETY: ctx was created from a &mut Context below and is
+                    // valid for the duration of the manifold_warp call.
+                    let ctx = unsafe { &*(ctx as *const Context<'_, F>) };
+                    store_panic(&ctx.panic, payload);
+                    ManifoldVec3 { x, y, z }
+                }
             }
         }
 
         let mut closure = f;
-        let ctx = &mut closure as *mut F as *mut std::ffi::c_void;
+        let mut ctx = Context {
+            f: &mut closure,
+            panic: Mutex::new(None),
+        };
+        let ctx_ptr = &mut ctx as *mut Context<'_, F> as *mut std::ffi::c_void;
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
         // The trampoline and ctx are valid for the duration of this call.
-        unsafe { manifold_warp(ptr, self.ptr, Some(trampoline::<F>), ctx) };
+        unsafe { manifold_warp(ptr, self.ptr, Some(trampoline::<F>), ctx_ptr) };
+        if let Some(payload) = take_stored_panic(&ctx.panic) {
+            // SAFETY: ptr was allocated above and will not be returned.
+            unsafe { manifold_delete_manifold(ptr) };
+            std::panic::resume_unwind(payload);
+        }
         Self { ptr }
     }
 
@@ -1423,6 +1363,7 @@ impl Manifold {
             f: &'a mut F,
             old_num_prop: usize,
             new_num_prop: usize,
+            panic: Mutex<Option<PanicPayload>>,
         }
 
         unsafe extern "C" fn trampoline<F>(
@@ -1434,10 +1375,10 @@ impl Manifold {
             F: FnMut(&mut [f64], [f64; 3], &[f64]),
         {
             // Catch panics to prevent UB from unwinding through C stack frames.
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                // SAFETY: ctx was created from a &mut Context below and is valid
-                // for the duration of the manifold_set_properties call.
-                let ctx = unsafe { &mut *(ctx as *mut Context<'_, F>) };
+            // SAFETY: ctx was created from a &mut Context below and is valid
+            // for the duration of the manifold_set_properties call.
+            let ctx = unsafe { &mut *(ctx as *mut Context<'_, F>) };
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let pos = [position.x, position.y, position.z];
                 // SAFETY: new_prop has ctx.new_num_prop elements (guaranteed by C API).
                 let new_slice =
@@ -1455,12 +1396,16 @@ impl Manifold {
                 };
                 (ctx.f)(new_slice, pos, old_slice);
             }));
+            if let Err(payload) = result {
+                store_panic(&ctx.panic, payload);
+            }
         }
 
         let mut ctx = Context {
             f: &mut f,
             old_num_prop,
             new_num_prop,
+            panic: Mutex::new(None),
         };
         let ctx_ptr = &mut ctx as *mut Context<'_, F> as *mut std::ffi::c_void;
         // SAFETY: manifold_alloc_manifold returns a valid handle.
@@ -1476,6 +1421,11 @@ impl Manifold {
                 ctx_ptr,
             )
         };
+        if let Some(payload) = take_stored_panic(&ctx.panic) {
+            // SAFETY: ptr was allocated above and will not be returned.
+            unsafe { manifold_delete_manifold(ptr) };
+            std::panic::resume_unwind(payload);
+        }
         Self { ptr }
     }
 
@@ -1500,10 +1450,10 @@ impl Manifold {
         unsafe { manifold_read_obj(ptr, c_str.as_ptr()) };
         // SAFETY: ptr is valid. Read-only status query.
         let status = unsafe { manifold_status(ptr) };
-        if status != ManifoldError::NoError {
+        if let Err(err) = CsgError::from_status(status) {
             // SAFETY: ptr is valid. Frees on error path.
             unsafe { manifold_delete_manifold(ptr) };
-            return Err(CsgError::ManifoldStatus(status));
+            return Err(err);
         }
         Ok(Self { ptr })
     }
@@ -1553,6 +1503,11 @@ impl Manifold {
     where
         F: Fn(f64, f64, f64) -> f64 + Sync,
     {
+        struct Context<'a, F> {
+            f: &'a F,
+            panic: Mutex<Option<PanicPayload>>,
+        }
+
         unsafe extern "C" fn trampoline<F>(
             x: f64,
             y: f64,
@@ -1564,16 +1519,30 @@ impl Manifold {
         {
             // Catch panics to prevent UB from unwinding through C stack frames.
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                // SAFETY: ctx points to an F that is Sync, so shared access
-                // from multiple C threads is sound.
-                let f = unsafe { &*(ctx as *const F) };
-                f(x, y, z)
+                // SAFETY: ctx points to a Context with an F that is Sync, so
+                // shared access from multiple C threads is sound.
+                let ctx = unsafe { &*(ctx as *const Context<'_, F>) };
+                (ctx.f)(x, y, z)
             }));
-            // Return large positive distance on panic (outside surface).
-            result.unwrap_or(f64::MAX)
+            match result {
+                Ok(distance) => distance,
+                Err(payload) => {
+                    // Return large positive distance to avoid UB from
+                    // unwinding through C, then resume after the FFI call.
+                    // SAFETY: ctx points to a Context that remains valid for
+                    // the duration of the manifold_level_set call.
+                    let ctx = unsafe { &*(ctx as *const Context<'_, F>) };
+                    store_panic(&ctx.panic, payload);
+                    f64::MAX
+                }
+            }
         }
 
-        let ctx = &f as *const F as *mut std::ffi::c_void;
+        let ctx = Context {
+            f: &f,
+            panic: Mutex::new(None),
+        };
+        let ctx_ptr = &ctx as *const Context<'_, F> as *mut std::ffi::c_void;
         // SAFETY: manifold_alloc_box returns a valid handle.
         let box_ptr = unsafe { manifold_alloc_box() };
         // SAFETY: box_ptr is valid from alloc.
@@ -1599,9 +1568,16 @@ impl Manifold {
                 edge_length,
                 level,
                 tolerance,
-                ctx,
+                ctx_ptr,
             )
         };
+        if let Some(payload) = take_stored_panic(&ctx.panic) {
+            // SAFETY: ptr was allocated above and will not be returned.
+            unsafe { manifold_delete_manifold(ptr) };
+            // SAFETY: box_ptr was allocated above and will not be used again.
+            unsafe { manifold_delete_box(box_ptr) };
+            std::panic::resume_unwind(payload);
+        }
         // SAFETY: box_ptr is valid and no longer needed.
         unsafe { manifold_delete_box(box_ptr) };
         Self { ptr }
@@ -1624,6 +1600,11 @@ impl Manifold {
     where
         F: FnMut(f64, f64, f64) -> f64,
     {
+        struct Context<'a, F> {
+            f: &'a mut F,
+            panic: Mutex<Option<PanicPayload>>,
+        }
+
         unsafe extern "C" fn trampoline<F>(
             x: f64,
             y: f64,
@@ -1635,14 +1616,30 @@ impl Manifold {
         {
             // Catch panics to prevent UB from unwinding through C stack frames.
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                // SAFETY: ctx was created from a &mut F and is valid for the call duration.
-                let f = unsafe { &mut *(ctx as *mut F) };
-                f(x, y, z)
+                // SAFETY: ctx was created from a &mut Context and is valid for
+                // the call duration.
+                let ctx = unsafe { &mut *(ctx as *mut Context<'_, F>) };
+                (ctx.f)(x, y, z)
             }));
-            result.unwrap_or(f64::MAX)
+            match result {
+                Ok(distance) => distance,
+                Err(payload) => {
+                    // Return large positive distance to avoid UB from
+                    // unwinding through C, then resume after the FFI call.
+                    // SAFETY: ctx was created from a &mut Context below and is
+                    // valid for the duration of the manifold_level_set_seq call.
+                    let ctx = unsafe { &*(ctx as *const Context<'_, F>) };
+                    store_panic(&ctx.panic, payload);
+                    f64::MAX
+                }
+            }
         }
 
-        let ctx = &mut f as *mut F as *mut std::ffi::c_void;
+        let mut ctx = Context {
+            f: &mut f,
+            panic: Mutex::new(None),
+        };
+        let ctx_ptr = &mut ctx as *mut Context<'_, F> as *mut std::ffi::c_void;
         // SAFETY: manifold_alloc_box returns a valid handle.
         let box_ptr = unsafe { manifold_alloc_box() };
         // SAFETY: box_ptr is valid from alloc.
@@ -1668,9 +1665,16 @@ impl Manifold {
                 edge_length,
                 level,
                 tolerance,
-                ctx,
+                ctx_ptr,
             )
         };
+        if let Some(payload) = take_stored_panic(&ctx.panic) {
+            // SAFETY: ptr was allocated above and will not be returned.
+            unsafe { manifold_delete_manifold(ptr) };
+            // SAFETY: box_ptr was allocated above and will not be used again.
+            unsafe { manifold_delete_box(box_ptr) };
+            std::panic::resume_unwind(payload);
+        }
         // SAFETY: box_ptr is valid and no longer needed.
         unsafe { manifold_delete_box(box_ptr) };
         Self { ptr }
@@ -1810,18 +1814,32 @@ impl Manifold {
 
 // ── Quality globals ─────────────────────────────────────────────────────
 
-/// Guard for global quality setters. The C API's global state is not
+/// Guard for global quality parameters. The C API's global state is not
 /// thread-safe, so we serialize access from the Rust side.
 static QUALITY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+pub(crate) fn with_quality_lock<T>(f: impl FnOnce() -> T) -> T {
+    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    f()
+}
+
+pub(crate) fn with_quality_lock_if_auto_segments<T>(segments: i32, f: impl FnOnce() -> T) -> T {
+    if segments <= 0 {
+        with_quality_lock(f)
+    } else {
+        f()
+    }
+}
 
 /// Set the minimum circular angle (degrees) for tessellation.
 ///
 /// This modifies global state shared by all manifold operations in the
 /// current process.
 pub fn set_min_circular_angle(degrees: f64) {
-    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
-    unsafe { manifold_set_min_circular_angle(degrees) };
+    with_quality_lock(|| {
+        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
+        unsafe { manifold_set_min_circular_angle(degrees) };
+    });
 }
 
 /// Set the minimum circular edge length for tessellation.
@@ -1829,9 +1847,10 @@ pub fn set_min_circular_angle(degrees: f64) {
 /// This modifies global state shared by all manifold operations in the
 /// current process.
 pub fn set_min_circular_edge_length(length: f64) {
-    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
-    unsafe { manifold_set_min_circular_edge_length(length) };
+    with_quality_lock(|| {
+        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
+        unsafe { manifold_set_min_circular_edge_length(length) };
+    });
 }
 
 /// Set the number of circular segments for tessellation.
@@ -1839,9 +1858,10 @@ pub fn set_min_circular_edge_length(length: f64) {
 /// This modifies global state shared by all manifold operations in the
 /// current process.
 pub fn set_circular_segments(number: i32) {
-    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
-    unsafe { manifold_set_circular_segments(number) };
+    with_quality_lock(|| {
+        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
+        unsafe { manifold_set_circular_segments(number) };
+    });
 }
 
 /// Reset circular tessellation parameters to defaults.
@@ -1849,16 +1869,19 @@ pub fn set_circular_segments(number: i32) {
 /// This modifies global state shared by all manifold operations in the
 /// current process.
 pub fn reset_to_circular_defaults() {
-    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
-    unsafe { manifold_reset_to_circular_defaults() };
+    with_quality_lock(|| {
+        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
+        unsafe { manifold_reset_to_circular_defaults() };
+    });
 }
 
 /// Get the number of circular segments for a given radius.
 #[must_use]
 pub fn get_circular_segments(radius: f64) -> i32 {
-    // SAFETY: Pure query with no pointer invariants.
-    unsafe { manifold_get_circular_segments(radius) }
+    with_quality_lock(|| {
+        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
+        unsafe { manifold_get_circular_segments(radius) }
+    })
 }
 
 /// Reserve a block of `n` original IDs for use with manifold tracking.

@@ -1,8 +1,9 @@
 use approx::assert_relative_eq;
 use manifold_csg::{
-    BoundingBox, CrossSection, FillRule, JoinType, Manifold, MeshGL, MeshGL64, OpType, Rect,
-    get_circular_segments, reserve_ids, reset_to_circular_defaults, set_circular_segments,
-    set_min_circular_angle, set_min_circular_edge_length, triangulate_polygons,
+    BoundingBox, CrossSection, FillRule, JoinType, Manifold, MeshGL, MeshGL64, MeshGL64Options,
+    MeshGLOptions, OpType, Rect, get_circular_segments, reserve_ids, reset_to_circular_defaults,
+    set_circular_segments, set_min_circular_angle, set_min_circular_edge_length,
+    triangulate_polygons,
 };
 
 // ── Primitive tests ─────────────────────────────────────────────────────
@@ -182,6 +183,35 @@ fn mesh_f32_round_trip() {
 }
 
 #[test]
+fn to_meshgl_returns_full_mesh_container() {
+    let cube = Manifold::cube(2.0, 3.0, 4.0, true);
+
+    let mesh32 = cube.to_meshgl();
+    let (verts32, n_props32, indices32) = cube.to_mesh_f32();
+    assert_eq!(mesh32.vert_properties(), verts32);
+    assert_eq!(mesh32.num_prop(), n_props32);
+    assert_eq!(mesh32.tri_verts(), indices32);
+
+    let mesh64 = cube.to_meshgl64();
+    let (verts64, n_props64, indices64) = cube.to_mesh_f64();
+    assert_eq!(mesh64.vert_properties(), verts64);
+    assert_eq!(mesh64.num_prop(), n_props64);
+    assert_eq!(mesh64.tri_verts(), indices64);
+
+    let mesh32_normals = cube.to_meshgl_with_normals(3);
+    let (verts32_normals, n_props32_normals, indices32_normals) = cube.to_mesh_f32_with_normals(3);
+    assert_eq!(mesh32_normals.vert_properties(), verts32_normals);
+    assert_eq!(mesh32_normals.num_prop(), n_props32_normals);
+    assert_eq!(mesh32_normals.tri_verts(), indices32_normals);
+
+    let mesh64_normals = cube.to_meshgl64_with_normals(3);
+    let (verts64_normals, n_props64_normals, indices64_normals) = cube.to_mesh_f64_with_normals(3);
+    assert_eq!(mesh64_normals.vert_properties(), verts64_normals);
+    assert_eq!(mesh64_normals.num_prop(), n_props64_normals);
+    assert_eq!(mesh64_normals.tri_verts(), indices64_normals);
+}
+
+#[test]
 fn csg_result_round_trip() {
     let big = Manifold::cube(10.0, 10.0, 10.0, true);
     let small = Manifold::cube(4.0, 4.0, 4.0, true);
@@ -192,9 +222,17 @@ fn csg_result_round_trip() {
 }
 
 #[test]
-fn empty_mesh_returns_error() {
+fn empty_mesh_returns_empty_manifold() {
     let result = Manifold::from_mesh_f64(&[], 3, &[]);
-    assert!(result.is_err());
+    let manifold = result.expect("empty mesh should be valid");
+    assert!(manifold.is_empty());
+    assert!(manifold.status().is_ok());
+}
+
+#[test]
+fn default_values_are_empty() {
+    assert!(Manifold::default().is_empty());
+    assert!(CrossSection::default().is_empty());
 }
 
 // ── Chained operations ──────────────────────────────────────────────────
@@ -621,7 +659,7 @@ fn meshgl_basic() {
     // A single triangle.
     let verts: Vec<f32> = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
     let indices: Vec<u32> = vec![0, 1, 2];
-    let mesh = MeshGL::new(&verts, 3, &indices);
+    let mesh = MeshGL::new(&verts, 3, &indices).expect("valid MeshGL");
     assert_eq!(mesh.num_vert(), 3);
     assert_eq!(mesh.num_tri(), 1);
     assert_eq!(mesh.num_prop(), 3);
@@ -632,10 +670,170 @@ fn meshgl64_basic() {
     use manifold_csg::MeshGL64;
     let verts: Vec<f64> = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
     let indices: Vec<u64> = vec![0, 1, 2];
-    let mesh = MeshGL64::new(&verts, 3, &indices);
+    let mesh = MeshGL64::new(&verts, 3, &indices).expect("valid MeshGL64");
     assert_eq!(mesh.num_vert(), 3);
     assert_eq!(mesh.num_tri(), 1);
     assert_eq!(mesh.num_prop(), 3);
+}
+
+#[test]
+fn meshgl_empty_is_valid() {
+    let mesh = MeshGL::new(&[], 3, &[]).expect("empty MeshGL should be valid");
+    assert_eq!(mesh.num_vert(), 0);
+    assert_eq!(mesh.num_tri(), 0);
+    assert_eq!(mesh.num_prop(), 3);
+    assert!(mesh.vert_properties().is_empty());
+    assert!(mesh.tri_verts().is_empty());
+
+    let mesh64 = MeshGL64::new(&[], 3, &[]).expect("empty MeshGL64 should be valid");
+    assert_eq!(mesh64.num_vert(), 0);
+    assert_eq!(mesh64.num_tri(), 0);
+    assert_eq!(mesh64.num_prop(), 3);
+    assert!(mesh64.vert_properties().is_empty());
+    assert!(mesh64.tri_verts().is_empty());
+}
+
+#[test]
+fn meshgl_invalid_shapes_return_error() {
+    assert!(MeshGL::new(&[], 2, &[]).is_err());
+    assert!(MeshGL::new(&[0.0, 0.0], 3, &[]).is_err());
+    assert!(MeshGL::new(&[], 3, &[0, 1]).is_err());
+    assert!(MeshGL::new_with_tangents(&[], 3, &[], &[0.0]).is_err());
+
+    assert!(MeshGL64::new(&[], 2, &[]).is_err());
+    assert!(MeshGL64::new(&[0.0, 0.0], 3, &[]).is_err());
+    assert!(MeshGL64::new(&[], 3, &[0, 1]).is_err());
+    assert!(MeshGL64::new_with_tangents(&[], 3, &[], &[0.0]).is_err());
+}
+
+#[test]
+fn meshgl_new_with_options_preserves_metadata() {
+    let verts: Vec<f32> = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let indices: Vec<u32> = vec![0, 1, 2];
+    let run_indices = vec![0, 3];
+    let run_original_ids = vec![42];
+    let merge_from = vec![1];
+    let merge_to = vec![2];
+    let tangents = vec![0.0f32; 12];
+
+    let mesh = MeshGL::new_with_options(
+        &verts,
+        3,
+        &indices,
+        MeshGLOptions::new()
+            .runs(&run_indices, &run_original_ids)
+            .merge_vertices(&merge_from, &merge_to)
+            .halfedge_tangents(&tangents),
+    )
+    .expect("valid MeshGL options");
+
+    assert_eq!(mesh.run_index(), run_indices);
+    assert_eq!(mesh.run_original_id(), run_original_ids);
+    assert_eq!(mesh.merge_from_vert(), merge_from);
+    assert_eq!(mesh.merge_to_vert(), merge_to);
+    assert_eq!(mesh.halfedge_tangent().len(), tangents.len());
+}
+
+#[test]
+fn meshgl64_new_with_options_preserves_metadata() {
+    let verts: Vec<f64> = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let indices: Vec<u64> = vec![0, 1, 2];
+    let run_indices = vec![0, 3];
+    let run_original_ids = vec![43];
+    let merge_from = vec![1];
+    let merge_to = vec![2];
+    let tangents = vec![0.0f64; 12];
+
+    let mesh = MeshGL64::new_with_options(
+        &verts,
+        3,
+        &indices,
+        MeshGL64Options::new()
+            .runs(&run_indices, &run_original_ids)
+            .merge_vertices(&merge_from, &merge_to)
+            .halfedge_tangents(&tangents),
+    )
+    .expect("valid MeshGL64 options");
+
+    assert_eq!(mesh.run_index(), run_indices);
+    assert_eq!(mesh.run_original_id(), run_original_ids);
+    assert_eq!(mesh.merge_from_vert(), merge_from);
+    assert_eq!(mesh.merge_to_vert(), merge_to);
+    assert_eq!(mesh.halfedge_tangent().len(), tangents.len());
+}
+
+#[test]
+fn meshgl_options_invalid_metadata_returns_error() {
+    let verts: Vec<f32> = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let indices: Vec<u32> = vec![0, 1, 2];
+
+    assert!(
+        MeshGL::new_with_options(&verts, 3, &indices, MeshGLOptions::new().runs(&[0], &[]))
+            .is_err()
+    );
+    assert!(
+        MeshGL::new_with_options(&verts, 3, &indices, MeshGLOptions::new().runs(&[1], &[1]))
+            .is_err()
+    );
+    assert!(
+        MeshGL::new_with_options(
+            &verts,
+            3,
+            &[0, 1, 2, 0, 2, 1],
+            MeshGLOptions::new().runs(&[0, 3], &[1])
+        )
+        .is_err()
+    );
+    assert!(
+        MeshGL::new_with_options(
+            &verts,
+            3,
+            &indices,
+            MeshGLOptions::new().merge_vertices(&[1, 2], &[1])
+        )
+        .is_err()
+    );
+    assert!(
+        MeshGL64::new_with_options(
+            &[0.0f64, 0.0, 0.0],
+            3,
+            &[0, 0, 0],
+            MeshGL64Options::new().halfedge_tangents(&[0.0])
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn manifold_from_meshgl_with_options() {
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
+    let (verts, n_props, indices) = cube.to_mesh_f32();
+    let mesh = MeshGL::new_with_options(
+        &verts,
+        n_props,
+        &indices,
+        MeshGLOptions::new().runs(&[0], &[reserve_ids(1)]),
+    )
+    .expect("valid MeshGL options");
+
+    let rebuilt = Manifold::from_meshgl(&mesh).expect("MeshGL should produce a manifold");
+    assert_relative_eq!(rebuilt.volume(), cube.volume(), epsilon = 0.01);
+}
+
+#[test]
+fn manifold_from_meshgl64_with_options() {
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let mesh = MeshGL64::new_with_options(
+        &verts,
+        n_props,
+        &indices,
+        MeshGL64Options::new().runs(&[0], &[reserve_ids(1)]),
+    )
+    .expect("valid MeshGL64 options");
+
+    let rebuilt = Manifold::from_meshgl64(&mesh).expect("MeshGL64 should produce a manifold");
+    assert_relative_eq!(rebuilt.volume(), cube.volume(), epsilon = 0.01);
 }
 
 // ── Hull tests ──────────────────────────────────────────────────────
@@ -1314,13 +1512,17 @@ fn rect_is_empty() {
 // ── FillRule tests ─────────────────────────────────────────────────────
 
 #[test]
-fn fill_rule_even_odd_default() {
-    // A simple square polygon should produce the same result with explicit EvenOdd
-    // as with the default from_polygons.
-    let square = vec![vec![[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]];
-    let default_cs = CrossSection::from_polygons(&square);
-    let explicit_cs = CrossSection::from_polygons_with_fill_rule(&square, FillRule::EvenOdd);
-    assert_relative_eq!(default_cs.area(), explicit_cs.area(), epsilon = 0.1);
+fn fill_rule_positive_default() {
+    // A clockwise square distinguishes Positive from EvenOdd: Positive treats
+    // it as outside, while EvenOdd still fills it.
+    let clockwise_square = vec![vec![[0.0, 0.0], [0.0, 10.0], [10.0, 10.0], [10.0, 0.0]]];
+    let default_cs = CrossSection::from_polygons(&clockwise_square);
+    let positive_cs =
+        CrossSection::from_polygons_with_fill_rule(&clockwise_square, FillRule::Positive);
+    let even_odd_cs =
+        CrossSection::from_polygons_with_fill_rule(&clockwise_square, FillRule::EvenOdd);
+    assert_relative_eq!(default_cs.area(), positive_cs.area(), epsilon = 0.1);
+    assert!((default_cs.area() - even_odd_cs.area()).abs() > 1.0);
 }
 
 #[test]
@@ -1410,7 +1612,7 @@ fn as_original_preserves_geometry() {
 fn meshgl_clone_is_independent() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f32();
-    let mesh = MeshGL::new(&verts, n_props, &indices);
+    let mesh = MeshGL::new(&verts, n_props, &indices).expect("valid MeshGL");
     let clone = mesh.clone();
     assert_eq!(mesh.num_vert(), clone.num_vert());
     assert_eq!(mesh.num_tri(), clone.num_tri());
@@ -1423,16 +1625,32 @@ fn meshgl_clone_is_independent() {
 fn meshgl64_clone_is_independent() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();
-    let mesh = MeshGL64::new(&verts, n_props, &indices);
+    let mesh = MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64");
     let clone = mesh.clone();
     assert_eq!(mesh.num_vert(), clone.num_vert());
     drop(mesh);
     assert!(clone.num_vert() > 0);
 }
 
-// NOTE: MeshGL::merge() / MeshGL64::merge() are NOT exposed because the C API's
-// manifold_meshgl_merge returns a mesh that shares internal buffers with the
-// source, causing double-free on drop. This needs further upstream investigation.
+#[test]
+fn meshgl_merge_smoke() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f32();
+    let mesh = MeshGL::new(&verts, n_props, &indices).expect("valid MeshGL");
+    let merged = mesh.merge();
+    assert_eq!(merged.num_prop(), mesh.num_prop());
+    assert!(merged.num_vert() <= mesh.num_vert());
+}
+
+#[test]
+fn meshgl64_merge_smoke() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let mesh = MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64");
+    let merged = mesh.merge();
+    assert_eq!(merged.num_prop(), mesh.num_prop());
+    assert!(merged.num_vert() <= mesh.num_vert());
+}
 
 // ── Binding-specific: Drop safety ──────────────────────────────────────
 
@@ -1519,7 +1737,7 @@ fn rect_send_across_thread() {
 fn meshgl64_send_across_thread() {
     let cube = Manifold::cube(5.0, 5.0, 5.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();
-    let mesh = MeshGL64::new(&verts, n_props, &indices);
+    let mesh = MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64");
     let nv = std::thread::spawn(move || mesh.num_vert()).join().unwrap();
     assert!(nv > 0);
 }
@@ -1572,7 +1790,8 @@ fn cross_section_sync_concurrent_reads() {
 fn meshgl64_sync_concurrent_reads() {
     let cube = Manifold::cube(5.0, 5.0, 5.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();
-    let mesh = std::sync::Arc::new(MeshGL64::new(&verts, n_props, &indices));
+    let mesh =
+        std::sync::Arc::new(MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64"));
     let handles: Vec<_> = (0..4)
         .map(|_| {
             let m = std::sync::Arc::clone(&mesh);
@@ -1692,6 +1911,18 @@ fn cross_section_clone_is_independent() {
 
 // ── Binding-specific: callback catch_unwind ────────────────────────────
 
+fn assert_panic_message(result: std::thread::Result<()>, expected: &str) {
+    let payload = match result {
+        Ok(()) => panic!("expected callback panic"),
+        Err(payload) => payload,
+    };
+    let message = payload
+        .downcast_ref::<&str>()
+        .copied()
+        .or_else(|| payload.downcast_ref::<String>().map(String::as_str));
+    assert_eq!(message, Some(expected));
+}
+
 #[test]
 fn warp_callback_doesnt_crash_on_identity() {
     let cube = Manifold::cube(5.0, 5.0, 5.0, true);
@@ -1700,10 +1931,65 @@ fn warp_callback_doesnt_crash_on_identity() {
 }
 
 #[test]
+fn warp_callback_panic_resumes_after_ffi() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, true);
+    let result = std::panic::catch_unwind(|| {
+        let _ = cube.warp(|_, _, _| panic!("warp panic"));
+    });
+    assert_panic_message(result, "warp panic");
+}
+
+#[test]
+fn set_properties_callback_panic_resumes_after_ffi() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, true);
+    let result = std::panic::catch_unwind(|| {
+        let _ = cube.set_properties(3, |_, _, _| panic!("properties panic"));
+    });
+    assert_panic_message(result, "properties panic");
+}
+
+#[test]
+fn from_sdf_callback_panic_resumes_after_ffi() {
+    let result = std::panic::catch_unwind(|| {
+        let _ = Manifold::from_sdf(
+            |_, _, _| panic!("sdf panic"),
+            ([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]),
+            1.0,
+            0.0,
+            0.01,
+        );
+    });
+    assert_panic_message(result, "sdf panic");
+}
+
+#[test]
+fn from_sdf_seq_callback_panic_resumes_after_ffi() {
+    let result = std::panic::catch_unwind(|| {
+        let _ = Manifold::from_sdf_seq(
+            |_, _, _| panic!("sdf panic"),
+            ([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]),
+            1.0,
+            0.0,
+            0.01,
+        );
+    });
+    assert_panic_message(result, "sdf panic");
+}
+
+#[test]
 fn cross_section_warp_identity() {
     let cs = CrossSection::square(10.0, 10.0, false);
     let warped = cs.warp(|x, y| [x, y]);
     assert_relative_eq!(warped.area(), cs.area(), epsilon = 1.0);
+}
+
+#[test]
+fn cross_section_warp_callback_panic_resumes_after_ffi() {
+    let cs = CrossSection::square(10.0, 10.0, false);
+    let result = std::panic::catch_unwind(|| {
+        let _ = cs.warp(|_, _| panic!("cross-section warp panic"));
+    });
+    assert_panic_message(result, "cross-section warp panic");
 }
 
 // ── Binding-specific: bounds() returns rich Rect ───────────────────────
@@ -1862,7 +2148,7 @@ fn debug_formatting_manifold() {
     let cube = Manifold::cube(1.0, 1.0, 1.0, false);
     let dbg = format!("{cube:?}");
     assert!(dbg.contains("Manifold"));
-    assert!(dbg.contains("num_vert"));
+    assert!(dbg.contains("ptr"));
 }
 
 #[test]
@@ -1945,7 +2231,7 @@ fn cross_section_operator_xor() {
 fn meshgl_accessors_return_consistent_lengths() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f32();
-    let mesh = MeshGL::new(&verts, n_props, &indices);
+    let mesh = MeshGL::new(&verts, n_props, &indices).expect("valid MeshGL");
     // merge vectors should be paired
     assert_eq!(mesh.merge_from_vert().len(), mesh.merge_to_vert().len());
     // face_id is either empty or has one per triangle
@@ -1960,7 +2246,7 @@ fn meshgl_accessors_return_consistent_lengths() {
 fn meshgl64_accessors_return_consistent_lengths() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();
-    let mesh = MeshGL64::new(&verts, n_props, &indices);
+    let mesh = MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64");
     assert_eq!(mesh.merge_from_vert().len(), mesh.merge_to_vert().len());
     let fid = mesh.face_id();
     assert!(fid.is_empty() || fid.len() == mesh.num_tri());
@@ -1972,7 +2258,7 @@ fn meshgl64_accessors_return_consistent_lengths() {
 fn meshgl_run_accessors_consistent() {
     let cube = Manifold::cube(5.0, 5.0, 5.0, false).as_original();
     let (verts, n_props, indices) = cube.to_mesh_f32();
-    let mesh = MeshGL::new(&verts, n_props, &indices);
+    let mesh = MeshGL::new(&verts, n_props, &indices).expect("valid MeshGL");
     let ri = mesh.run_index();
     let ro = mesh.run_original_id();
     let rt = mesh.run_transform();
@@ -1986,7 +2272,7 @@ fn meshgl_run_accessors_consistent() {
 fn meshgl64_run_accessors_consistent() {
     let cube = Manifold::cube(5.0, 5.0, 5.0, false).as_original();
     let (verts, n_props, indices) = cube.to_mesh_f64();
-    let mesh = MeshGL64::new(&verts, n_props, &indices);
+    let mesh = MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64");
     let ri = mesh.run_index();
     let ro = mesh.run_original_id();
     let rt = mesh.run_transform();
@@ -2031,8 +2317,17 @@ fn smooth_mismatched_arrays_returns_error() {
 #[test]
 fn cross_section_from_simple_polygon() {
     let points = vec![[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]];
-    let cs = CrossSection::from_simple_polygon(&points, FillRule::EvenOdd);
+    let cs = CrossSection::from_simple_polygon_with_fill_rule(&points, FillRule::EvenOdd);
     assert_relative_eq!(cs.area(), 100.0, epsilon = 0.1);
+}
+
+#[test]
+fn cross_section_from_simple_polygon_default_is_positive() {
+    let cw_square = vec![[0.0, 0.0], [0.0, 10.0], [10.0, 10.0], [10.0, 0.0]];
+    let default_cs = CrossSection::from_simple_polygon(&cw_square);
+    let positive_cs =
+        CrossSection::from_simple_polygon_with_fill_rule(&cw_square, FillRule::Positive);
+    assert_relative_eq!(default_cs.area(), positive_cs.area(), epsilon = 0.1);
 }
 
 #[test]
@@ -2064,7 +2359,7 @@ fn cross_section_hull_polygons() {
 
 #[test]
 fn cross_section_from_simple_polygon_empty() {
-    let cs = CrossSection::from_simple_polygon(&[], FillRule::EvenOdd);
+    let cs = CrossSection::from_simple_polygon_with_fill_rule(&[], FillRule::EvenOdd);
     assert!(cs.is_empty());
 }
 
@@ -2094,7 +2389,7 @@ fn cross_section_boolean_subtract() {
 fn meshgl64_obj_round_trip() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();
-    let mesh = MeshGL64::new(&verts, n_props, &indices);
+    let mesh = MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64");
     let obj = mesh.to_obj();
     assert!(!obj.is_empty());
     assert!(obj.contains("v "));
@@ -2114,7 +2409,8 @@ fn meshgl_new_with_tangents() {
     let n_tris = indices.len() / 3;
     // 4 floats per halfedge, 3 halfedges per triangle
     let tangents = vec![0.0f32; n_tris * 3 * 4];
-    let mesh = MeshGL::new_with_tangents(&verts, n_props, &indices, &tangents);
+    let mesh =
+        MeshGL::new_with_tangents(&verts, n_props, &indices, &tangents).expect("valid MeshGL");
     assert_eq!(mesh.num_vert(), verts.len() / n_props);
     assert_eq!(mesh.num_tri(), n_tris);
     assert_eq!(mesh.halfedge_tangent().len(), tangents.len());
@@ -2126,7 +2422,8 @@ fn meshgl64_new_with_tangents() {
     let (verts, n_props, indices) = cube.to_mesh_f64();
     let n_tris = indices.len() / 3;
     let tangents = vec![0.0f64; n_tris * 3 * 4];
-    let mesh = MeshGL64::new_with_tangents(&verts, n_props, &indices, &tangents);
+    let mesh =
+        MeshGL64::new_with_tangents(&verts, n_props, &indices, &tangents).expect("valid MeshGL64");
     assert_eq!(mesh.num_vert(), verts.len() / n_props);
     assert_eq!(mesh.num_tri(), n_tris);
     assert_eq!(mesh.halfedge_tangent().len(), tangents.len());
@@ -2213,7 +2510,7 @@ fn manifold_boolean_subtract_and_intersect() {
 fn meshgl_is_send() {
     let cube = Manifold::cube(5.0, 5.0, 5.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f32();
-    let mesh = MeshGL::new(&verts, n_props, &indices);
+    let mesh = MeshGL::new(&verts, n_props, &indices).expect("valid MeshGL");
     let handle = std::thread::spawn(move || {
         assert!(mesh.num_vert() > 0);
     });
@@ -2327,12 +2624,11 @@ fn execution_context_cross_thread_cancel() {
 
 #[test]
 fn manifold_with_context_then_status_no_cancel() {
-    use manifold_csg_sys::ManifoldError;
     let cube = Manifold::cube(1.0, 1.0, 1.0, true);
     let ctx = manifold_csg::ExecutionContext::new();
     // Trivial Manifold; evaluation finishes immediately. Exercises the
     // 3.5.0 attach-then-eager-op pattern.
-    assert_eq!(cube.with_context(&ctx).status(), ManifoldError::NoError);
+    assert!(cube.with_context(&ctx).status().is_ok());
 }
 
 #[test]
@@ -2341,7 +2637,7 @@ fn manifold_with_context_already_cancelled() {
     let ctx = manifold_csg::ExecutionContext::new();
     ctx.cancel();
     // Don't assert on the specific status code: upstream may surface
-    // cancellation as NoError for trivial work that doesn't poll the flag,
+    // cancellation as success for trivial work that doesn't poll the flag,
     // or as a specific cancellation status. Just proves the attach + eager
     // call is well-formed and doesn't panic / leak / crash.
     let _ = cube.with_context(&ctx).status();
@@ -2352,12 +2648,12 @@ fn manifold_status_returns_no_error_for_basic_cube() {
     use manifold_csg_sys::ManifoldError;
     let cube = Manifold::cube(1.0, 1.0, 1.0, true);
     // Bare status() with no context attached: just forces lazy eval.
-    assert_eq!(cube.status(), ManifoldError::NoError);
+    assert!(cube.status().is_ok());
+    assert_eq!(cube.raw_status(), ManifoldError::NoError);
 }
 
 #[test]
 fn manifold_with_context_survives_ctx_drop() {
-    use manifold_csg_sys::ManifoldError;
     // A bare cube is a leaf; status() on it can short-circuit without
     // consulting the attached context. Use a real CSG tree so the eager
     // evaluation has to traverse the deferred boolean under the context.
@@ -2370,7 +2666,7 @@ fn manifold_with_context_survives_ctx_drop() {
     };
     // If the shared_ptr story were wrong, status() (and the subsequent
     // num_tri()) would read freed memory while walking the boolean.
-    assert_eq!(attached.status(), ManifoldError::NoError);
+    assert!(attached.status().is_ok());
     assert!(attached.num_tri() > 0);
 }
 

@@ -1,12 +1,12 @@
 //! Cooperative cancellation + progress observation for long-running boolean evaluations.
 //!
 //! Manifold operations are lazy: building a CSG tree is cheap, and the
-//! actual evaluation happens when you query results (e.g., via
-//! [`Manifold::with_context`](crate::Manifold::with_context) followed by
-//! [`Manifold::status`](crate::Manifold::status),
-//! `num_tri`, mesh extraction, etc.). An [`ExecutionContext`] lets you
-//! observe an in-flight evaluation from another thread and ask it to stop
-//! early.
+//! actual evaluation happens when you query results. Attach an
+//! [`ExecutionContext`] with [`Manifold::with_context`](crate::Manifold::with_context),
+//! then call an eager operation that consumes it, such as
+//! [`Manifold::status`](crate::Manifold::status) or `refine*`. An
+//! [`ExecutionContext`] lets you observe an in-flight evaluation from another
+//! thread and ask it to stop early.
 //!
 //! Cancellation is **sticky** (once cancelled, stays cancelled) and granular
 //! per-boolean (the upstream kernel checks the cancel flag at boolean
@@ -35,8 +35,8 @@
 //!
 //! let result = Manifold::cube(1.0, 1.0, 1.0, true);
 //! let status = result.with_context(&ctx).status();
-//! // `status` will be `NoError` for trivial work that finishes before
-//! // cancel fires; for a heavy boolean tree it would surface cancellation.
+//! // `status` will be `Ok(())` for trivial work that finishes before cancel
+//! // fires; for a heavy boolean tree it would surface cancellation as an error.
 //! # let _ = status;
 //! ```
 //!

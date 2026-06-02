@@ -178,31 +178,39 @@ pub struct ManifoldRayHit {
 }
 
 /// Options for constructing a `MeshGL` with additional metadata.
+///
+/// The upstream C header declares these input-only pointers as mutable. The
+/// Rust binding uses const pointers for the same ABI so safe wrappers can pass
+/// shared slices without casting away constness.
 #[repr(C)]
 #[derive(Debug)]
 pub struct ManifoldMeshGLOptions {
-    pub run_indices: *mut u32,
+    pub run_indices: *const u32,
     pub run_indices_length: usize,
-    pub run_original_ids: *mut u32,
+    pub run_original_ids: *const u32,
     pub run_original_ids_length: usize,
-    pub merge_from_vert: *mut u32,
-    pub merge_to_vert: *mut u32,
+    pub merge_from_vert: *const u32,
+    pub merge_to_vert: *const u32,
     pub merge_verts_length: usize,
-    pub halfedge_tangents: *mut f32,
+    pub halfedge_tangents: *const f32,
 }
 
 /// Options for constructing a `MeshGL64` with additional metadata.
+///
+/// The upstream C header declares these input-only pointers as mutable. The
+/// Rust binding uses const pointers for the same ABI so safe wrappers can pass
+/// shared slices without casting away constness.
 #[repr(C)]
 #[derive(Debug)]
 pub struct ManifoldMeshGL64Options {
-    pub run_indices: *mut u64,
+    pub run_indices: *const u64,
     pub run_indices_length: usize,
-    pub run_original_ids: *mut u32,
+    pub run_original_ids: *const u32,
     pub run_original_ids_length: usize,
-    pub merge_from_vert: *mut u64,
-    pub merge_to_vert: *mut u64,
+    pub merge_from_vert: *const u64,
+    pub merge_to_vert: *const u64,
     pub merge_verts_length: usize,
-    pub halfedge_tangents: *mut f64,
+    pub halfedge_tangents: *const f64,
 }
 
 // ── Enums ───────────────────────────────────────────────────────────────
@@ -238,6 +246,7 @@ pub enum ManifoldJoinType {
 
 /// Error codes from manifold3d status check.
 #[repr(C)]
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ManifoldError {
     NoError = 0,
@@ -253,6 +262,22 @@ pub enum ManifoldError {
     FaceIdWrongLength = 10,
     InvalidConstruction = 11,
     ResultTooLarge = 12,
+    InvalidTangents = 13,
+    Cancelled = 14,
+}
+
+impl ManifoldError {
+    /// Returns true when the status is [`ManifoldError::NoError`].
+    #[must_use]
+    pub const fn is_ok(self) -> bool {
+        matches!(self, Self::NoError)
+    }
+
+    /// Returns true when the status represents an error.
+    #[must_use]
+    pub const fn is_err(self) -> bool {
+        !self.is_ok()
+    }
 }
 
 // ── Function pointer types ─────────────────────────────────────────────
