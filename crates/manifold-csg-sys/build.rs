@@ -20,7 +20,7 @@ use std::sync::OnceLock;
 /// wasm-uu build (which passes it through to the shim's
 /// `wasm_cxx_shim_add_manifold()` helper as `MANIFOLD_GIT_TAG`, so both
 /// paths build against the same C API surface).
-pub(crate) const MANIFOLD_VERSION: &str = "v3.5.0";
+pub(crate) const MANIFOLD_VERSION: &str = "v3.5.1";
 
 /// Detect `sccache` on PATH and return cmake args that route the C/C++
 /// compiler through it as a launcher. Returns empty if sccache isn't
@@ -66,6 +66,190 @@ fn cmake_launcher_args() -> Vec<String> {
         ]
     })
     .clone()
+}
+
+/// Link against an externally-provided manifold install instead of
+/// cloning and compiling it. Driven by `MANIFOLD_CSG_LIB_DIR` (a
+/// directory containing `libmanifoldc` + `libmanifold`, e.g. a nixpkgs
+/// `manifold` output's `lib/`). Returns `true` if the override was active
+/// and link directives were emitted, `false` if the var was unset (caller
+/// falls through to the clone+cmake path).
+///
+/// This is the fully-offline path: no network, no C++ compile. Because we
+/// have no build-time header dependency (the FFI is hand-written `extern`
+/// declarations, not bindgen), only the libraries are needed.
+///
+/// Link kind defaults to `dylib` (matching how distros, nixpkgs, and the
+/// upstream flake build manifold - `BUILD_SHARED_LIBS=ON`). A shared
+/// `libmanifold` records its own `Clipper2`/`tbb`/`stdc++` dependencies as
+/// `NEEDED`, so we don't re-link them. Set `MANIFOLD_CSG_LIB_KIND=static`
+/// for a static external build; then we additionally link `Clipper2` (and
+/// `tbb` under the `parallel` feature), since a static archive carries no
+/// transitive deps.
+///
+/// Caller must restrict this to host targets - the wasm/emscripten lanes
+/// have their own build paths and are bypassed before this is consulted.
+fn try_external_lib(target_env: &str, target_os: &str) -> bool {
+    // `env::var` returns Ok("") for a set-but-empty var, so a blank or
+    // unset-via-expansion `MANIFOLD_CSG_LIB_DIR=$UNSET cargo build` would
+    // otherwise hijack the build and emit an empty link-search. Treat
+    // trimmed-blank as unset and fall through to the source build.
+    let lib_dir = match env::var("MANIFOLD_CSG_LIB_DIR") {
+        Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
+        _ => {
+            // Surface a likely mistake: KIND only takes effect alongside DIR.
+            if env::var("MANIFOLD_CSG_LIB_KIND").is_ok_and(|v| !v.trim().is_empty()) {
+                println!(
+                    "cargo:warning=manifold-csg-sys: MANIFOLD_CSG_LIB_KIND is set but \
+                     MANIFOLD_CSG_LIB_DIR is not - ignoring it and building from source."
+                );
+            }
+            return false;
+        }
+    };
+    let kind = env::var("MANIFOLD_CSG_LIB_KIND")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| "dylib".to_string());
+    assert!(
+        kind == "dylib" || kind == "static",
+        "MANIFOLD_CSG_LIB_KIND must be 'dylib' or 'static', got {kind:?}"
+    );
+
+    // Fail loudly here rather than deferring a typo'd path or a dir missing
+    // the libs to an opaque downstream linker error. We check the flat dir
+    // for the exact filenames the linker will resolve for `-l{name}`.
+    let lib_path = Path::new(&lib_dir);
+    assert!(
+        lib_path.is_dir(),
+        "MANIFOLD_CSG_LIB_DIR={lib_dir:?} is not a directory"
+    );
+    // For static we also emit `-lClipper2` below, so verify it too - else a
+    // dir with the manifold archives but no Clipper2 passes this check and
+    // then dies with exactly the opaque linker error we're guarding against.
+    // (The from-source path checks Clipper2 for the same reason.) `tbb` is
+    // handled separately below: its presence is best-effort, not required.
+    let mut required = vec!["manifoldc", "manifold"];
+    if kind == "static" {
+        required.push("Clipper2");
+    }
+    for name in required {
+        assert!(
+            external_lib_present(lib_path, name, &kind, target_env, target_os),
+            "MANIFOLD_CSG_LIB_DIR={lib_dir:?} has no {kind} '{name}' library (looked for \
+             {names:?} directly in that dir); check the path and MANIFOLD_CSG_LIB_KIND",
+            names = external_lib_filenames(name, &kind, target_env, target_os),
+        );
+    }
+
+    println!("cargo:rustc-link-search=native={lib_dir}");
+    println!("cargo:rustc-link-lib={kind}=manifoldc");
+    println!("cargo:rustc-link-lib={kind}=manifold");
+    if kind == "static" {
+        // Static archives carry no transitive deps - link them ourselves.
+        // Mirrors the static link set from `super::build`.
+        println!("cargo:rustc-link-lib=static=Clipper2");
+        if env::var("CARGO_FEATURE_PARALLEL").is_ok() {
+            // TBB's static archive is named differently across platforms
+            // (libtbb.a, tbb12.lib, tbb12_static.lib). Probe the same flat
+            // dir the linker actually searches (we emit a single
+            // link-search=native above), so the name we pick is one that
+            // links - keeping the probe consistent with the emit.
+            match ["tbb", "tbb12", "tbb12_static"]
+                .into_iter()
+                .find(|n| external_lib_present(lib_path, n, "static", target_env, target_os))
+            {
+                Some(tbb_name) => println!("cargo:rustc-link-lib=static={tbb_name}"),
+                None => {
+                    // Don't hard-fail: a static manifold may fold TBB in or be
+                    // built without it. Warn (so a later `-ltbb` failure is
+                    // explained) and emit the default name as a best effort.
+                    println!(
+                        "cargo:warning=manifold-csg-sys: parallel feature is on with \
+                         MANIFOLD_CSG_LIB_KIND=static, but no tbb/tbb12/tbb12_static archive \
+                         was found in {lib_dir}; linking will use -ltbb and may fail. If your \
+                         static manifold bundles TBB or was built without it, ignore this."
+                    );
+                    println!("cargo:rustc-link-lib=static=tbb");
+                }
+            }
+        }
+    }
+
+    // C++ standard library, same logic as the from-source build. MSVC links
+    // it automatically; macOS uses libc++; everything else libstdc++.
+    if target_env != "msvc" {
+        if target_os == "macos" {
+            println!("cargo:rustc-link-lib=c++");
+        } else {
+            println!("cargo:rustc-link-lib=stdc++");
+        }
+    }
+
+    println!(
+        "cargo:warning=manifold-csg-sys: linking external manifold from \
+         MANIFOLD_CSG_LIB_DIR={lib_dir} (kind={kind}); skipping clone + cmake. \
+         You are responsible for matching the pinned upstream version (see \
+         MANIFOLD_VERSION) and build flags (CROSS_SECTION, C bindings)."
+    );
+    if kind == "dylib" {
+        println!(
+            "cargo:warning=manifold-csg-sys: kind=dylib links at build time only; the lib \
+             dir must also be on the runtime search path (rpath or LD_LIBRARY_PATH) or the \
+             final binary fails to load libmanifold at startup. Nix buildInputs sets rpath \
+             automatically."
+        );
+    }
+    true
+}
+
+/// Candidate filenames the platform linker resolves for `-l{name}` of the
+/// given `kind`. A file matching one of these in the lib dir is one that
+/// actually links, so it doubles as the existence-check target set.
+fn external_lib_filenames(
+    name: &str,
+    kind: &str,
+    target_env: &str,
+    target_os: &str,
+) -> Vec<String> {
+    if kind == "static" {
+        if target_env == "msvc" {
+            vec![format!("{name}.lib")]
+        } else {
+            vec![format!("lib{name}.a")]
+        }
+    } else if target_env == "msvc" {
+        // The DLL's import library is what the linker consumes.
+        vec![format!("{name}.lib"), format!("{name}.dll.lib")]
+    } else if target_os == "windows" {
+        // windows-gnu (mingw): `-l{name}` resolves to a DLL import lib, not a
+        // `.so`. Cover the mingw import-lib name and the plainer fallbacks.
+        vec![
+            format!("lib{name}.dll.a"),
+            format!("lib{name}.a"),
+            format!("{name}.lib"),
+        ]
+    } else if target_os == "macos" {
+        vec![format!("lib{name}.dylib")]
+    } else {
+        vec![format!("lib{name}.so")]
+    }
+}
+
+/// Whether a `{kind}` library `name` is present directly in `dir` (flat,
+/// matching the single `link-search=native` we emit). `exists()` follows
+/// symlinks, so a versioned `.so` reached via its dev symlink counts.
+fn external_lib_present(
+    dir: &Path,
+    name: &str,
+    kind: &str,
+    target_env: &str,
+    target_os: &str,
+) -> bool {
+    external_lib_filenames(name, kind, target_env, target_os)
+        .iter()
+        .any(|f| dir.join(f).exists())
 }
 
 /// Recursively search for a static library under `dir`.
@@ -116,6 +300,27 @@ fn main() {
         return;
     }
 
+    // Prevent unnecessary build script re-execution. Emitted before any
+    // early return below so the rerun rules apply on every host code path
+    // (including the MANIFOLD_CSG_LIB_DIR override) - emitting any
+    // rerun-if-* directive opts out of cargo's default "rerun on package
+    // change", so these must be unconditional.
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=build");
+    println!("cargo:rerun-if-changed=src/lib.rs");
+    println!("cargo:rerun-if-changed=patches");
+
+    // Offline / bring-your-own build override (host only). Lets consumers
+    // who can't run the build-script's `git clone` (sandboxed builders like
+    // Nix, airgapped CI) link a pre-built manifold install via
+    // `MANIFOLD_CSG_LIB_DIR`, skipping clone AND cmake entirely. Fully
+    // offline, no C++ compile. See docs/plans/offline-build.md and issue #49.
+    println!("cargo:rerun-if-env-changed=MANIFOLD_CSG_LIB_DIR");
+    println!("cargo:rerun-if-env-changed=MANIFOLD_CSG_LIB_KIND");
+    if !is_emscripten && try_external_lib(&target_env, &target_os) {
+        return;
+    }
+
     if is_emscripten {
         // emcmake/emmake wrap cmake to inject the Emscripten toolchain. They
         // come from the Emscripten SDK (`brew install emscripten` or the raw
@@ -129,12 +334,6 @@ fn main() {
             );
         }
     }
-
-    // Prevent unnecessary build script re-execution.
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=build");
-    println!("cargo:rerun-if-changed=src/lib.rs");
-    println!("cargo:rerun-if-changed=patches");
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let patches_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("patches");

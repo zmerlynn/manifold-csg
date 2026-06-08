@@ -2312,6 +2312,107 @@ fn smooth_mismatched_arrays_returns_error() {
     assert!(result.is_err());
 }
 
+// -- ExecutionContext static factories (v3.5.1) -------------------------
+
+#[test]
+fn from_sdf_with_context_creates_manifold() {
+    let ctx = manifold_csg::ExecutionContext::new();
+    // SDF for a sphere of radius 5, evaluated on the context directly.
+    let result = Manifold::from_sdf_with_context(
+        &ctx,
+        |x, y, z| (x * x + y * y + z * z).sqrt() - 5.0,
+        ([-6.0, -6.0, -6.0], [6.0, 6.0, 6.0]),
+        1.0,
+        0.0,
+        0.05,
+    );
+    assert!(!result.is_empty());
+    assert!(result.volume() > 0.0);
+    // Fresh context, evaluation ran to completion: not cancelled.
+    assert!(!ctx.is_cancelled());
+}
+
+#[test]
+fn from_sdf_seq_with_context_creates_manifold() {
+    let ctx = manifold_csg::ExecutionContext::new();
+    let mut calls = 0_u64;
+    let result = Manifold::from_sdf_seq_with_context(
+        &ctx,
+        |x, y, z| {
+            calls += 1; // FnMut: exercises the sequential trampoline.
+            (x * x + y * y + z * z).sqrt() - 5.0
+        },
+        ([-6.0, -6.0, -6.0], [6.0, 6.0, 6.0]),
+        1.0,
+        0.0,
+        0.05,
+    );
+    assert!(!result.is_empty());
+    assert!(calls > 0);
+}
+
+#[test]
+fn from_sdf_with_context_precancelled_does_not_crash() {
+    // A pre-cancelled context should let the factory bail without UB. We only
+    // assert it returns and the context stays cancelled (sticky), not the
+    // exact result shape - upstream may return an empty manifold.
+    let ctx = manifold_csg::ExecutionContext::new();
+    ctx.cancel();
+    let _result = Manifold::from_sdf_with_context(
+        &ctx,
+        |x, y, z| (x * x + y * y + z * z).sqrt() - 5.0,
+        ([-6.0, -6.0, -6.0], [6.0, 6.0, 6.0]),
+        1.0,
+        0.0,
+        0.05,
+    );
+    assert!(ctx.is_cancelled());
+}
+
+#[test]
+fn from_meshgl64_with_context_roundtrips() {
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let mesh = MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64");
+    let ctx = manifold_csg::ExecutionContext::new();
+    let rebuilt = Manifold::from_meshgl64_with_context(&ctx, &mesh)
+        .expect("MeshGL64 should produce a manifold");
+    assert_relative_eq!(rebuilt.volume(), cube.volume(), epsilon = 0.01);
+}
+
+#[test]
+fn from_meshgl_with_context_roundtrips() {
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
+    let (verts, n_props, indices) = cube.to_mesh_f32();
+    let mesh = MeshGL::new(&verts, n_props, &indices).expect("valid MeshGL");
+    let ctx = manifold_csg::ExecutionContext::new();
+    let rebuilt =
+        Manifold::from_meshgl_with_context(&ctx, &mesh).expect("MeshGL should produce a manifold");
+    assert_relative_eq!(rebuilt.volume(), cube.volume(), epsilon = 0.01);
+}
+
+#[test]
+fn smooth_f64_with_context_smooths() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let ctx = manifold_csg::ExecutionContext::new();
+    let result = Manifold::smooth_f64_with_context(&ctx, &verts, n_props, &indices, &[], &[]);
+    assert!(result.is_ok());
+    let m = result.unwrap();
+    assert!(!m.is_empty());
+    assert_relative_eq!(m.volume(), 1000.0, epsilon = 1.0);
+}
+
+#[test]
+fn smooth_f64_with_context_mismatched_arrays_returns_error() {
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let ctx = manifold_csg::ExecutionContext::new();
+    let result =
+        Manifold::smooth_f64_with_context(&ctx, &verts, n_props, &indices, &[0, 1], &[0.5]);
+    assert!(result.is_err());
+}
+
 // ── CrossSection gaps ──────────────────────────────────────────────────
 
 #[test]

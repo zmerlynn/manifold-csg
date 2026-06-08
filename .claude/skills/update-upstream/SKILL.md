@@ -40,6 +40,8 @@ git checkout -b update-upstream-<ref>
 
 Edit `MANIFOLD_VERSION` in `crates/manifold-csg-sys/build.rs`. The constant accepts tags, branches, or commit SHAs — prefer SHAs for reproducibility (commit on master) or tags for tagged releases.
 
+Then update the Nix offline lane to match: run `nix flake update` and commit the new `flake.lock`. The `nix-offline` CI lane links nixpkgs' prebuilt `manifold` via `MANIFOLD_CSG_LIB_DIR`, so the locked nixpkgs must resolve to a `manifold` matching the new pin (or the lane links an ABI-mismatched library). If nixpkgs hasn't caught up to the new upstream version yet, note it for the user - the lane may fail until nixpkgs ships it.
+
 ### 4. Carry-patch audit
 
 For each patch in `crates/manifold-csg-sys/patches/`:

@@ -336,6 +336,12 @@ Used internally by batch operations, decompose, etc.
 | `manifold_execution_context_cancel` | [`ExecutionContext::cancel`](crates/manifold-csg/src/execution.rs) |
 | `manifold_execution_context_cancelled` | [`ExecutionContext::is_cancelled`](crates/manifold-csg/src/execution.rs) |
 | `manifold_execution_context_progress` | [`ExecutionContext::progress`](crates/manifold-csg/src/execution.rs) |
+| `manifold_execution_context_level_set` | [`Manifold::from_sdf_with_context`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_execution_context_level_set_seq` | [`Manifold::from_sdf_seq_with_context`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_execution_context_of_meshgl` | [`Manifold::from_meshgl_with_context`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_execution_context_of_meshgl64` | [`Manifold::from_meshgl64_with_context`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_execution_context_smooth` | Not wrapped (no f32 `smooth` in safe API; see `manifold_smooth`) |
+| `manifold_execution_context_smooth64` | [`Manifold::smooth_f64_with_context`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_execution_context_size` | Not needed (alloc size) |
 
 ## Allocation & Deallocation (Internal)
@@ -365,13 +371,14 @@ and `Drop` implementations.
 | CrossSection transforms & queries | 15 | 0 |
 | MeshGL/MeshGL64 | 20 | 6 |
 | Triangulation | 1 | 2 |
+| ExecutionContext (cancel/progress + v3.5.1 factories) | 9 | 0 |
 | Quality globals | 6 | 0 |
 | Box3D (BoundingBox) | 16 | 0 |
 | Rect2D (Rect) | 16 | 0 |
 | Polygon helpers | 0 | 7 |
 | Vector containers | 0 | 10 |
 | Alloc/delete/destruct | 0 | 24 |
-| **Total** | **150** | **49** |
+| **Total** | **159** | **49** |
 
 Unwrapped functions are primarily allocation infrastructure (`destruct_*` variants,
 unused vector ops), internal size queries, and specialized construction variants.

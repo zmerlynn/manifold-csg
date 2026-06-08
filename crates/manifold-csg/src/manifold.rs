@@ -120,10 +120,41 @@ impl Manifold {
     ///
     /// Returns `CsgError::ManifoldStatus` if the mesh is invalid.
     pub fn from_meshgl64(meshgl: &MeshGL64) -> Result<Self, CsgError> {
+        Self::from_meshgl64_impl(meshgl, std::ptr::null_mut())
+    }
+
+    /// Create a Manifold from a [`MeshGL64`] container, reporting progress and
+    /// observing cancellation through an
+    /// [`ExecutionContext`](crate::ExecutionContext).
+    ///
+    /// Like [`from_meshgl64`](Self::from_meshgl64) but the ingest runs on `ctx`
+    /// directly. Added upstream in v3.5.1.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CsgError::ManifoldStatus` if the mesh is invalid.
+    pub fn from_meshgl64_with_context(
+        ctx: &crate::ExecutionContext,
+        meshgl: &MeshGL64,
+    ) -> Result<Self, CsgError> {
+        Self::from_meshgl64_impl(meshgl, ctx.as_ptr())
+    }
+
+    /// Shared body for [`from_meshgl64`](Self::from_meshgl64) /
+    /// [`from_meshgl64_with_context`](Self::from_meshgl64_with_context).
+    fn from_meshgl64_impl(
+        meshgl: &MeshGL64,
+        ec: *mut ManifoldExecutionContext,
+    ) -> Result<Self, CsgError> {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let manifold = unsafe { manifold_alloc_manifold() };
-        // SAFETY: manifold and meshgl are valid handles.
-        unsafe { manifold_of_meshgl64(manifold, meshgl.ptr) };
+        if ec.is_null() {
+            // SAFETY: manifold and meshgl are valid handles.
+            unsafe { manifold_of_meshgl64(manifold, meshgl.ptr) };
+        } else {
+            // SAFETY: manifold/meshgl valid; ec is a valid context borrowed for the call.
+            unsafe { manifold_execution_context_of_meshgl64(manifold, ec, meshgl.ptr) };
+        }
 
         // SAFETY: manifold is valid. Read-only status query.
         let status = unsafe { manifold_status(manifold) };
@@ -158,10 +189,41 @@ impl Manifold {
     ///
     /// Returns `CsgError::ManifoldStatus` if the mesh is invalid.
     pub fn from_meshgl(meshgl: &MeshGL) -> Result<Self, CsgError> {
+        Self::from_meshgl_impl(meshgl, std::ptr::null_mut())
+    }
+
+    /// Create a Manifold from a [`MeshGL`] container, reporting progress and
+    /// observing cancellation through an
+    /// [`ExecutionContext`](crate::ExecutionContext).
+    ///
+    /// Like [`from_meshgl`](Self::from_meshgl) but the ingest runs on `ctx`
+    /// directly. Added upstream in v3.5.1.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CsgError::ManifoldStatus` if the mesh is invalid.
+    pub fn from_meshgl_with_context(
+        ctx: &crate::ExecutionContext,
+        meshgl: &MeshGL,
+    ) -> Result<Self, CsgError> {
+        Self::from_meshgl_impl(meshgl, ctx.as_ptr())
+    }
+
+    /// Shared body for [`from_meshgl`](Self::from_meshgl) /
+    /// [`from_meshgl_with_context`](Self::from_meshgl_with_context).
+    fn from_meshgl_impl(
+        meshgl: &MeshGL,
+        ec: *mut ManifoldExecutionContext,
+    ) -> Result<Self, CsgError> {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let manifold = unsafe { manifold_alloc_manifold() };
-        // SAFETY: manifold and meshgl are valid handles.
-        unsafe { manifold_of_meshgl(manifold, meshgl.ptr) };
+        if ec.is_null() {
+            // SAFETY: manifold and meshgl are valid handles.
+            unsafe { manifold_of_meshgl(manifold, meshgl.ptr) };
+        } else {
+            // SAFETY: manifold/meshgl valid; ec is a valid context borrowed for the call.
+            unsafe { manifold_execution_context_of_meshgl(manifold, ec, meshgl.ptr) };
+        }
 
         // SAFETY: manifold is valid. Read-only status query.
         let status = unsafe { manifold_status(manifold) };
@@ -191,6 +253,55 @@ impl Manifold {
         half_edges: &[usize],
         smoothness: &[f64],
     ) -> Result<Self, CsgError> {
+        Self::smooth_f64_impl(
+            vert_props,
+            n_props,
+            tri_indices,
+            half_edges,
+            smoothness,
+            std::ptr::null_mut(),
+        )
+    }
+
+    /// Create a smooth manifold from f64 mesh data, reporting progress and
+    /// observing cancellation through an
+    /// [`ExecutionContext`](crate::ExecutionContext).
+    ///
+    /// Like [`smooth_f64`](Self::smooth_f64) but the smoothing runs on `ctx`
+    /// directly. Added upstream in v3.5.1.
+    ///
+    /// # Errors
+    ///
+    /// Returns `CsgError::InvalidInput` if array lengths don't match or
+    /// `CsgError::ManifoldStatus` if the mesh is invalid.
+    pub fn smooth_f64_with_context(
+        ctx: &crate::ExecutionContext,
+        vert_props: &[f64],
+        n_props: usize,
+        tri_indices: &[u64],
+        half_edges: &[usize],
+        smoothness: &[f64],
+    ) -> Result<Self, CsgError> {
+        Self::smooth_f64_impl(
+            vert_props,
+            n_props,
+            tri_indices,
+            half_edges,
+            smoothness,
+            ctx.as_ptr(),
+        )
+    }
+
+    /// Shared body for [`smooth_f64`](Self::smooth_f64) /
+    /// [`smooth_f64_with_context`](Self::smooth_f64_with_context).
+    fn smooth_f64_impl(
+        vert_props: &[f64],
+        n_props: usize,
+        tri_indices: &[u64],
+        half_edges: &[usize],
+        smoothness: &[f64],
+        ec: *mut ManifoldExecutionContext,
+    ) -> Result<Self, CsgError> {
         if half_edges.len() != smoothness.len() {
             return Err(CsgError::InvalidInput(
                 "half_edges and smoothness must have the same length".into(),
@@ -201,15 +312,30 @@ impl Manifold {
 
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let manifold = unsafe { manifold_alloc_manifold() };
-        // SAFETY: all pointers valid, array lengths match.
-        unsafe {
-            manifold_smooth64(
-                manifold,
-                meshgl.ptr,
-                half_edges.as_ptr(),
-                smoothness.as_ptr(),
-                half_edges.len(),
-            );
+        if ec.is_null() {
+            // SAFETY: all pointers valid, array lengths match.
+            unsafe {
+                manifold_smooth64(
+                    manifold,
+                    meshgl.ptr,
+                    half_edges.as_ptr(),
+                    smoothness.as_ptr(),
+                    half_edges.len(),
+                );
+            }
+        } else {
+            // SAFETY: all pointers valid, lengths match; ec is a valid context
+            // borrowed for the call.
+            unsafe {
+                manifold_execution_context_smooth64(
+                    manifold,
+                    ec,
+                    meshgl.ptr,
+                    half_edges.as_ptr(),
+                    smoothness.as_ptr(),
+                    half_edges.len(),
+                );
+            }
         }
 
         // SAFETY: manifold is valid. Read-only status query.
@@ -1503,6 +1629,54 @@ impl Manifold {
     where
         F: Fn(f64, f64, f64) -> f64 + Sync,
     {
+        Self::from_sdf_impl(
+            f,
+            bounds,
+            edge_length,
+            level,
+            tolerance,
+            std::ptr::null_mut(),
+        )
+    }
+
+    /// Construct a manifold from an SDF, reporting progress and observing
+    /// cancellation through an [`ExecutionContext`](crate::ExecutionContext).
+    ///
+    /// Like [`from_sdf`](Self::from_sdf), but the level-set evaluation runs on
+    /// `ctx` directly (these static factories have no source manifold to attach
+    /// a context to via [`with_context`](Self::with_context)). Cancelling `ctx`
+    /// from another thread requests early termination; [`progress`](crate::ExecutionContext::progress)
+    /// observes the in-flight fraction. Added upstream in v3.5.1.
+    #[must_use]
+    pub fn from_sdf_with_context<F>(
+        ctx: &crate::ExecutionContext,
+        f: F,
+        bounds: ([f64; 3], [f64; 3]),
+        edge_length: f64,
+        level: f64,
+        tolerance: f64,
+    ) -> Self
+    where
+        F: Fn(f64, f64, f64) -> f64 + Sync,
+    {
+        Self::from_sdf_impl(f, bounds, edge_length, level, tolerance, ctx.as_ptr())
+    }
+
+    /// Shared body for [`from_sdf`](Self::from_sdf) /
+    /// [`from_sdf_with_context`](Self::from_sdf_with_context). A null `ec`
+    /// selects the non-context `manifold_level_set`; a non-null `ec` selects
+    /// the ctx-aware factory.
+    fn from_sdf_impl<F>(
+        f: F,
+        bounds: ([f64; 3], [f64; 3]),
+        edge_length: f64,
+        level: f64,
+        tolerance: f64,
+        ec: *mut ManifoldExecutionContext,
+    ) -> Self
+    where
+        F: Fn(f64, f64, f64) -> f64 + Sync,
+    {
         struct Context<'a, F> {
             f: &'a F,
             panic: Mutex<Option<PanicPayload>>,
@@ -1559,18 +1733,35 @@ impl Manifold {
         }
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr valid, box_ptr valid, trampoline+ctx valid for call duration.
-        unsafe {
-            manifold_level_set(
-                ptr,
-                Some(trampoline::<F>),
-                box_ptr,
-                edge_length,
-                level,
-                tolerance,
-                ctx_ptr,
-            )
-        };
+        if ec.is_null() {
+            // SAFETY: ptr valid, box_ptr valid, trampoline+ctx valid for call duration.
+            unsafe {
+                manifold_level_set(
+                    ptr,
+                    Some(trampoline::<F>),
+                    box_ptr,
+                    edge_length,
+                    level,
+                    tolerance,
+                    ctx_ptr,
+                )
+            };
+        } else {
+            // SAFETY: ptr/box_ptr/trampoline+ctx valid for call duration; ec is a
+            // valid ExecutionContext pointer borrowed for this call.
+            unsafe {
+                manifold_execution_context_level_set(
+                    ptr,
+                    ec,
+                    Some(trampoline::<F>),
+                    box_ptr,
+                    edge_length,
+                    level,
+                    tolerance,
+                    ctx_ptr,
+                )
+            };
+        }
         if let Some(payload) = take_stored_panic(&ctx.panic) {
             // SAFETY: ptr was allocated above and will not be returned.
             unsafe { manifold_delete_manifold(ptr) };
@@ -1591,11 +1782,54 @@ impl Manifold {
     /// closures (e.g., Python or Ruby runtimes with a GIL).
     #[must_use]
     pub fn from_sdf_seq<F>(
+        f: F,
+        bounds: ([f64; 3], [f64; 3]),
+        edge_length: f64,
+        level: f64,
+        tolerance: f64,
+    ) -> Self
+    where
+        F: FnMut(f64, f64, f64) -> f64,
+    {
+        Self::from_sdf_seq_impl(
+            f,
+            bounds,
+            edge_length,
+            level,
+            tolerance,
+            std::ptr::null_mut(),
+        )
+    }
+
+    /// Sequential [`from_sdf_with_context`](Self::from_sdf_with_context).
+    ///
+    /// Combines the sequential evaluation of [`from_sdf_seq`](Self::from_sdf_seq)
+    /// with progress/cancellation through an
+    /// [`ExecutionContext`](crate::ExecutionContext). Added upstream in v3.5.1.
+    #[must_use]
+    pub fn from_sdf_seq_with_context<F>(
+        ctx: &crate::ExecutionContext,
+        f: F,
+        bounds: ([f64; 3], [f64; 3]),
+        edge_length: f64,
+        level: f64,
+        tolerance: f64,
+    ) -> Self
+    where
+        F: FnMut(f64, f64, f64) -> f64,
+    {
+        Self::from_sdf_seq_impl(f, bounds, edge_length, level, tolerance, ctx.as_ptr())
+    }
+
+    /// Shared body for the sequential SDF constructors. A null `ec` selects
+    /// `manifold_level_set_seq`; a non-null `ec` selects the ctx-aware factory.
+    fn from_sdf_seq_impl<F>(
         mut f: F,
         bounds: ([f64; 3], [f64; 3]),
         edge_length: f64,
         level: f64,
         tolerance: f64,
+        ec: *mut ManifoldExecutionContext,
     ) -> Self
     where
         F: FnMut(f64, f64, f64) -> f64,
@@ -1656,18 +1890,35 @@ impl Manifold {
         }
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr valid, box_ptr valid, trampoline+ctx valid for call duration.
-        unsafe {
-            manifold_level_set_seq(
-                ptr,
-                Some(trampoline::<F>),
-                box_ptr,
-                edge_length,
-                level,
-                tolerance,
-                ctx_ptr,
-            )
-        };
+        if ec.is_null() {
+            // SAFETY: ptr valid, box_ptr valid, trampoline+ctx valid for call duration.
+            unsafe {
+                manifold_level_set_seq(
+                    ptr,
+                    Some(trampoline::<F>),
+                    box_ptr,
+                    edge_length,
+                    level,
+                    tolerance,
+                    ctx_ptr,
+                )
+            };
+        } else {
+            // SAFETY: ptr/box_ptr/trampoline+ctx valid for call duration; ec is a
+            // valid ExecutionContext pointer borrowed for this call.
+            unsafe {
+                manifold_execution_context_level_set_seq(
+                    ptr,
+                    ec,
+                    Some(trampoline::<F>),
+                    box_ptr,
+                    edge_length,
+                    level,
+                    tolerance,
+                    ctx_ptr,
+                )
+            };
+        }
         if let Some(payload) = take_stored_panic(&ctx.panic) {
             // SAFETY: ptr was allocated above and will not be returned.
             unsafe { manifold_delete_manifold(ptr) };

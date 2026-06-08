@@ -33,10 +33,19 @@ const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
 // v0.5.0 catches up to manifold v3.5.0: adds `assert.h` to libc and
 // `<memory>` shared_ptr atomic-free-function stubs to libcxx, both
 // surfaced by v3.5.0's new ExecutionContext-attached-via-shared_ptr
-// model. Default `MANIFOLD_GIT_TAG` is now `v3.5.0`, matching our host
-// pin. Build.rs still passes `-DMANIFOLD_GIT_TAG=<our pin>` so future
-// host bumps past the shim's default don't break the wasm-uu lane
-// silently (see CLAUDE.md "Versioning" for the playbook).
+// model. The shim's tested-pin default is `v3.5.0`.
+//
+// Our host pin (MANIFOLD_VERSION) is now `v3.5.1`, which is PAST the
+// shim's tested pin. Build.rs passes `-DMANIFOLD_GIT_TAG=<our pin>`
+// (below), so the wasm-uu lane builds v3.5.1 against shim v0.5.0's
+// carry-patches. v3.5.1 is a patch release over v3.5.0 (ExecutionContext
+// threading + bug fixes; see the upstream compare), so the iostream /
+// MANIFOLD_NO_FILESYSTEM carry-patches are expected to still apply - but
+// this is unverified until the wasm-uu CI lane runs. If they don't apply,
+// the fix is either (a) a shim release pinned past v3.5.1, or (b) pin this
+// lane to v3.5.0 here and cfg-gate any v3.5.1-only FFI on
+// `not(all(target_arch = "wasm32", target_os = "unknown"))`. See CLAUDE.md
+// "Versioning" / "Pin / shim follow-ups".
 const WASM_CXX_SHIM_TAG: &str = "v0.5.0";
 
 /// Diagnostic context populated up-front in `build_wasm_unknown_unknown()`,

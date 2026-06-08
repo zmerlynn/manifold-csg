@@ -1139,6 +1139,72 @@ unsafe extern "C" {
     /// Progress in [0.0, 1.0] for an in-flight evaluation observing this context.
     pub fn manifold_execution_context_progress(ctx: *mut ManifoldExecutionContext) -> f64;
 
+    // -- Execution-context static factories ------------------------------
+    //
+    // ctx-aware variants of `manifold_level_set` / `manifold_of_meshgl` /
+    // `manifold_smooth`. These have no source manifold to attach a context
+    // to via `manifold_with_context`, so they run on the
+    // `ExecutionContext` directly to report progress / observe
+    // cancellation. Added upstream in v3.5.1.
+
+    /// ctx-aware [`manifold_level_set`]. `sdf_context` is the SDF callback's user-data.
+    pub fn manifold_execution_context_level_set(
+        mem: *mut ManifoldManifold,
+        ec: *mut ManifoldExecutionContext,
+        sdf: ManifoldSdf,
+        bounds: *mut ManifoldBox,
+        edge_length: f64,
+        level: f64,
+        tolerance: f64,
+        sdf_context: *mut std::ffi::c_void,
+    ) -> *mut ManifoldManifold;
+
+    /// ctx-aware [`manifold_level_set_seq`] (sequential execution).
+    pub fn manifold_execution_context_level_set_seq(
+        mem: *mut ManifoldManifold,
+        ec: *mut ManifoldExecutionContext,
+        sdf: ManifoldSdf,
+        bounds: *mut ManifoldBox,
+        edge_length: f64,
+        level: f64,
+        tolerance: f64,
+        sdf_context: *mut std::ffi::c_void,
+    ) -> *mut ManifoldManifold;
+
+    /// ctx-aware [`manifold_of_meshgl`].
+    pub fn manifold_execution_context_of_meshgl(
+        mem: *mut ManifoldManifold,
+        ec: *mut ManifoldExecutionContext,
+        mesh: *const ManifoldMeshGL,
+    ) -> *mut ManifoldManifold;
+
+    /// ctx-aware [`manifold_of_meshgl64`].
+    pub fn manifold_execution_context_of_meshgl64(
+        mem: *mut ManifoldManifold,
+        ec: *mut ManifoldExecutionContext,
+        mesh: *const ManifoldMeshGL64,
+    ) -> *mut ManifoldManifold;
+
+    /// ctx-aware [`manifold_smooth`] (f32 mesh).
+    pub fn manifold_execution_context_smooth(
+        mem: *mut ManifoldManifold,
+        ec: *mut ManifoldExecutionContext,
+        mesh: *const ManifoldMeshGL,
+        half_edges: *const usize,
+        smoothness: *const f64,
+        n_edges: usize,
+    ) -> *mut ManifoldManifold;
+
+    /// ctx-aware [`manifold_smooth64`] (f64 mesh).
+    pub fn manifold_execution_context_smooth64(
+        mem: *mut ManifoldManifold,
+        ec: *mut ManifoldExecutionContext,
+        mesh: *const ManifoldMeshGL64,
+        half_edges: *const usize,
+        smoothness: *const f64,
+        n_edges: usize,
+    ) -> *mut ManifoldManifold;
+
     // ── Bounding box ────────────────────────────────────────────────────
 
     pub fn manifold_bounding_box(
