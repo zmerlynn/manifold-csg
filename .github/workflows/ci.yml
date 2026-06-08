@@ -146,6 +146,37 @@ jobs:
       - name: Test (no parallel)
         run: cargo test --no-default-features
 
+  nix-offline:
+    name: Nix (offline / prebuilt manifold)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # The rust toolchain comes from the pinned nixpkgs (flake.lock), so key
+      # on it: a nixpkgs bump changes rustc and must invalidate target/. No
+      # cmake/clone artifacts here (the offline hatch skips both), so this is
+      # purely the rust compile cache, same as the other compiling jobs.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-nix-offline-${{ hashFiles('flake.lock') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-nix-offline-${{ hashFiles('flake.lock') }}-
+
+      # Exercises the MANIFOLD_CSG_LIB_DIR offline hatch (issue #49): the
+      # devShell links nixpkgs' prebuilt `manifold` (3.5.1, matching our pin)
+      # instead of cloning + compiling manifold3d, so build.rs skips the clone
+      # AND cmake. This is the only lane that covers the from-source bypass.
+      - name: Build + test against prebuilt manifold
+        run: nix develop --command bash -c "cargo test --features nalgebra"
+
   emscripten:
     name: Emscripten (wasm32)
     runs-on: ubuntu-latest

@@ -94,6 +94,25 @@ cargo build           # builds both crates
 cargo test --features nalgebra   # runs the test suite
 ```
 
+### Offline / pre-built manifold
+
+For sandboxed or airgapped builders (Nix, restricted CI) that can't run the
+initial clone, set `MANIFOLD_CSG_LIB_DIR` to a directory holding a pre-built
+manifold install (`libmanifoldc` + `libmanifold`, e.g. `${pkgs.manifold}/lib`).
+This skips the clone *and* the C++ compile entirely. Set
+`MANIFOLD_CSG_LIB_KIND=static` if the install is static (default is `dylib`).
+The pre-built manifold must match the pinned upstream version and be built with
+the C bindings + cross-section. For the default `dylib` kind, the directory must
+also be on the runtime library search path (rpath / `LD_LIBRARY_PATH`); under
+Nix, `buildInputs = [ manifold ]` arranges this for you.
+
+A repo-root `flake.nix` wires this up for Nix: `nix develop` drops you into a
+shell that links nixpkgs' prebuilt `manifold` via `MANIFOLD_CSG_LIB_DIR`, so
+`cargo build` / `cargo test` skip the manifold3d clone and C++ compile entirely.
+
+See [`docs/plans/offline-build.md`](docs/plans/offline-build.md) for details and a
+Nix recipe.
+
 Tested on Linux, macOS, Windows, `wasm32-unknown-emscripten`, and
 `wasm32-unknown-unknown` (see below).
 
