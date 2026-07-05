@@ -24,7 +24,7 @@ use std::ops;
 use std::sync::Mutex;
 
 use crate::bounding_box::BoundingBox;
-use crate::cross_section::CrossSection;
+use crate::cross_section::{CrossSection, FillRule};
 use crate::mesh::{MeshGL, MeshGL64};
 use crate::types::{CsgError, OpType, PanicPayload, store_panic, take_stored_panic};
 
@@ -690,8 +690,28 @@ impl Manifold {
     /// Slice at a given Z height, returning a [`CrossSection`] object.
     ///
     /// The cross-section can be offset, extruded, and boolean'd in 2D.
+    ///
+    /// Uses the upstream default [`FillRule::Positive`], which treats
+    /// positively oriented contours as filled regions and negatively oriented
+    /// contours as holes. For other winding semantics (e.g. slices whose
+    /// contour orientation you don't control), use
+    /// [`slice_to_cross_section_with_fill_rule`](Self::slice_to_cross_section_with_fill_rule).
     #[must_use]
     pub fn slice_to_cross_section(&self, height: f64) -> CrossSection {
+        self.slice_to_cross_section_with_fill_rule(height, FillRule::Positive)
+    }
+
+    /// Slice at a given Z height with a specified fill rule, returning a
+    /// [`CrossSection`] object.
+    ///
+    /// The fill rule determines how the sliced contours are interpreted into
+    /// filled regions. See [`FillRule`] for details.
+    #[must_use]
+    pub fn slice_to_cross_section_with_fill_rule(
+        &self,
+        height: f64,
+        fill_rule: FillRule,
+    ) -> CrossSection {
         // SAFETY: manifold_alloc_polygons returns a valid handle.
         let poly_ptr = unsafe { manifold_alloc_polygons() };
         // SAFETY: self.ptr is valid (invariant), poly_ptr is valid from alloc.
@@ -701,7 +721,7 @@ impl Manifold {
         let cs_ptr = unsafe { manifold_alloc_cross_section() };
         // SAFETY: cs_ptr and poly_ptr are valid.
         unsafe {
-            manifold_cross_section_of_polygons(cs_ptr, poly_ptr, ManifoldFillRule::Positive);
+            manifold_cross_section_of_polygons(cs_ptr, poly_ptr, fill_rule.to_ffi());
         }
 
         // SAFETY: poly_ptr is valid and no longer needed.

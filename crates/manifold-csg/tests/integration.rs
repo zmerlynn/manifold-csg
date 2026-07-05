@@ -568,6 +568,26 @@ fn slice_to_cross_section_roundtrip() {
 }
 
 #[test]
+fn slice_to_cross_section_with_fill_rule() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, true);
+
+    // A cube slice is a single, positively-oriented contour, so Positive
+    // (the default) and NonZero agree on it; the explicit variant should
+    // reproduce the default's result.
+    let default_cs = cube.slice_to_cross_section(0.0);
+    let positive = cube.slice_to_cross_section_with_fill_rule(0.0, FillRule::Positive);
+    let non_zero = cube.slice_to_cross_section_with_fill_rule(0.0, FillRule::NonZero);
+
+    assert_relative_eq!(positive.area(), default_cs.area(), epsilon = 1.0);
+    assert_relative_eq!(non_zero.area(), 100.0, epsilon = 1.0);
+
+    // Negative fill rule drops the positively-oriented contour entirely,
+    // proving the fill rule is actually threaded through (not ignored).
+    let negative = cube.slice_to_cross_section_with_fill_rule(0.0, FillRule::Negative);
+    assert!(negative.is_empty());
+}
+
+#[test]
 fn slice_offset_extrude_pipeline() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
     let cs = cube.slice_to_cross_section(0.0);

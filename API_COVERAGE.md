@@ -101,7 +101,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_hull` | [`Manifold::hull`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_hull_pts` | [`Manifold::hull_pts`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_decompose` | [`Manifold::decompose`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_slice` | [`Manifold::slice_at_z`](crates/manifold-csg/src/manifold.rs), [`slice_to_cross_section`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_slice` | [`Manifold::slice_at_z`](crates/manifold-csg/src/manifold.rs), [`slice_to_cross_section`](crates/manifold-csg/src/manifold.rs), [`slice_to_cross_section_with_fill_rule`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_project` | [`Manifold::project`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_minkowski_sum` | [`Manifold::minkowski_sum`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_minkowski_difference` | [`Manifold::minkowski_difference`](crates/manifold-csg/src/manifold.rs) |

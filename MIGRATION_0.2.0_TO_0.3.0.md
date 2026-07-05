@@ -104,13 +104,21 @@ index length not divisible by 3, or tangent length not equal to
 ## `from_polygons()` uses `FillRule::Positive`
 
 This matches upstream C++/Python defaults. If you relied on EvenOdd behavior,
-call the explicit constructor. This also affects
-`Manifold::slice_to_cross_section()`, which reconstructs a cross-section from
-sliced polygons using the same upstream default.
+call the explicit constructor:
 
 ```diff
 -let cs = CrossSection::from_polygons(&polygons);
 +let cs = CrossSection::from_polygons_with_fill_rule(&polygons, FillRule::EvenOdd);
+```
+
+This also affects `Manifold::slice_to_cross_section()`, which reconstructs a
+cross-section from sliced polygons using the same upstream default. In 0.3.0 and
+0.3.1 that default was not overridable; as of **0.3.2** you can restore EvenOdd
+slicing:
+
+```diff
+-let cs = solid.slice_to_cross_section(z);
++let cs = solid.slice_to_cross_section_with_fill_rule(z, FillRule::EvenOdd);
 ```
 
 `FillRule::Positive` treats positively oriented contours as filled regions and
@@ -245,8 +253,8 @@ the safe wrapper until the C shim exposes them for construction.
 > 5. If code relied on EvenOdd polygon filling, rewrite
 >    `CrossSection::from_polygons(&polys)` to
 >    `CrossSection::from_polygons_with_fill_rule(&polys, FillRule::EvenOdd)`.
->    Audit `slice_to_cross_section()` uses for the same Positive fill-rule
->    behavior.
+>    For the same Positive fill-rule flip in `slice_to_cross_section()`, use
+>    `slice_to_cross_section_with_fill_rule(z, FillRule::EvenOdd)` (0.3.2+).
 > 6. Rewrite `CrossSection::from_simple_polygon(&points, rule)` to
 >    `CrossSection::from_simple_polygon_with_fill_rule(&points, rule)`.
 > 7. Use `manifold_csg::OpType` instead of `manifold_csg_sys::ManifoldOpType`
