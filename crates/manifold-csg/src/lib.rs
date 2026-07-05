@@ -18,6 +18,14 @@
 //! - **Browser-capable**: Builds for `wasm32-unknown-emscripten` and
 //!   `wasm32-unknown-unknown` (the wasm-bindgen-compatible target) for
 //!   in-browser geometry. See the README's "Browser / WebAssembly" sections.
+//!
+//! # Upgrading
+//!
+//! See [`CHANGELOG.md`](https://github.com/zmerlynn/manifold-csg/blob/main/crates/manifold-csg/CHANGELOG.md)
+//! (also shipped inside the crate) for per-version release notes. It flags
+//! *behavioral* changes that compile cleanly but change output - notably the
+//! `EvenOdd` -> `Positive` default fill-rule flip in 0.3.0 - alongside the
+//! full migration guides for compile-breaking changes.
 
 pub mod bounding_box;
 pub mod cross_section;

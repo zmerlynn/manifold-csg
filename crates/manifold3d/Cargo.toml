@@ -16,7 +16,7 @@ nalgebra = ["manifold-csg/nalgebra"]
 unstable-wasm-uu = ["manifold-csg/unstable-wasm-uu"]
 
 [dependencies]
-manifold-csg = { path = "../manifold-csg", version = "=0.3.1", default-features = false }
+manifold-csg = { path = "../manifold-csg", version = "=0.3.2", default-features = false }
 
 [package.metadata.docs.rs]
 features = ["nalgebra", "parallel"]

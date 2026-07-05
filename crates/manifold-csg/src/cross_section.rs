@@ -57,7 +57,7 @@ pub enum FillRule {
 }
 
 impl FillRule {
-    const fn to_ffi(self) -> ManifoldFillRule {
+    pub(crate) const fn to_ffi(self) -> ManifoldFillRule {
         match self {
             FillRule::EvenOdd => ManifoldFillRule::EvenOdd,
             FillRule::NonZero => ManifoldFillRule::NonZero,
