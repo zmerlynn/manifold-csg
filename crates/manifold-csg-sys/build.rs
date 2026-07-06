@@ -32,6 +32,11 @@ pub(crate) const MANIFOLD_VERSION: &str = "v3.5.1";
 /// faster, but every rebuild that hits the cache skips the C++ compile
 /// entirely. See issue #45.
 ///
+/// Whether `target_os` (from `CARGO_CFG_TARGET_OS`) is an Apple platform.
+fn is_apple(target_os: &str) -> bool {
+    matches!(target_os, "macos" | "ios" | "tvos" | "watchos" | "visionos")
+}
+
 /// We rerun-if-env-changed on the opt-out var and on `RUSTC_WRAPPER`
 /// (which often holds sccache for the Rust side) so users get consistent
 /// invalidation when they flip sccache on or off.
@@ -178,9 +183,9 @@ fn try_external_lib(target_env: &str, target_os: &str) -> bool {
     }
 
     // C++ standard library, same logic as the from-source build. MSVC links
-    // it automatically; macOS uses libc++; everything else libstdc++.
+    // it automatically; Apple platforms use libc++; everything else libstdc++.
     if target_env != "msvc" {
-        if target_os == "macos" {
+        if is_apple(target_os) {
             println!("cargo:rustc-link-lib=c++");
         } else {
             println!("cargo:rustc-link-lib=stdc++");

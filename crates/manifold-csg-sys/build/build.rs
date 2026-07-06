@@ -15,7 +15,7 @@
 
 use std::{env, path::Path, process::Command};
 
-use super::{cmake_launcher_args, find_lib_recursive};
+use super::{cmake_launcher_args, find_lib_recursive, is_apple};
 
 pub fn build(
     is_emscripten: bool,
@@ -156,8 +156,10 @@ pub fn build(
     //
     // - MSVC links the C++ runtime automatically — no explicit link needed.
     // - Emscripten's emcc auto-links libc++ during the final wasm link.
+    // - Apple SDKs (macOS, iOS, tvOS, watchOS, visionOS) only ship libc++;
+    //   there is no libstdc++ to link, so `stdc++` fails at link time.
     if !is_emscripten && target_env != "msvc" {
-        if target_os == "macos" {
+        if is_apple(target_os) {
             println!("cargo:rustc-link-lib=c++");
         } else {
             println!("cargo:rustc-link-lib=stdc++");
