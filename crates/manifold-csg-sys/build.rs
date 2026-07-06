@@ -32,11 +32,6 @@ pub(crate) const MANIFOLD_VERSION: &str = "v3.5.1";
 /// faster, but every rebuild that hits the cache skips the C++ compile
 /// entirely. See issue #45.
 ///
-/// Whether `target_os` (from `CARGO_CFG_TARGET_OS`) is an Apple platform.
-fn is_apple(target_os: &str) -> bool {
-    matches!(target_os, "macos" | "ios" | "tvos" | "watchos" | "visionos")
-}
-
 /// We rerun-if-env-changed on the opt-out var and on `RUSTC_WRAPPER`
 /// (which often holds sccache for the Rust side) so users get consistent
 /// invalidation when they flip sccache on or off.
@@ -73,6 +68,16 @@ fn cmake_launcher_args() -> Vec<String> {
     .clone()
 }
 
+/// Whether the target is an Apple platform, which ships libc++ (not
+/// libstdc++) and uses the `.dylib` shared-library extension. Keyed on the
+/// target *vendor* (`CARGO_CFG_TARGET_VENDOR`), which is `apple` for every
+/// Apple triple - macOS, iOS, tvOS, watchOS, visionOS - and nothing else.
+/// Using the vendor covers current and future Apple targets without an
+/// OS allow-list to keep in sync.
+pub(crate) fn is_apple(target_vendor: &str) -> bool {
+    target_vendor == "apple"
+}
+
 /// Link against an externally-provided manifold install instead of
 /// cloning and compiling it. Driven by `MANIFOLD_CSG_LIB_DIR` (a
 /// directory containing `libmanifoldc` + `libmanifold`, e.g. a nixpkgs
@@ -94,7 +99,7 @@ fn cmake_launcher_args() -> Vec<String> {
 ///
 /// Caller must restrict this to host targets - the wasm/emscripten lanes
 /// have their own build paths and are bypassed before this is consulted.
-fn try_external_lib(target_env: &str, target_os: &str) -> bool {
+fn try_external_lib(target_env: &str, target_os: &str, target_vendor: &str) -> bool {
     // `env::var` returns Ok("") for a set-but-empty var, so a blank or
     // unset-via-expansion `MANIFOLD_CSG_LIB_DIR=$UNSET cargo build` would
     // otherwise hijack the build and emit an empty link-search. Treat
@@ -141,10 +146,10 @@ fn try_external_lib(target_env: &str, target_os: &str) -> bool {
     }
     for name in required {
         assert!(
-            external_lib_present(lib_path, name, &kind, target_env, target_os),
+            external_lib_present(lib_path, name, &kind, target_env, target_os, target_vendor),
             "MANIFOLD_CSG_LIB_DIR={lib_dir:?} has no {kind} '{name}' library (looked for \
              {names:?} directly in that dir); check the path and MANIFOLD_CSG_LIB_KIND",
-            names = external_lib_filenames(name, &kind, target_env, target_os),
+            names = external_lib_filenames(name, &kind, target_env, target_os, target_vendor),
         );
     }
 
@@ -161,10 +166,9 @@ fn try_external_lib(target_env: &str, target_os: &str) -> bool {
             // dir the linker actually searches (we emit a single
             // link-search=native above), so the name we pick is one that
             // links - keeping the probe consistent with the emit.
-            match ["tbb", "tbb12", "tbb12_static"]
-                .into_iter()
-                .find(|n| external_lib_present(lib_path, n, "static", target_env, target_os))
-            {
+            match ["tbb", "tbb12", "tbb12_static"].into_iter().find(|n| {
+                external_lib_present(lib_path, n, "static", target_env, target_os, target_vendor)
+            }) {
                 Some(tbb_name) => println!("cargo:rustc-link-lib=static={tbb_name}"),
                 None => {
                     // Don't hard-fail: a static manifold may fold TBB in or be
@@ -185,7 +189,7 @@ fn try_external_lib(target_env: &str, target_os: &str) -> bool {
     // C++ standard library, same logic as the from-source build. MSVC links
     // it automatically; Apple platforms use libc++; everything else libstdc++.
     if target_env != "msvc" {
-        if is_apple(target_os) {
+        if is_apple(target_vendor) {
             println!("cargo:rustc-link-lib=c++");
         } else {
             println!("cargo:rustc-link-lib=stdc++");
@@ -217,6 +221,7 @@ fn external_lib_filenames(
     kind: &str,
     target_env: &str,
     target_os: &str,
+    target_vendor: &str,
 ) -> Vec<String> {
     if kind == "static" {
         if target_env == "msvc" {
@@ -235,7 +240,7 @@ fn external_lib_filenames(
             format!("lib{name}.a"),
             format!("{name}.lib"),
         ]
-    } else if target_os == "macos" {
+    } else if is_apple(target_vendor) {
         vec![format!("lib{name}.dylib")]
     } else {
         vec![format!("lib{name}.so")]
@@ -251,8 +256,9 @@ fn external_lib_present(
     kind: &str,
     target_env: &str,
     target_os: &str,
+    target_vendor: &str,
 ) -> bool {
-    external_lib_filenames(name, kind, target_env, target_os)
+    external_lib_filenames(name, kind, target_env, target_os, target_vendor)
         .iter()
         .any(|f| dir.join(f).exists())
 }
@@ -292,6 +298,7 @@ fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+    let target_vendor = env::var("CARGO_CFG_TARGET_VENDOR").unwrap_or_default();
     let is_emscripten = target_os == "emscripten";
     // wasm32-unknown-unknown — bare wasm without WASI or Emscripten. Browser
     // target for wasm-bindgen consumers. Has its own dedicated build path
@@ -322,7 +329,7 @@ fn main() {
     // offline, no C++ compile. See docs/plans/offline-build.md and issue #49.
     println!("cargo:rerun-if-env-changed=MANIFOLD_CSG_LIB_DIR");
     println!("cargo:rerun-if-env-changed=MANIFOLD_CSG_LIB_KIND");
-    if !is_emscripten && try_external_lib(&target_env, &target_os) {
+    if !is_emscripten && try_external_lib(&target_env, &target_os, &target_vendor) {
         return;
     }
 
@@ -351,6 +358,6 @@ fn main() {
         &build_dir,
         &target,
         &target_env,
-        &target_os,
+        &target_vendor,
     )
 }

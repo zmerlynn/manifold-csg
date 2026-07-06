@@ -7,6 +7,15 @@ migration guides live at the repo root and are linked below.
 Watch especially for **behavioral** changes marked below: these compile cleanly
 but change output, so the compiler will not catch them for you.
 
+## 0.3.3
+
+- Build fix: link `libc++` (not `libstdc++`) on all Apple platforms, not just
+  macOS. iOS / tvOS / watchOS / visionOS builds previously failed to link
+  because Apple SDKs ship only libc++. Detection now keys on the target vendor
+  (`CARGO_CFG_TARGET_VENDOR == "apple"`) rather than an OS allow-list. Carried
+  by `manifold-csg-sys` 3.5.103; thanks to #52 for the original macOS-list fix.
+  No source or API changes.
+
 ## 0.3.2
 
 - Added `Manifold::slice_to_cross_section_with_fill_rule(height, fill_rule)`.
