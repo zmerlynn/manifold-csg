@@ -23,7 +23,7 @@ pub fn build(
     build_dir: &Path,
     target: &str,
     target_env: &str,
-    target_os: &str,
+    target_vendor: &str,
 ) {
     // Configure with cmake.
     let mut parallel = env::var("CARGO_FEATURE_PARALLEL").is_ok();
@@ -159,7 +159,7 @@ pub fn build(
     // - Apple SDKs (macOS, iOS, tvOS, watchOS, visionOS) only ship libc++;
     //   there is no libstdc++ to link, so `stdc++` fails at link time.
     if !is_emscripten && target_env != "msvc" {
-        if is_apple(target_os) {
+        if is_apple(target_vendor) {
             println!("cargo:rustc-link-lib=c++");
         } else {
             println!("cargo:rustc-link-lib=stdc++");
