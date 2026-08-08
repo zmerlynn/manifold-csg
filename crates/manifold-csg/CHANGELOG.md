@@ -7,6 +7,22 @@ migration guides live at the repo root and are linked below.
 Watch especially for **behavioral** changes marked below: these compile cleanly
 but change output, so the compiler will not catch them for you.
 
+## 0.4.0
+
+Full guide: <https://github.com/zmerlynn/manifold-csg/blob/main/MIGRATION_0.3.4_TO_0.4.0.md>
+
+- **Dependency (compile-breaking, only with the `nalgebra` feature):** the
+  optional `nalgebra` dependency moved from `0.34` to `0.35`. Nothing in this
+  crate's API changed, but `nalgebra::Vector3<f64>` and `Point3<f64>` appear in
+  the `Manifold::*_nalgebra` signatures, so the version has to agree with
+  yours. If your project is still on nalgebra 0.34, cargo resolves two copies
+  and your vectors become a different type from the ones these methods take.
+  The fix is to move your own dependency to `0.35`.
+- Enabling the `nalgebra` feature now requires Rust 1.89 (nalgebra 0.35's
+  floor, up from 0.34's 1.87). The crate's own `rust-version` stays `1.85`,
+  which is still the floor without that feature.
+- No change to the manifold3d pin, so `manifold-csg-sys` stays at 3.5.104.
+
 ## 0.3.4
 
 - Ships `LICENSE-APACHE` and `LICENSE-MIT` inside the crate. They lived only at

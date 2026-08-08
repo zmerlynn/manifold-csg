@@ -47,8 +47,10 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-msrv-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
-      # nalgebra 0.34 (unconditional dev-dep) requires Rust 1.87+,
-      # so MSRV check verifies the library builds but skips tests.
+      # nalgebra 0.35 (unconditional dev-dep) requires Rust 1.89+, so the
+      # MSRV check verifies the library builds but skips tests. rust-version
+      # stays 1.85 because that is the floor for the crate itself; enabling
+      # the optional `nalgebra` feature inherits nalgebra's higher floor.
       - name: Build
         run: cargo build
 
