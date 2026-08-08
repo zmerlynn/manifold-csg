@@ -1,0 +1,226 @@
+name: Upstream watch
+
+# Checks weekly whether the pins this crate tracks have fallen behind, and
+# files (or updates, or reopens) a single issue when they have. GitHub emails
+# watchers on issue activity, so that is the notification path.
+#
+# NOTE: GitHub disables scheduled workflows in a public repo after 60 days
+# with no repository activity, which is the same quiet stretch this check is
+# meant to cover. GitHub emails the owner when it disables one, so it is not
+# silent, but re-enabling it is a manual step.
+
+on:
+  schedule:
+    # Mondays 13:00 UTC. GitHub cron is best-effort and can be delayed during
+    # busy periods, which is fine for a weekly hygiene check.
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+
+# Serializes runs so a dispatch does not interleave with the cron. Note this
+# narrows but does not fully close the duplicate-issue window: the lookup goes
+# through GitHub's search index, which is eventually consistent, so a run
+# starting seconds after another finishes can still miss a just-created issue.
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  # The account that owns issues this workflow creates. Written as the real
+  # login rather than the `app/github-actions` search syntax: gh only routes
+  # to the search API when a --label filter is also present, so the search
+  # form silently returns nothing on the plain list path.
+  BOT: "github-actions[bot]"
+
+jobs:
+  check:
+    name: Check upstream pins
+    runs-on: ubuntu-latest
+    # A hung gh or socket would otherwise ride the 6h default, holding the
+    # concurrency group against a manual dispatch. 20 rather than 10 because
+    # the script's own retry budget (4 attempts, 30s socket timeout, and up to
+    # 60s of Retry-After per call) can legitimately reach ~15 minutes when
+    # GitHub is rate-limiting.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare pins against upstream
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # pipefail matters: without it `tee` swallows a crash in the script,
+          # `drift` never gets written, both later steps skip on the empty
+          # value, and the job goes green having checked nothing.
+          set -euo pipefail
+          python3 scripts/check-upstream.py | tee report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guard against an unusable result
+        # Covers two holes: the script produced no `drift` value, and the step
+        # failed *after* writing one (outputs survive a failed step, so the
+        # drift steps below would skip on their implicit success() guard while
+        # real drift went unreported).
+        if: >-
+          !cancelled() && (steps.check.outcome != 'success'
+          || steps.check.outputs.drift == '')
+        env:
+          OUTCOME: ${{ steps.check.outcome }}
+          DRIFT: ${{ steps.check.outputs.drift }}
+        run: |
+          echo "::error::check-upstream.py did not produce a usable result (outcome=${OUTCOME}, drift='${DRIFT}'). Treating as a failed run, not a clean one."
+          exit 1
+
+      - name: File, update or reopen the tracking issue
+        if: steps.check.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HASH: ${{ steps.check.outputs.hash }}
+          TITLE: ${{ steps.check.outputs.title }}
+          COMPLETE: ${{ steps.check.outputs.complete }}
+        run: |
+          set -euo pipefail
+          gh label create upstream-watch \
+            --description "Filed by the weekly upstream pin check" \
+            --color FBCA04 2>/dev/null || true
+
+          # Editing an issue body sends no notification, so the body alone
+          # cannot be the channel. The body carries a report hash; a *comment*
+          # is what gets posted when that hash changes, because comments do
+          # notify. An unchanged hash means the same stale pin as last week,
+          # so we stay quiet rather than emailing every Monday.
+          #
+          # The hash covers the findings only, not the error text. Exception
+          # strings vary between outages, so hashing them would rewrite the
+          # body, fire a spurious "situation changed" comment, and reopen an
+          # issue the maintainer had deliberately deferred -- over a blip.
+          {
+            echo "Filed automatically by [\`upstream-watch\`](https://github.com/${GITHUB_REPOSITORY}/blob/main/.github/workflows/upstream-watch.yml)."
+            echo
+            cat report.md
+            echo
+            echo "---"
+            echo
+            echo "Closes itself once the pins are current. Closing it by hand also works: it only reopens if the findings change, so closing is a way to say \"known, deferred\"."
+            echo "Run \`python3 scripts/check-upstream.py\` locally to re-check."
+            echo "<!-- report-hash: ${HASH} -->"
+          } > body.md
+
+          # --state all so a closed issue is reopened rather than duplicated,
+          # and --author so a human issue that happens to carry this label
+          # never has its body overwritten by the report.
+          num=$(gh issue list --label upstream-watch --state all --limit 1 \
+            --author "$BOT" --json number --jq '.[0].number // empty')
+
+          if [ -z "$num" ]; then
+            # Assigned so delivery does not depend on the watch setting being
+            # All Activity. Assumes a user-owned repo: an organization is not
+            # an assignable user, so if this repo is ever transferred, drop the
+            # --assignee (the job would fail loudly rather than misfile).
+            gh issue create --title "$TITLE" --label upstream-watch \
+              --assignee "${GITHUB_REPOSITORY_OWNER}" --body-file body.md
+            exit 0
+          fi
+
+          # An incomplete run (a transient lookup failure) does not know the
+          # true state, so it must not touch an existing issue. Its findings
+          # list is short by however many checks failed, which would otherwise
+          # read as "the findings changed": that would rewrite the body, post a
+          # spurious comment, and reopen an issue deliberately deferred -- all
+          # because GitHub had a blip. The issue above is still created when
+          # none exists, so a sustained outage is not invisible.
+          if [ "$COMPLETE" != "true" ]; then
+            # Failing is deliberate. Leaving the issue alone is right -- an
+            # incomplete run must not un-defer it or rewrite its findings --
+            # but exiting 0 would make an indefinite outage indistinguishable
+            # from a clean week: quiet, green, forever. A red job emails.
+            # Cost is one extra notification per genuine blip.
+            echo "::error::Run was incomplete (transient lookup failure), so #$num was left untouched and this week's findings were not delivered. Re-run once upstream is reachable."
+            exit 1
+          fi
+
+          # No `|| true` on these fetches: an API failure must fail the step,
+          # not yield an empty hash that reads as "changed" and fires a
+          # spurious notification.
+          prevbody=$(gh issue view "$num" --json body --jq .body)
+          state=$(gh issue view "$num" --json state --jq .state)
+          prev=$(printf '%s' "$prevbody" | grep -oP '(?<=<!-- report-hash: )[a-zA-Z0-9]+' || true)
+
+          if [ "$prev" = "$HASH" ] && [ "$state" = "CLOSED" ]; then
+            echo "#$num closed with identical findings; respecting the deferral"
+            exit 0
+          fi
+
+          # Notify FIRST, advance the stored hash LAST. If a reopen or comment
+          # fails midway, the body still holds the old hash, so next week
+          # retries the notification instead of concluding it already sent one.
+          # The failure direction is a duplicate comment, never a lost one.
+          if [ "$state" = "CLOSED" ]; then
+            gh issue reopen "$num"
+            { echo "Reopening: the upstream findings changed."; echo; cat report.md; } \
+              | gh issue comment "$num" --body-file -
+            echo "Reopened #$num with a comment"
+          elif [ "$prev" != "$HASH" ]; then
+            { echo "The upstream findings changed since the last check."; echo; cat report.md; } \
+              | gh issue comment "$num" --body-file -
+            echo "Commented on #$num (findings changed)"
+          else
+            echo "#$num already open with the same findings; refreshing body only"
+          fi
+
+          gh issue edit "$num" --title "$TITLE" --body-file body.md
+
+      - name: Close the tracking issue when pins are current
+        if: steps.check.outputs.drift == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: ${{ steps.check.outputs.title }}
+        run: |
+          set -euo pipefail
+          num=$(gh issue list --label upstream-watch --state open --limit 1 \
+            --author "$BOT" --json number --jq '.[0].number // empty')
+          if [ -n "$num" ]; then
+            # Rewrite the body too, so a closed issue does not sit there
+            # asserting drift that no longer exists. No hash marker: the next
+            # drift run must treat this as changed and notify.
+            # Use the real report rather than a hardcoded all-clear: a run can
+            # reach drift=false having *skipped* checks (a SHA pin has no
+            # version to compare), and closing with "all current" would hide
+            # that the comparison never ran.
+            {
+              echo "Closing: the weekly check found nothing outstanding."
+              echo
+              cat report.md
+              echo
+              echo "Filed and closed automatically by \`upstream-watch\`."
+            } > body.md
+            # $TITLE, not a literal: a run can reach drift=false having skipped
+            # checks, and the title is the email subject and the issue-list row.
+            gh issue edit "$num" --title "$TITLE" --body-file body.md
+            # gh issue close takes --comment as a string only, no --comment-file.
+            gh issue close "$num" \
+              --comment "$(printf 'Closed by the weekly check:\n\n%s' "$(cat report.md)")"
+          else
+            # No open issue, but a hand-closed one may still carry a hash. That
+            # marker is load-bearing, not decoration: the drift step reads it to
+            # decide "closed with identical findings, deferral respected". Left
+            # in place after the drift is fixed, an identical recurrence later
+            # matches it and stays silent forever. Strip it here. Editing a body
+            # sends no notification, so this stays quiet as intended.
+            cnum=$(gh issue list --label upstream-watch --state closed --limit 1 \
+              --author "$BOT" --json number --jq '.[0].number // empty')
+            if [ -n "$cnum" ]; then
+              cbody=$(gh issue view "$cnum" --json body --jq .body)
+              case "$cbody" in
+                *'<!-- report-hash:'*)
+                  printf '%s\n' "$cbody" | grep -v '<!-- report-hash:' > body.md
+                  gh issue edit "$cnum" --body-file body.md
+                  echo "Cleared the stale report hash on closed #$cnum"
+                  ;;
+              esac
+            fi
+          fi

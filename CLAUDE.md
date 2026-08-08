@@ -34,7 +34,7 @@ A repo-root `flake.nix` exposes a devShell that links nixpkgs' prebuilt `manifol
 - When bumping the manifold3d pin in `build.rs`, the sys crate version must be updated to match (e.g., manifold3d v3.5.0 -> sys crate `3.5.100`).
 - When bumping `MANIFOLD_VERSION`, also run `nix flake update` and commit the new `flake.lock`: the `nix-offline` lane links nixpkgs' prebuilt `manifold`, which must resolve to the new pinned version or the lane links an ABI-mismatched library. The committed lock is what makes the "nixpkgs manifold matches our pin" guarantee reproducible.
 - **Before bumping `MANIFOLD_VERSION`, check that `wasm-cxx-shim` supports the new pin.** As of shim v0.5.0 the helper (`wasm_cxx_shim_add_manifold()`) ships **no** carry-patches for default-pin builds - it passes `MANIFOLD_GIT_TAG` straight to `FetchContent`, and patches arrive only via the caller's `EXTRA_MANIFOLD_PATCHES`, which we do not pass. So a pin past the shim's tested version has no patch that can fail to apply. What the shim does supply is the libc++/libc surface manifold compiles against, so the real risks are (a) a compile break if the new manifold reaches for something the shim lacks, and (b) wasm-uu link failures from FFI declarations for C API added in the gap. Both surface in the wasm-uu CI lane. Two paths if the shim hasn't caught up: (1) wait for a shim release that pins past your target SHA, or (2) cfg-gate the new FFI surface on `not(all(target_arch = "wasm32", target_os = "unknown"))` so the wasm-uu lane stays on the shim's tested pin. The "Pin / shim follow-ups" section below covers the post-bump cleanups for path (2).
-- The sys crate pins upstream to a specific commit SHA rather than a tag. This is necessary because upstream doesn't follow strict semver — minor releases can include breaking changes. Pinning to a commit gives us the same reproducibility as a tag, while allowing us to pick up post-release fixes and carry-patches between releases.
+- **Prefer a release tag for `MANIFOLD_VERSION`.** Upstream doesn't follow strict semver (minor releases can include breaking changes), so the pin is exact either way, but a tag keeps it legible against upstream's releases and lets `upstream-watch` tell you when a newer release lands. A commit SHA is a deliberate exception, for picking up a post-release fix or a carry-patch base between releases; `upstream-watch` skips a SHA pin rather than nagging, on the assumption it was chosen on purpose.
 - **Version bumps**: feature PRs may (and usually should) include their own version bump so the merge is ready to publish. The `/publish` skill will bump at publish time only if no PR has done so since the last release. Note that `cargo-semver-checks` CI requires a bump whenever the PR changes the public API in a way the current version doesn't allow (e.g., a breaking change requires a minor bump pre-1.0).
 - **Facade crates** (`manifold3d`, `manifold3d-sys`) always ship in lockstep with their canonical counterparts (`manifold-csg`, `manifold-csg-sys`) via `=` version pins. Bumping the canonical means bumping the facade.
 
@@ -57,6 +57,54 @@ A repo-root `flake.nix` exposes a devShell that links nixpkgs' prebuilt `manifol
 - `unsafe impl Send` requires documented justification on each type
 - `Sync` is implemented for `Manifold` and `CrossSection` (upstream synchronizes lazy evaluation with a mutex). `MeshGL`/`MeshGL64` are also `Sync` (pure data, no lazy state)
 - `manifold_meshgl_merge` / `manifold_meshgl64_merge` had an upstream ownership bug (returning the input pointer on failure, causing double-free). This was fixed upstream in #1632 (included in our pinned commit).
+
+## Upstream watch
+
+`.github/workflows/upstream-watch.yml` runs `scripts/check-upstream.py` weekly (Mondays 13:00 UTC, plus `workflow_dispatch`) and keeps a single reusable issue labelled `upstream-watch`. Run the script locally any time; it needs no arguments, and `GITHUB_TOKEN` only to avoid API rate limits.
+
+It checks three things: `MANIFOLD_VERSION` against the newest `elalish/manifold` release, `WASM_CXX_SHIM_TAG` against the newest `wasm-cxx-shim` release, and whether the nixpkgs revision in `flake.lock` still ships the manifold version we pin. The third is an invariant rather than drift - a mismatch means the `nix-offline` lane links a different manifold than we pin, which can pass CI while being wrong.
+
+**Release tags only, and only strictly newer ones.** A SHA, branch, or pre-release pin is skipped for the *drift* comparison rather than flagged: per the Versioning section above those are a deliberate exception and do not want a weekly reminder. "Newest release" is the highest semver among non-draft, non-pre-release releases, taken by version rather than by date, so a backport cut after a newer release cannot shadow it. The nixpkgs invariant still runs against a SHA pin - that is exactly when nixpkgs is most likely to disagree - and reports what it could not compare.
+
+The script sorts results into three classes, and the distinction is load-bearing:
+
+| Class | Meaning | Hashed? | Sets `complete=false`? |
+|---|---|---|---|
+| findings | wrong until someone acts: drift, a nixpkgs mismatch, or the check itself being structurally broken (a renamed const, an unreadable file, a non-rate-limit 4xx, a `flake.lock` that changed keys or shape) | yes | no |
+| errors | a transient lookup failure: timeout, DNS, 5xx, or a rate limit (403/429) surviving retries | no | yes |
+| skips | a check that did not apply, e.g. version comparison against a SHA pin | no | no |
+
+Structural breakage is a *finding*, not an error, because it never self-heals: as an error it would be unhashed, so a permanently broken check would sit silent behind an unchanged findings hash. The HTTP split is stated as a range (403/429/5xx transient, every other 4xx structural) rather than a list, because a list has to stay complete and anything it misses lands in the freezing category. A run that skipped anything never prints "All pinned release tags are current", so a reduced run cannot read as a clean bill of health.
+
+Notification is the point, so the issue handling is built around what GitHub actually emails on. **Editing an issue body sends nothing.** The body carries a `<!-- report-hash: ... -->` marker and a *comment* is what gets posted when that hash changes, because comments do notify.
+
+| State | Action | Notifies? |
+|---|---|---|
+| no issue yet | create | yes |
+| any existing issue, run incomplete | leave untouched, **fail the job** | yes, via the Actions failure email |
+| closed, findings changed | reopen + comment | yes |
+| open, findings changed | comment, then refresh body | yes |
+| open, same findings | refresh body only | no - a known-stale pin should not email every Monday |
+| closed, same findings | leave closed | no - closing by hand means "known, deferred" |
+| pins current again | rewrite body + close with comment | yes |
+
+Details that are load-bearing rather than incidental:
+
+- The hash covers **findings only**, and an incomplete run additionally **leaves an existing issue alone**. Both are needed for the same guarantee: a transient outage empties the findings list, so without the `complete` gate a blip would reopen a deferred issue and post two spurious "findings changed" comments. An outage still creates an issue when none exists, so a sustained one is not invisible.
+- The notification is sent **before** the body is rewritten. If a reopen or comment fails midway, the stored hash is still the old one, so the next run retries. The failure direction is a duplicate comment, never a lost one.
+- The lookup passes `--state all` so a closed issue is reopened rather than duplicated, and `--author 'github-actions[bot]'` so a human issue carrying the label never has its body overwritten. That is the real login; the `app/github-actions` search syntax only resolves on gh's search path and silently matches nothing without a `--label` filter.
+- An incomplete run leaves the existing issue alone *and fails the job*. Leaving it alone is required (it must not un-defer or rewrite findings it could not verify), but exiting 0 as well would make an indefinite outage indistinguishable from a clean week: quiet, green, forever. The red job is the escalation. One extra notification per genuine blip is the price.
+- Closing and reopening comments carry the full report, and the issue is assigned to the repo owner on create, so delivery does not depend on the watch setting.
+- When the pins come current and there is no open bot issue, the close step strips the `report-hash` marker from the hand-closed one. That marker is load-bearing rather than decoration: the drift step reads it to decide "closed with identical findings, deferral respected". Left in place after a fix, an identical recurrence later would match it and stay silent. Editing a body sends no notification, so the cleanup is quiet.
+- The report is echoed to `$GITHUB_STEP_SUMMARY`, so on the red/incomplete path the Actions failure email lands on a page that says what was found rather than only a raw log.
+- The issue title tracks the report too, including "(some checks skipped)". The title is the email subject and the issue-list row, so it cannot claim a clean bill of health the body withholds.
+- The issue is assigned to the repo owner on create. That assumes a user-owned repo; an organization is not an assignable user, so a transfer would need the `--assignee` dropped.
+- `ci.yml` byte-compiles `check-upstream.py` on every PR. The workflow itself only runs weekly, so otherwise a syntax error would first surface days later as a red scheduled job.
+- A guard step fails the job when the script produced no usable result, including when the step failed *after* writing an output - outputs survive a failed step, so otherwise real drift could be skipped by the implicit `success()` guard on the steps below.
+
+Upstream cuts release tags on a side branch that is never merged back to master, so git ancestry between a master commit and a release tag is always "diverged". That rules out inferring a version from a SHA pin, which is why the comparison is tag-only.
+
+GitHub disables scheduled workflows in a public repo after 60 days without repository activity, which is the same quiet stretch this check covers. Note that issue activity and workflow runs do not reset that timer, only repository activity does. GitHub emails the owner on disable, but re-enabling is manual.
 
 ## Pin / shim follow-ups
 
