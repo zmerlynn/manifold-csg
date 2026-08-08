@@ -23,11 +23,11 @@ unstable-wasm-uu = ["manifold-csg-sys/unstable-wasm-uu"]
 manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.5.104", default-features = false }
 thiserror = "2"
 log = "0.4"
-nalgebra = { version = "0.34", optional = true }
+nalgebra = { version = "0.35", optional = true }
 
 [dev-dependencies]
 approx = "0.5"
-nalgebra = "0.34"
+nalgebra = "0.35"
 
 [package.metadata.docs.rs]
 features = ["nalgebra", "parallel"]
