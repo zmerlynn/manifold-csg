@@ -1,0 +1,46 @@
+version: 2
+
+# Two ecosystems, for two different reasons.
+#
+# cargo: this workspace does not commit a Cargo.lock, so consumers resolve
+# transitive dependencies themselves and a patch release upstream reaches them
+# with no action from us. What does need action is a dependency releasing
+# OUTSIDE our declared range -- and specifically one that appears in the public
+# API. `nalgebra` is the only such dependency: `Vector3<f64>` and `Point3<f64>`
+# show up in `Manifold::*_nalgebra` signatures, so if a consumer is on a
+# nalgebra we do not accept, their vectors are a different type from ours and
+# the whole feature quietly stops being usable for them. thiserror, log and
+# cmake are internal and observable by nobody.
+#
+# github-actions: pinned action majors drift apart silently. This repo already
+# has actions/checkout at both @v4 and @v5 across workflows, and cache the same.
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the routine noise, so the only PRs that stand alone are the
+      # ones that need a judgement call (a new major, or a 0.x minor, which for
+      # a 0.x crate is the breaking one).
+      cargo-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
