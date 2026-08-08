@@ -38,6 +38,14 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    ignore:
+      # dtolnay/rust-toolchain takes the toolchain as the ref: `@1.85` selects
+      # Rust 1.85, it is not a version of the action. Dependabot cannot tell
+      # the difference and "upgraded" the MSRV job to `@1.100`, a Rust release
+      # that does not exist. Had it picked a real one, the job would have gone
+      # green while silently no longer testing the MSRV we declare. The
+      # `@stable` and `@nightly` uses are unaffected, being non-numeric.
+      - dependency-name: dtolnay/rust-toolchain
     groups:
       actions:
         patterns:
