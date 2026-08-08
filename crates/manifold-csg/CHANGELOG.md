@@ -9,6 +9,9 @@ but change output, so the compiler will not catch them for you.
 
 ## 0.3.4
 
+- Ships `LICENSE-APACHE` and `LICENSE-MIT` inside the crate. They lived only at
+  the repo root, outside every crate directory, so no published version back to
+  0.1.x actually carried the license text the `license` field points at.
 - Renamed the `segments` parameter to `circular_segments` on
   `Manifold::cylinder`, `Manifold::sphere`, and `CrossSection::circle`, to
   match the C API and the sibling methods that already used that name. Rust
