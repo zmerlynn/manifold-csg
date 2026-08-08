@@ -19,10 +19,21 @@ pub fn to_vertices_and_faces(&self) -> (Vec<nalgebra::Point3<f64>>, Vec<[u32; 3]
 ```
 
 Cargo treats `nalgebra 0.34` and `nalgebra 0.35` as incompatible, so if your
-project still requires `0.34`, both end up in your dependency tree. Your
-`Vector3<f64>` is then a *different type* from the one these methods take, and
-the calls stop compiling with a "mismatched types" error naming what look like
-two identical types.
+project still requires `0.34`, both end up in your dependency tree and your
+`Vector3<f64>` is a *different type* from the one these methods take.
+
+The error is clear about it, so you should not have to guess:
+
+```
+error[E0308]: mismatched types
+  |     let _ = m.mirror_nalgebra(&n);
+  |               --------------- ^^ expected `Matrix<f64, Const<3>, Const<1>, ...>`,
+  |                                  found a different `Matrix<f64, Const<3>, Const<1>, ...>`
+note: there are multiple different versions of crate `nalgebra` in the dependency graph
+  --> .../nalgebra-0.35.0/src/base/matrix.rs:178:1     this is the expected type
+  --> .../nalgebra-0.34.2/src/base/matrix.rs:178:1     this is the found type
+  = help: you can use `cargo tree` to explore your dependency tree
+```
 
 ## Cargo.toml
 
@@ -72,7 +83,7 @@ If you would rather hand this to an assistant, the following is enough context:
 > `nalgebra` feature now requires nalgebra 0.35 instead of 0.34. Please update
 > my `Cargo.toml` so `manifold-csg` (or `manifold3d`) is `"0.4"` and my own
 > `nalgebra` dependency is `"0.35"`, then fix any compile errors that come from
-> nalgebra's own 0.34-to-0.35 changes. No manifold-csg API changed, so any
-> error mentioning two seemingly identical `Vector3<f64>` or `Point3<f64>`
-> types means a stale nalgebra version is still resolving somewhere; check with
-> `cargo tree -d`.
+> nalgebra's own 0.34-to-0.35 changes. No manifold-csg API changed, so an
+> E0308 saying "there are multiple different versions of crate `nalgebra` in
+> the dependency graph" means a stale nalgebra is still resolving somewhere;
+> find it with `cargo tree -d`.
