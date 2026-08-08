@@ -33,6 +33,7 @@ impl Drop for BoundingBox {
         if !self.ptr.is_null() {
             // SAFETY: self.ptr was allocated by manifold_alloc_box.
             unsafe { manifold_delete_box(self.ptr) };
+            self.ptr = std::ptr::null_mut();
         }
     }
 }

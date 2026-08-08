@@ -44,8 +44,13 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-asan-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
-          restore-keys: ${{ runner.os }}-cargo-asan-
+          # The build modules sit in the restore-keys prefix because this lane
+          # runs cmake with an instrumented toolchain, and build/build.rs picks
+          # the source dir that cmake records as an absolute path. A bare
+          # `-cargo-asan-` prefix would restore a target/ from any earlier
+          # layout and fail with "source does not match".
+          key: ${{ runner.os }}-cargo-asan-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-asan-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**') }}-
 
       - name: Run tests under ASan + LSan
         env:

@@ -8,13 +8,13 @@ most commonly needed operations; infrastructure functions (allocation, vectors,
 polygon helpers) are used internally and don't need direct safe wrappers.
 
 **Legend:**
-- **Wrapped** — has a safe public method
-- **Internal** — used internally by safe wrappers (allocation, Drop, helpers)
-- **Not wrapped** — bound in sys but no safe wrapper yet
+- **Wrapped** - has a safe public method
+- **Internal** - used internally by safe wrappers (allocation, Drop, helpers)
+- **Not wrapped** - bound in sys but no safe wrapper yet
 
 ---
 
-## Manifold — Construction
+## Manifold - Construction
 
 | C API function | Safe wrapper |
 |---|---|
@@ -35,7 +35,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_smooth64` | [`Manifold::smooth_f64`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_level_set_seq` | [`Manifold::from_sdf_seq`](crates/manifold-csg/src/manifold.rs) |
 
-## Manifold — Boolean Operations
+## Manifold - Boolean Operations
 
 | C API function | Safe wrapper |
 |---|---|
@@ -48,7 +48,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_split` | [`Manifold::split`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_split_by_plane` | [`Manifold::split_by_plane`](crates/manifold-csg/src/manifold.rs) |
 
-## Manifold — Transforms
+## Manifold - Transforms
 
 | C API function | Safe wrapper |
 |---|---|
@@ -70,7 +70,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_set_properties` | [`Manifold::set_properties`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_trim_by_plane` | [`Manifold::trim_by_plane`](crates/manifold-csg/src/manifold.rs) |
 
-## Manifold — Queries
+## Manifold - Queries
 
 | C API function | Safe wrapper |
 |---|---|
@@ -94,7 +94,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_manifold_size` | Not needed (alloc size) |
 | `manifold_manifold_pair_size` | Not needed (alloc size) |
 
-## Manifold — Hull, Decomposition & Mesh Extraction
+## Manifold - Hull, Decomposition & Mesh Extraction
 
 | C API function | Safe wrapper |
 |---|---|
@@ -111,7 +111,20 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_get_meshgl_w_normals` | [`Manifold::to_meshgl_with_normals`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f32_with_normals`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_get_meshgl64_w_normals` | [`Manifold::to_meshgl64_with_normals`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f64_with_normals`](crates/manifold-csg/src/manifold.rs) |
 
-## CrossSection — Construction & Booleans
+## Ray Casting
+
+`manifold_ray_cast` fills a `RayHitVec`; the safe wrapper owns that vector,
+copies each hit out into a [`RayHit`](crates/manifold-csg/src/ray.rs), and frees
+it, so the vector accessors are internal.
+
+| C API function | Safe wrapper |
+|---|---|
+| `manifold_ray_cast` | [`Manifold::ray_cast`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_ray_hit_vec_length` | Internal (result copy-out) |
+| `manifold_ray_hit_vec_get` | Internal (result copy-out) |
+| `manifold_ray_hit_vec_size` | Internal (allocation sizing) |
+
+## CrossSection - Construction & Booleans
 
 | C API function | Safe wrapper |
 |---|---|
@@ -133,7 +146,7 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_cross_section_hull_simple_polygon` | [`CrossSection::hull_simple_polygon`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_decompose` | [`CrossSection::decompose`](crates/manifold-csg/src/cross_section.rs) |
 
-## CrossSection — Transforms & Queries
+## CrossSection - Transforms & Queries
 
 | C API function | Safe wrapper |
 |---|---|
@@ -360,26 +373,42 @@ and `Drop` implementations.
 
 ## Summary
 
-| Category | Wrapped | Internal |
-|---|---|---|
-| Manifold construction | 14 | 0 |
-| Manifold booleans | 7 | 0 |
-| Manifold transforms | 17 | 0 |
-| Manifold queries | 15 | 0 |
-| Manifold hull/decompose/mesh | 10 | 0 |
-| CrossSection construction & booleans | 13 | 0 |
-| CrossSection transforms & queries | 15 | 0 |
-| MeshGL/MeshGL64 | 20 | 6 |
-| Triangulation | 1 | 2 |
-| ExecutionContext (cancel/progress + v3.5.1 factories) | 9 | 0 |
-| Quality globals | 6 | 0 |
-| Box3D (BoundingBox) | 16 | 0 |
-| Rect2D (Rect) | 16 | 0 |
-| Polygon helpers | 0 | 7 |
-| Vector containers | 0 | 10 |
-| Alloc/delete/destruct | 0 | 24 |
-| **Total** | **159** | **49** |
+Counts are one row per C function in the tables above. The total must equal the
+number of `pub fn manifold_*` declarations in `manifold-csg-sys/src/lib.rs`;
+if it doesn't, a function was bound without being documented here.
 
-Unwrapped functions are primarily allocation infrastructure (`destruct_*` variants,
-unused vector ops), internal size queries, and specialized construction variants.
+A row counts as **Wrapped** when its status cell links a safe method,
+**Internal** when the cell starts with `Internal`, and **Bound, unused**
+otherwise (`Not used`, `Not needed (alloc size)`, `Not wrapped`).
+
+| Category | Wrapped | Internal | Bound, unused |
+|---|---|---|---|
+| Manifold construction | 16 | 0 | 0 |
+| Manifold booleans | 8 | 0 | 0 |
+| Manifold transforms | 17 | 0 | 0 |
+| Manifold queries | 17 | 0 | 2 |
+| Manifold hull/decompose/mesh | 12 | 0 | 0 |
+| Ray casting | 1 | 3 | 0 |
+| CrossSection construction & booleans | 17 | 0 | 0 |
+| CrossSection transforms & queries | 14 | 0 | 1 |
+| MeshGL/MeshGL64 | 40 | 20 | 2 |
+| Triangulation | 1 | 2 | 1 |
+| Quality globals | 6 | 0 | 0 |
+| Box3D (BoundingBox) | 16 | 0 | 1 |
+| Rect2D (Rect) | 16 | 0 | 1 |
+| Polygon helpers | 0 | 5 | 5 |
+| Vector containers | 0 | 10 | 6 |
+| ExecutionContext (cancel/progress + factories) | 9 | 0 | 2 |
+| Alloc/delete/destruct | 0 | 39 | 0 |
+| **Total** | **190** | **79** | **21** |
+
+190 + 79 + 21 = 290, matching the sys crate's 290 declarations.
+
+"Bound, unused" means the function is declared in `manifold-csg-sys` but the
+safe crate never calls it: `*_size` queries the crate does not need because it
+allocates through `manifold_alloc_*`, vector and polygon operations with no
+safe-API consumer, and the f32 `manifold_execution_context_smooth` (left
+unwrapped to mirror the unwrapped f32 `manifold_smooth`). They stay bound so
+callers working at the sys level have the whole C API available.
+
 All operations commonly needed for CSG workflows have safe wrappers.

@@ -7,6 +7,25 @@ migration guides live at the repo root and are linked below.
 Watch especially for **behavioral** changes marked below: these compile cleanly
 but change output, so the compiler will not catch them for you.
 
+## 0.3.4
+
+- Renamed the `segments` parameter to `circular_segments` on
+  `Manifold::cylinder`, `Manifold::sphere`, and `CrossSection::circle`, to
+  match the C API and the sibling methods that already used that name. Rust
+  has no named arguments, so this changes only docs and IDE hints, not calls.
+- Declares `rust-version = "1.85"`. The workspace has stated this MSRV all
+  along, but no crate inherited it, so it never reached the published
+  metadata. Cargo can now report an actionable error (and pick MSRV-compatible
+  dependencies) instead of failing mid-compile on an older toolchain.
+- Documented `to_mesh_f32` and `to_mesh_f32_with_normals` as lossy. The kernel
+  holds geometry in f64 and these narrow on the way out; only the f32 *input*
+  path carried that warning before.
+- Upstream pin moved to manifold3d v3.5.2. It drops deferred deallocation:
+  large buffer frees used to be enqueued on a low-priority background TBB
+  arena, and are now freed synchronously. Upstream made the change to address
+  a downstream report from Blender. No C API change, so no source or API
+  changes here. Carried by `manifold-csg-sys` 3.5.104.
+
 ## 0.3.3
 
 - Build fix: link `libc++` (not `libstdc++`) on all Apple platforms, not just

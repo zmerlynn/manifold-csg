@@ -62,8 +62,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-pages-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/wasm32-uu/**') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg/build.rs') }}
-          restore-keys: ${{ runner.os }}-pages-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/wasm32-uu/**') }}-
+          key: ${{ runner.os }}-pages-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg-sys/wasm32-uu/**') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-pages-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg-sys/wasm32-uu/**') }}-
 
       - name: Build playground wasm
         run: bash crates/manifold-csg-playground/build.sh

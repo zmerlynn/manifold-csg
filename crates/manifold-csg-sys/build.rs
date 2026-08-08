@@ -20,7 +20,7 @@ use std::sync::OnceLock;
 /// wasm-uu build (which passes it through to the shim's
 /// `wasm_cxx_shim_add_manifold()` helper as `MANIFOLD_GIT_TAG`, so both
 /// paths build against the same C API surface).
-pub(crate) const MANIFOLD_VERSION: &str = "v3.5.1";
+pub(crate) const MANIFOLD_VERSION: &str = "v3.5.2";
 
 /// Detect `sccache` on PATH and return cmake args that route the C/C++
 /// compiler through it as a launcher. Returns empty if sccache isn't
@@ -326,7 +326,7 @@ fn main() {
     // who can't run the build-script's `git clone` (sandboxed builders like
     // Nix, airgapped CI) link a pre-built manifold install via
     // `MANIFOLD_CSG_LIB_DIR`, skipping clone AND cmake entirely. Fully
-    // offline, no C++ compile. See docs/plans/offline-build.md and issue #49.
+    // offline, no C++ compile. See issue #49.
     println!("cargo:rerun-if-env-changed=MANIFOLD_CSG_LIB_DIR");
     println!("cargo:rerun-if-env-changed=MANIFOLD_CSG_LIB_KIND");
     if !is_emscripten && try_external_lib(&target_env, &target_os, &target_vendor) {

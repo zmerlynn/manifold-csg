@@ -13,6 +13,20 @@ overhead and without requiring users to manage C pointers or memory. See the
 [upstream documentation](https://elalish.github.io/manifold/docs/html/) for
 details on the underlying algorithms and behavior.
 
+## Contents
+
+- [What's included](#whats-included)
+- [Design choices](#design-choices)
+- [Quick start](#quick-start)
+- [Crates](#crates)
+- [Build requirements](#build-requirements)
+  - [Offline / pre-built manifold](#offline--pre-built-manifold)
+  - [Browser / WebAssembly (`wasm32-unknown-emscripten`)](#browser--webassembly-wasm32-unknown-emscripten)
+  - [Browser without Emscripten (`wasm32-unknown-unknown`)](#browser-without-emscripten-wasm32-unknown-unknown)
+- [Feature flags](#feature-flags)
+- [Documentation](#documentation)
+- [License](#license)
+
 ## What's included
 
 **`manifold-csg-sys`** provides raw FFI bindings to the manifold3d C API. If
@@ -106,12 +120,25 @@ the C bindings + cross-section. For the default `dylib` kind, the directory must
 also be on the runtime library search path (rpath / `LD_LIBRARY_PATH`); under
 Nix, `buildInputs = [ manifold ]` arranges this for you.
 
-A repo-root `flake.nix` wires this up for Nix: `nix develop` drops you into a
-shell that links nixpkgs' prebuilt `manifold` via `MANIFOLD_CSG_LIB_DIR`, so
-`cargo build` / `cargo test` skip the manifold3d clone and C++ compile entirely.
+Packaging a crate that depends on this one, with Nix:
 
-See [`docs/plans/offline-build.md`](docs/plans/offline-build.md) for details and a
-Nix recipe.
+```nix
+buildRustPackage {
+  # ...
+  buildInputs = [ pkgs.manifold ];               # rpath; NEEDED pulls clipper2 + tbb
+  MANIFOLD_CSG_LIB_DIR = "${pkgs.manifold}/lib"; # skips the clone and cmake
+}
+```
+
+nixpkgs' `manifold` tracks the upstream tag, and this crate pins the same
+version, so the two line up without extra work. If you pin an older nixpkgs,
+check that its `manifold` still matches: `build.rs` validates that the
+libraries are present but cannot check their version.
+
+A repo-root `flake.nix` wires the same thing up as a devShell for working on
+this repo: `nix develop` drops you into a shell that links nixpkgs' prebuilt
+`manifold` via `MANIFOLD_CSG_LIB_DIR`, so `cargo build` / `cargo test` skip
+the manifold3d clone and C++ compile entirely.
 
 Tested on Linux, macOS, Windows, `wasm32-unknown-emscripten`, and
 `wasm32-unknown-unknown` (see below).

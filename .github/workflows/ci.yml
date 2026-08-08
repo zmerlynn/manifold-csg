@@ -20,6 +20,16 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all --check
 
+  api-coverage:
+    name: API coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Catches the drift mode where a function gets bound in the sys crate
+      # but API_COVERAGE.md is never updated, which left the whole ray-casting
+      # surface undocumented and the Summary reporting 208 against 290.
+      - run: python3 scripts/check-api-coverage.py
+
   msrv:
     name: MSRV (1.85)
     runs-on: ubuntu-latest
@@ -32,7 +42,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-msrv-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
       # nalgebra 0.34 (unconditional dev-dep) requires Rust 1.87+,
       # so MSRV check verifies the library builds but skips tests.
@@ -51,7 +61,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-docs-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
       - name: Doc
         run: cargo doc --no-deps --features nalgebra
@@ -73,7 +83,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-semver-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          key: ${{ runner.os }}-cargo-semver-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-semver-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
       - name: Check semver
         run: cargo semver-checks -p manifold-csg
@@ -111,7 +121,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/patches/*') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg/build.rs', 'crates/manifold-csg-sys/patches/*') }}
           restore-keys: ${{ runner.os }}-cargo-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
 
       - name: Build
@@ -137,7 +147,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-nopar-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          key: ${{ runner.os }}-cargo-nopar-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-nopar-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
 
       - name: Build (no parallel)
@@ -167,11 +177,11 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-nix-offline-${{ hashFiles('flake.lock') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
+          key: ${{ runner.os }}-cargo-nix-offline-${{ hashFiles('flake.lock') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-nix-offline-${{ hashFiles('flake.lock') }}-
 
       # Exercises the MANIFOLD_CSG_LIB_DIR offline hatch (issue #49): the
-      # devShell links nixpkgs' prebuilt `manifold` (3.5.1, matching our pin)
+      # devShell links nixpkgs' prebuilt `manifold` (3.5.2, matching our pin)
       # instead of cloning + compiling manifold3d, so build.rs skips the clone
       # AND cmake. This is the only lane that covers the from-source bypass.
       - name: Build + test against prebuilt manifold
@@ -199,14 +209,20 @@ jobs:
       # a target/ from a run with a different EMSDK install path makes
       # cmake panic on the now-gone toolchain file. Keying on EMSDK gives
       # each install path its own cache bucket.
+      #
+      # The build modules are in the restore-keys PREFIX, not just the key,
+      # for the same reason: build/build.rs decides the cmake source dir that
+      # gets recorded in CMakeCache.txt as an absolute path. A permissive
+      # prefix would happily restore a target/ built against the old layout,
+      # which is the "source does not match" failure this lane has hit before.
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-emscripten-${{ env.EMSDK }}-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg/build.rs') }}
-          restore-keys: ${{ runner.os }}-cargo-emscripten-${{ env.EMSDK }}-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
+          key: ${{ runner.os }}-cargo-emscripten-${{ env.EMSDK }}-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-emscripten-${{ env.EMSDK }}-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**') }}-
 
       # MANIFOLD_PAR is forced off for emscripten regardless of feature flags
       # (TBB needs SharedArrayBuffer + COOP/COEP HTTP headers from the host).
@@ -267,8 +283,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/wasm32-uu/**') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg/build.rs') }}
-          restore-keys: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/wasm32-uu/**') }}-
+          key: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg-sys/wasm32-uu/**') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg/build.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-wasm32-uu-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg-sys/wasm32-uu/**') }}-
 
       # Build the sys crate first to surface cmake/clang errors clearly.
       # `unstable-wasm-uu` is required by build.rs for this target.

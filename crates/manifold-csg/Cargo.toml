@@ -1,8 +1,9 @@
 [package]
 name = "manifold-csg"
-description = "Safe Rust bindings to manifold3d — f64-precision CSG booleans, 2D cross-sections, extrusion, SDF, and OBJ I/O with Send safety and automatic memory management"
+description = "Safe Rust bindings to manifold3d - f64-precision CSG booleans, 2D cross-sections, extrusion, SDF, and OBJ I/O with Send safety and automatic memory management"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 readme = "../../README.md"
@@ -19,7 +20,7 @@ nalgebra = ["dep:nalgebra"]
 unstable-wasm-uu = ["manifold-csg-sys/unstable-wasm-uu"]
 
 [dependencies]
-manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.5.103", default-features = false }
+manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.5.104", default-features = false }
 thiserror = "2"
 log = "0.4"
 nalgebra = { version = "0.34", optional = true }
