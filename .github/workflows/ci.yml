@@ -14,7 +14,7 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -24,7 +24,7 @@ jobs:
     name: API coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Catches the drift mode where a function gets bound in the sys crate
       # but API_COVERAGE.md is never updated, which left the whole ray-casting
       # surface undocumented and the Summary reporting 208 against 290.
@@ -37,9 +37,9 @@ jobs:
     name: MSRV (1.85)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.85
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -56,9 +56,9 @@ jobs:
     name: Docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -75,12 +75,12 @@ jobs:
     name: Semver
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-semver-checks
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -95,7 +95,7 @@ jobs:
     name: Deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   test:
@@ -112,13 +112,13 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -140,11 +140,11 @@ jobs:
     name: Linux (no TBB)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -163,7 +163,7 @@ jobs:
     name: Nix (offline / prebuilt manifold)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: cachix/install-nix-action@v31
         with:
@@ -174,7 +174,7 @@ jobs:
       # on it: a nixpkgs bump changes rustc and must invalidate target/. No
       # cmake/clone artifacts here (the offline hatch skips both), so this is
       # purely the rust compile cache, same as the other compiling jobs.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -194,7 +194,7 @@ jobs:
     name: Emscripten (wasm32)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -218,7 +218,7 @@ jobs:
       # gets recorded in CMakeCache.txt as an absolute path. A permissive
       # prefix would happily restore a target/ built against the old layout,
       # which is the "source does not match" failure this lane has hit before.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -253,7 +253,7 @@ jobs:
       # ladder. apt.llvm.org installs the toolchain here on Debian-family.
       WASM_CXX_SHIM_LLVM_BIN_DIR: /usr/lib/llvm-20/bin
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -280,7 +280,7 @@ jobs:
       # cache. The "volatile" inputs (Cargo.lock, manifold-csg/build.rs)
       # change frequently but don't move the cmake source dir, so they go
       # in the suffix where a key miss can fall through to a restore.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry

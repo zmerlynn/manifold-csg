@@ -46,7 +46,7 @@ jobs:
     # GitHub is rate-limiting.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Compare pins against upstream
         id: check
