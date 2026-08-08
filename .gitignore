@@ -1,3 +1,7 @@
 /target
 Cargo.lock
 rust_out
+
+# Python bytecode from scripts/
+__pycache__/
+*.pyc

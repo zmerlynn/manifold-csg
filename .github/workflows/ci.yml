@@ -29,6 +29,9 @@ jobs:
       # but API_COVERAGE.md is never updated, which left the whole ray-casting
       # surface undocumented and the Summary reporting 208 against 290.
       - run: python3 scripts/check-api-coverage.py
+      # upstream-watch.yml only runs weekly, so without this a syntax error in
+      # its script would ship and first surface as a red job days later.
+      - run: python3 -m py_compile scripts/check-upstream.py
 
   msrv:
     name: MSRV (1.85)

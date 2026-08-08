@@ -13,8 +13,13 @@ use std::process::Command;
 use std::sync::OnceLock;
 
 /// Pinned upstream manifold version. Accepts a tag (e.g., "v3.5.0"),
-/// branch, or commit SHA. Prefer SHAs for reproducibility (and
-/// post-release fixes), tags for tagged releases.
+/// branch, or commit SHA.
+///
+/// **Prefer a release tag.** A SHA is a deliberate exception, for picking up
+/// a post-release fix or a carry-patch base between releases. Tags keep the
+/// pin legible against upstream's releases, and the `upstream-watch` workflow
+/// only compares tags -- it skips a SHA pin on the assumption that one was
+/// chosen on purpose and needs no reminder.
 ///
 /// Used by both the host build (which clones this directly) and the
 /// wasm-uu build (which passes it through to the shim's
