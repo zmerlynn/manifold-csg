@@ -127,6 +127,7 @@ impl Drop for MeshGL {
         if !self.ptr.is_null() {
             // SAFETY: self.ptr was allocated by manifold_alloc_meshgl.
             unsafe { manifold_delete_meshgl(self.ptr) };
+            self.ptr = std::ptr::null_mut();
         }
     }
 }
@@ -441,6 +442,7 @@ impl Drop for MeshGL64 {
         if !self.ptr.is_null() {
             // SAFETY: self.ptr was allocated by manifold_alloc_meshgl64.
             unsafe { manifold_delete_meshgl64(self.ptr) };
+            self.ptr = std::ptr::null_mut();
         }
     }
 }

@@ -59,11 +59,10 @@ unsafe impl Sync for Manifold {}
 impl Clone for Manifold {
     /// Clone via `manifold_copy`, producing a new independent C-side handle.
     fn clone(&self) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_copy(ptr, self.ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_copy(ptr, self.ptr) };
+        })
     }
 }
 
@@ -73,6 +72,7 @@ impl Drop for Manifold {
             // SAFETY: self.ptr was allocated by manifold_alloc_manifold() and
             // has not been freed (we only free in Drop, which runs once).
             unsafe { manifold_delete_manifold(self.ptr) };
+            self.ptr = std::ptr::null_mut();
         }
     }
 }
@@ -84,6 +84,30 @@ impl Default for Manifold {
 }
 
 impl Manifold {
+    /// Allocate a manifold handle, hand it to `op` to be filled in by the C
+    /// API, and take ownership of the result.
+    ///
+    /// Nearly every operation that returns a new manifold has this shape, so
+    /// the allocation and its safety argument live here once instead of at
+    /// each call site. `op` still carries its own `unsafe` block, since only
+    /// the caller can justify the arguments it passes.
+    ///
+    /// The ordering matters: `Self` is built only *after* `op` returns, never
+    /// before. `manifold_alloc_manifold` hands back raw storage, and `op` is
+    /// what constructs a Manifold into it. Wrapping the pointer in a `Self`
+    /// first would look like it plugs the leak-on-unwind hole, but it would
+    /// instead point `Drop` at unconstructed memory and run a C++ destructor
+    /// over garbage. Leaking is the correct trade here, and it is unreachable
+    /// in practice: every `op` is a single `extern "C"` call, and unwinding
+    /// out of one is already UB.
+    fn from_op(op: impl FnOnce(*mut ManifoldManifold)) -> Self {
+        // SAFETY: manifold_alloc_manifold returns a valid handle sized for a
+        // Manifold; `op` constructs into it before we hand it out.
+        let ptr = unsafe { manifold_alloc_manifold() };
+        op(ptr);
+        Self { ptr }
+    }
+
     // ── Construction from raw mesh data ─────────────────────────────
 
     /// Create a Manifold from f64 vertex data and u64 triangle indices.
@@ -454,6 +478,11 @@ impl Manifold {
 
     /// Extract mesh data as f32 with normals baked into vertex properties.
     ///
+    /// **Lossy.** The kernel holds geometry in f64; this narrows every
+    /// coordinate to f32 on the way out. Prefer
+    /// [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) unless a
+    /// downstream consumer (GPU buffer, f32 file format) requires f32.
+    ///
     /// See [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) for details.
     #[must_use]
     pub fn to_mesh_f32_with_normals(&self, normal_idx: i32) -> (Vec<f32>, usize, Vec<u32>) {
@@ -493,6 +522,11 @@ impl Manifold {
 
     /// Extract mesh data as f32 vertex properties and u32 triangle indices.
     ///
+    /// **Lossy.** The kernel holds geometry in f64; this narrows every
+    /// coordinate to f32 on the way out, which costs sub-mm detail at large
+    /// coordinates. Prefer [`to_mesh_f64`](Self::to_mesh_f64) unless a
+    /// downstream consumer (GPU buffer, f32 file format) requires f32.
+    ///
     /// Returns `(vert_props, n_props, tri_indices)`.
     #[must_use]
     pub fn to_mesh_f32(&self) -> (Vec<f32>, usize, Vec<u32>) {
@@ -517,11 +551,10 @@ impl Manifold {
     /// is at the origin and the box spans `[0, x] × [0, y] × [0, z]`.
     #[must_use]
     pub fn cube(x: f64, y: f64, z: f64, center: bool) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe { manifold_cube(ptr, x, y, z, i32::from(center)) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc.
+            unsafe { manifold_cube(ptr, x, y, z, i32::from(center)) };
+        })
     }
 
     /// Cylinder along Z axis.
@@ -533,12 +566,12 @@ impl Manifold {
         height: f64,
         radius_low: f64,
         radius_high: f64,
-        segments: i32,
+        circular_segments: i32,
         center: bool,
     ) -> Self {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
-        with_quality_lock_if_auto_segments(segments, || {
+        with_quality_lock_if_auto_segments(circular_segments, || {
             // SAFETY: ptr is valid from alloc.
             unsafe {
                 manifold_cylinder(
@@ -546,7 +579,7 @@ impl Manifold {
                     height,
                     radius_low,
                     radius_high,
-                    segments,
+                    circular_segments,
                     i32::from(center),
                 )
             };
@@ -556,12 +589,12 @@ impl Manifold {
 
     /// Sphere centred at the origin.
     #[must_use]
-    pub fn sphere(radius: f64, segments: i32) -> Self {
+    pub fn sphere(radius: f64, circular_segments: i32) -> Self {
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
-        with_quality_lock_if_auto_segments(segments, || {
+        with_quality_lock_if_auto_segments(circular_segments, || {
             // SAFETY: ptr is valid from alloc.
-            unsafe { manifold_sphere(ptr, radius, segments) };
+            unsafe { manifold_sphere(ptr, radius, circular_segments) };
         });
         Self { ptr }
     }
@@ -569,11 +602,10 @@ impl Manifold {
     /// Empty manifold (identity for union).
     #[must_use]
     pub fn empty() -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe { manifold_empty(ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc.
+            unsafe { manifold_empty(ptr) };
+        })
     }
 
     // ── Transforms ──────────────────────────────────────────────────
@@ -581,32 +613,29 @@ impl Manifold {
     /// Translate by (x, y, z). Returns a new Manifold.
     #[must_use]
     pub fn translate(&self, x: f64, y: f64, z: f64) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_translate(ptr, self.ptr, x, y, z) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_translate(ptr, self.ptr, x, y, z) };
+        })
     }
 
     /// Scale by (x, y, z). Returns a new Manifold.
     #[must_use]
     pub fn scale(&self, x: f64, y: f64, z: f64) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_scale(ptr, self.ptr, x, y, z) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_scale(ptr, self.ptr, x, y, z) };
+        })
     }
 
     /// Rotate by Euler angles (degrees), applied in z-y'-x" order.
     /// Multiples of 90deg use exact arithmetic internally.
     #[must_use]
     pub fn rotate(&self, x_deg: f64, y_deg: f64, z_deg: f64) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_rotate(ptr, self.ptr, x_deg, y_deg, z_deg) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_rotate(ptr, self.ptr, x_deg, y_deg, z_deg) };
+        })
     }
 
     /// Apply a 4x3 affine transformation (column-major).
@@ -856,31 +885,28 @@ impl Manifold {
     /// Boolean difference: `self - other`.
     #[must_use]
     pub fn difference(&self, other: &Self) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_difference(ptr, self.ptr, other.ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: all three pointers are valid.
+            unsafe { manifold_difference(ptr, self.ptr, other.ptr) };
+        })
     }
 
     /// Boolean union: `self + other`.
     #[must_use]
     pub fn union(&self, other: &Self) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_union(ptr, self.ptr, other.ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: all three pointers are valid.
+            unsafe { manifold_union(ptr, self.ptr, other.ptr) };
+        })
     }
 
     /// Boolean intersection: `self ∩ other`.
     #[must_use]
     pub fn intersection(&self, other: &Self) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_intersection(ptr, self.ptr, other.ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: all three pointers are valid.
+            unsafe { manifold_intersection(ptr, self.ptr, other.ptr) };
+        })
     }
 
     /// Generic boolean operation with an explicit operation type.
@@ -891,11 +917,10 @@ impl Manifold {
     /// is useful when the operation type is determined at runtime.
     #[must_use]
     pub fn boolean(&self, other: &Self, op: OpType) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_boolean(ptr, self.ptr, other.ptr, op.to_ffi()) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: all three pointers are valid.
+            unsafe { manifold_boolean(ptr, self.ptr, other.ptr, op.to_ffi()) };
+        })
     }
 
     /// Decompose into connected components.
@@ -927,11 +952,10 @@ impl Manifold {
     /// Convex hull of this manifold.
     #[must_use]
     pub fn hull(&self) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_hull(ptr, self.ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_hull(ptr, self.ptr) };
+        })
     }
 
     /// Convex hull of multiple manifolds combined.
@@ -974,11 +998,10 @@ impl Manifold {
                 z: p[2],
             })
             .collect();
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, vec3s is a valid slice.
-        unsafe { manifold_hull_pts(ptr, vec3s.as_ptr(), vec3s.len()) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, vec3s is a valid slice.
+            unsafe { manifold_hull_pts(ptr, vec3s.as_ptr(), vec3s.len()) };
+        })
     }
 
     // ── Mirror ──────────────────────────────────────────────────────
@@ -986,11 +1009,10 @@ impl Manifold {
     /// Mirror across a plane through the origin with the given normal.
     #[must_use]
     pub fn mirror(&self, normal: [f64; 3]) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_mirror(ptr, self.ptr, normal[0], normal[1], normal[2]) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_mirror(ptr, self.ptr, normal[0], normal[1], normal[2]) };
+        })
     }
 
     // ── Refinement ──────────────────────────────────────────────────
@@ -998,51 +1020,46 @@ impl Manifold {
     /// Increase the density of the mesh by splitting each edge into `n` pieces.
     #[must_use]
     pub fn refine(&self, n: i32) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_refine(ptr, self.ptr, n) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_refine(ptr, self.ptr, n) };
+        })
     }
 
     /// Refine until no edge is longer than `length`.
     #[must_use]
     pub fn refine_to_length(&self, length: f64) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_refine_to_length(ptr, self.ptr, length) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_refine_to_length(ptr, self.ptr, length) };
+        })
     }
 
     /// Refine until the deviation from the true surface is less than `tolerance`.
     #[must_use]
     pub fn refine_to_tolerance(&self, tolerance: f64) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_refine_to_tolerance(ptr, self.ptr, tolerance) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_refine_to_tolerance(ptr, self.ptr, tolerance) };
+        })
     }
 
     /// Set the tolerance of the manifold, returning a new manifold.
     #[must_use]
     pub fn set_tolerance(&self, tolerance: f64) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_set_tolerance(ptr, self.ptr, tolerance) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_set_tolerance(ptr, self.ptr, tolerance) };
+        })
     }
 
     /// Simplify the mesh, removing vertices until the error exceeds `tolerance`.
     #[must_use]
     pub fn simplify(&self, tolerance: f64) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_simplify(ptr, self.ptr, tolerance) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_simplify(ptr, self.ptr, tolerance) };
+        })
     }
 
     // ── Smoothing ───────────────────────────────────────────────────
@@ -1051,11 +1068,10 @@ impl Manifold {
     /// using vertex normals at the given property index.
     #[must_use]
     pub fn smooth_by_normals(&self, normal_idx: i32) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_smooth_by_normals(ptr, self.ptr, normal_idx) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_smooth_by_normals(ptr, self.ptr, normal_idx) };
+        })
     }
 
     /// Smooth out the manifold, making sharp edges smoother.
@@ -1064,11 +1080,10 @@ impl Manifold {
     /// `min_smoothness`: minimum smoothness applied (0-1).
     #[must_use]
     pub fn smooth_out(&self, min_sharp_angle: f64, min_smoothness: f64) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_smooth_out(ptr, self.ptr, min_sharp_angle, min_smoothness) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_smooth_out(ptr, self.ptr, min_sharp_angle, min_smoothness) };
+        })
     }
 
     // ── Additional constructors ─────────────────────────────────────
@@ -1076,11 +1091,10 @@ impl Manifold {
     /// Regular tetrahedron centered at the origin with unit edge length.
     #[must_use]
     pub fn tetrahedron() -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe { manifold_tetrahedron(ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc.
+            unsafe { manifold_tetrahedron(ptr) };
+        })
     }
 
     /// Revolve a 2D cross-section around the Y axis to create a solid of revolution.
@@ -1179,21 +1193,19 @@ impl Manifold {
     /// Minkowski sum of two manifolds.
     #[must_use]
     pub fn minkowski_sum(&self, other: &Self) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr and other.ptr are valid (invariant).
-        unsafe { manifold_minkowski_sum(ptr, self.ptr, other.ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr and other.ptr are valid (invariant).
+            unsafe { manifold_minkowski_sum(ptr, self.ptr, other.ptr) };
+        })
     }
 
     /// Minkowski difference of two manifolds.
     #[must_use]
     pub fn minkowski_difference(&self, other: &Self) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr and other.ptr are valid (invariant).
-        unsafe { manifold_minkowski_difference(ptr, self.ptr, other.ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr and other.ptr are valid (invariant).
+            unsafe { manifold_minkowski_difference(ptr, self.ptr, other.ptr) };
+        })
     }
 
     /// Project the manifold onto the XY plane, returning 2D polygons.
@@ -1268,11 +1280,10 @@ impl Manifold {
     /// and [`reserve_ids`] to pre-allocate ID ranges.
     #[must_use]
     pub fn as_original(&self) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_as_original(ptr, self.ptr) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr and self.ptr are valid.
+            unsafe { manifold_as_original(ptr, self.ptr) };
+        })
     }
 
     /// Minimum gap between this manifold and another, searching up to `search_length`.
@@ -1370,30 +1381,43 @@ impl Manifold {
     /// surface normal.
     #[must_use]
     pub fn ray_cast(&self, origin: [f64; 3], end: [f64; 3]) -> Vec<crate::RayHit> {
+        /// Owns the hit vector so it is freed on every path out, including an
+        /// unwind from the collect below. Keeps the alloc/delete pairing
+        /// intact without threading a manual free through each exit.
+        struct HitVec(*mut ManifoldRayHitVec);
+
+        impl Drop for HitVec {
+            fn drop(&mut self) {
+                if !self.0.is_null() {
+                    // SAFETY: self.0 came from manifold_alloc_ray_hit_vec and
+                    // is freed exactly once, here.
+                    unsafe { manifold_delete_ray_hit_vec(self.0) };
+                }
+            }
+        }
+
         // SAFETY: manifold_alloc_ray_hit_vec returns a valid handle.
-        let vec_ptr = unsafe { manifold_alloc_ray_hit_vec() };
-        // SAFETY: vec_ptr and self.ptr are valid.
+        let hits = HitVec(unsafe { manifold_alloc_ray_hit_vec() });
+        // SAFETY: hits.0 and self.ptr are valid.
         unsafe {
             manifold_ray_cast(
-                vec_ptr, self.ptr, origin[0], origin[1], origin[2], end[0], end[1], end[2],
+                hits.0, self.ptr, origin[0], origin[1], origin[2], end[0], end[1], end[2],
             )
         };
-        // SAFETY: vec_ptr is valid.
-        let len = unsafe { manifold_ray_hit_vec_length(vec_ptr) };
-        let mut result = Vec::with_capacity(len);
-        for i in 0..len {
-            // SAFETY: vec_ptr is valid, i is in range.
-            let hit = unsafe { manifold_ray_hit_vec_get(vec_ptr, i) };
-            result.push(crate::RayHit {
-                face_id: hit.face_id,
-                distance: hit.distance,
-                position: [hit.position.x, hit.position.y, hit.position.z],
-                normal: [hit.normal.x, hit.normal.y, hit.normal.z],
-            });
-        }
-        // SAFETY: vec_ptr is valid and no longer needed.
-        unsafe { manifold_delete_ray_hit_vec(vec_ptr) };
-        result
+        // SAFETY: hits.0 is valid.
+        let len = unsafe { manifold_ray_hit_vec_length(hits.0) };
+        (0..len)
+            .map(|i| {
+                // SAFETY: hits.0 is valid and i is in range (i < len).
+                let hit = unsafe { manifold_ray_hit_vec_get(hits.0, i) };
+                crate::RayHit {
+                    face_id: hit.face_id,
+                    distance: hit.distance,
+                    position: [hit.position.x, hit.position.y, hit.position.z],
+                    normal: [hit.normal.x, hit.normal.y, hit.normal.z],
+                }
+            })
+            .collect()
     }
 
     /// Calculate normals and store them as vertex properties at `normal_idx`.
@@ -1401,21 +1425,19 @@ impl Manifold {
     /// Edges sharper than `min_sharp_angle` (degrees) get sharp normals.
     #[must_use]
     pub fn calculate_normals(&self, normal_idx: i32, min_sharp_angle: f64) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_calculate_normals(ptr, self.ptr, normal_idx, min_sharp_angle) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_calculate_normals(ptr, self.ptr, normal_idx, min_sharp_angle) };
+        })
     }
 
     /// Calculate Gaussian and mean curvature and store as vertex properties.
     #[must_use]
     pub fn calculate_curvature(&self, gaussian_idx: i32, mean_idx: i32) -> Self {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let ptr = unsafe { manifold_alloc_manifold() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_calculate_curvature(ptr, self.ptr, gaussian_idx, mean_idx) };
-        Self { ptr }
+        Self::from_op(|ptr| {
+            // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
+            unsafe { manifold_calculate_curvature(ptr, self.ptr, gaussian_idx, mean_idx) };
+        })
     }
 
     // ── Warp ────────────────────────────────────────────────────────

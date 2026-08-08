@@ -33,6 +33,7 @@ impl Drop for Rect {
         if !self.ptr.is_null() {
             // SAFETY: self.ptr was allocated by manifold_alloc_rect.
             unsafe { manifold_delete_rect(self.ptr) };
+            self.ptr = std::ptr::null_mut();
         }
     }
 }

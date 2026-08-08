@@ -42,9 +42,12 @@ Version bumps happen at publish time, not in feature PRs. Read CLAUDE.md for the
 
 - **Check if versions have already been bumped** by comparing the workspace + sys crate versions against what's actually published on crates.io:
   ```sh
-  curl -sS https://crates.io/api/v1/crates/manifold-csg     | python3 -c "import json,sys; print(json.load(sys.stdin)['crate']['max_version'])"
-  curl -sS https://crates.io/api/v1/crates/manifold-csg-sys | python3 -c "import json,sys; print(json.load(sys.stdin)['crate']['max_version'])"
+  # crates.io rejects curl's default User-Agent; it wants one that identifies the caller
+  UA="manifold-csg-publish (+https://github.com/$(gh api user --jq .login))"
+  curl -sS -A "$UA" https://crates.io/api/v1/crates/manifold-csg     | python3 -c "import json,sys; print(json.load(sys.stdin)['crate']['max_version'])"
+  curl -sS -A "$UA" https://crates.io/api/v1/crates/manifold-csg-sys | python3 -c "import json,sys; print(json.load(sys.stdin)['crate']['max_version'])"
   ```
+  Without the `-A`, crates.io returns an error body and the `['crate']` lookup dies with a `KeyError`, which reads like a network blip, not a blocked request. If it fails anyway, the sparse index needs no User-Agent: `curl -sS https://index.crates.io/ma/ni/manifold-csg` (one JSON object per line, last is newest).
   If the in-repo version is already ahead of the published version, it's pre-bumped — DO NOT bump again. Subsequent feature PRs ride into the pre-bumped version. (Pitfall: assuming the workspace version is the published version. They diverge whenever a PR includes its own bump, which CLAUDE.md says PRs "usually should" do.)
 - If not already bumped:
   - **`manifold-csg-sys`**: bump the patch component (e.g., `3.4.102` → `3.4.103`) whenever the upstream contents differ from the last publish — pinned commit changed, carry-patches added/removed, or FFI declarations changed. If the upstream major.minor changed (new manifold3d release), update major.minor accordingly.
@@ -63,11 +66,11 @@ For each patch in `crates/manifold-csg-sys/patches/`:
 
 ### 5. Release notes
 
-We don't keep a CHANGELOG file (it gets stale; git log + GitHub Releases cover the same ground). Tag the release after publishing — GitHub auto-generates release notes from PRs since the last tag:
-```
-git tag -a v<version> -m "Release <version>"
-git push origin v<version>
-```
+`crates/manifold-csg/CHANGELOG.md` must have an entry for the version being published. It ships inside the tarball, so it is the only release note a vendored consumer ever sees. See CLAUDE.md for what belongs in it, especially the rule about flagging silent behavioral changes.
+
+If the entry is missing, add it in the same PR as the version bump (step 3). Do not publish without it.
+
+Tagging and the GitHub Release happen after publishing, in Post-publish.
 
 ### 6. Dry run
 
@@ -135,14 +138,38 @@ cargo publish -p manifold3d
 
 ### Post-publish
 
-- Tag the release: `git tag -a v<version> -m "Release <version>"` (using the `manifold-csg` version number — facades share the workspace version)
-- Push the tag: `git push origin v<version>`
-- Verify on crates.io that all 4 crates appear at the new version
-- Verify docs.rs builds succeed for all 4
+A publish is not finished when `cargo publish` returns. Users watching the repo see the Releases page, not crates.io, so skipping the release step means the feature looks unshipped no matter what is on crates.io. This has actually happened here: v0.3.1 through v0.3.3 were published and tagged but had no GitHub Release for two months, and the reporter on #49 asked for a "release bump" for a feature that had been live since 0.3.1.
+
+**1. Tag.** Use the `manifold-csg` version number; facades share the workspace version.
+
+```
+git tag -a v<version> -m "Release <version>"
+git push origin v<version>
+```
+
+The tag must be annotated (`-a`). A GitHub Release inherits its `created_at` from the annotated tag's tagger date, and the Releases page sorts on `created_at`. A lightweight tag loses that.
+
+**2. GitHub Release.** Write the notes to a file first, then create it. Get user confirmation before creating, since this is an externally visible write.
+
+```
+gh release create v<version> --verify-tag --latest --title v<version> --notes-file <file>
+```
+
+- `--verify-tag` fails if the tag does not exist rather than silently creating one.
+- Pass `--latest` explicitly. When backfilling several releases, the older ones need `--latest=false` so the newest keeps the marker.
+- Write the notes rather than relying on `--generate-notes`. Source them from the CHANGELOG entry and the merged PR bodies. Cover: what changed and whether it is additive or breaking, a usage snippet for anything with a non-obvious entry point (env vars, build levers), and credit by @handle to anyone who filed the issue or sent the fix.
+- Link migration guides by absolute URL, and match the existing releases' section layout (`### Additions`, `### Fixes`, `### Raw sys (...)`, `### Credit`, then the compare link).
+
+**3. Verify.**
+
+- All 4 crates appear on crates.io at the new version, and docs.rs builds succeed for all 4.
+- Every tag has a release: compare `git tag` against `gh release list`. Any tag missing a release is a backfill to cut.
+- If any issues were closed by this release, comment on them with the version and a link (ask before posting).
 
 ## Rules
 
 - **NEVER publish without explicit user confirmation** — dry run is the default mindset
+- **A release is not done until the GitHub Release exists.** crates.io and the tag are two of three steps; report the publish as incomplete until the release is cut.
 - Do NOT publish from a dirty working tree or a non-main branch
 - Do NOT publish if tests or clippy fail
 - If any publish succeeds but a later one fails, report this clearly — published versions can only be yanked, not deleted. Common failure: facade fails because its canonical isn't indexed yet; retry after a delay.

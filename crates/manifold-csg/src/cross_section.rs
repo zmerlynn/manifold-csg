@@ -142,6 +142,7 @@ impl Drop for CrossSection {
             // SAFETY: self.ptr was allocated by manifold_alloc_cross_section
             // and has not been freed (Drop runs once).
             unsafe { manifold_delete_cross_section(self.ptr) };
+            self.ptr = std::ptr::null_mut();
         }
     }
 }
@@ -177,12 +178,12 @@ impl CrossSection {
 
     /// Circle centered at the origin.
     #[must_use]
-    pub fn circle(radius: f64, segments: i32) -> Self {
+    pub fn circle(radius: f64, circular_segments: i32) -> Self {
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
-        with_quality_lock_if_auto_segments(segments, || {
+        with_quality_lock_if_auto_segments(circular_segments, || {
             // SAFETY: ptr is valid from alloc.
-            unsafe { manifold_cross_section_circle(ptr, radius, segments) };
+            unsafe { manifold_cross_section_circle(ptr, radius, circular_segments) };
         });
         Self { ptr }
     }

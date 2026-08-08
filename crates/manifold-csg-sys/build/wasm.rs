@@ -35,17 +35,23 @@ const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
 // surfaced by v3.5.0's new ExecutionContext-attached-via-shared_ptr
 // model. The shim's tested-pin default is `v3.5.0`.
 //
-// Our host pin (MANIFOLD_VERSION) is now `v3.5.1`, which is PAST the
-// shim's tested pin. Build.rs passes `-DMANIFOLD_GIT_TAG=<our pin>`
-// (below), so the wasm-uu lane builds v3.5.1 against shim v0.5.0's
-// carry-patches. v3.5.1 is a patch release over v3.5.0 (ExecutionContext
-// threading + bug fixes; see the upstream compare), so the iostream /
-// MANIFOLD_NO_FILESYSTEM carry-patches are expected to still apply - but
-// this is unverified until the wasm-uu CI lane runs. If they don't apply,
-// the fix is either (a) a shim release pinned past v3.5.1, or (b) pin this
-// lane to v3.5.0 here and cfg-gate any v3.5.1-only FFI on
-// `not(all(target_arch = "wasm32", target_os = "unknown"))`. See CLAUDE.md
-// "Versioning" / "Pin / shim follow-ups".
+// Our host pin (MANIFOLD_VERSION) is now `v3.5.2`, two patch releases
+// PAST the shim's tested pin. Build.rs passes `-DMANIFOLD_GIT_TAG=<our
+// pin>` (below), so the wasm-uu lane builds v3.5.2 through the shim.
+//
+// This is lower-risk than the tested-pin gap suggests: the v0.5.0 helper
+// ships no carry-patches for default-pin builds (it passes GIT_TAG
+// straight to FetchContent, and patches only arrive via the caller's
+// EXTRA_MANIFOLD_PATCHES, which we do not pass). So there is no patch
+// that can fail to apply against a newer manifold. What the shim does
+// supply is the libc++/libc surface manifold compiles against, so the
+// residual risk is a compile break if v3.5.2 reaches for something the
+// shim lacks - which the wasm-uu CI lane catches directly.
+//
+// If it does break, the fix is either (a) a shim release pinned past our
+// version, or (b) pin this lane back here and cfg-gate any newer-only FFI
+// on `not(all(target_arch = "wasm32", target_os = "unknown"))`. See
+// CLAUDE.md "Versioning" / "Pin / shim follow-ups".
 const WASM_CXX_SHIM_TAG: &str = "v0.5.0";
 
 /// Diagnostic context populated up-front in `build_wasm_unknown_unknown()`,
