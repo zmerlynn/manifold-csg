@@ -204,6 +204,10 @@ it, so the vector accessors are internal.
 | `manifold_meshgl64_run_flags` | [`MeshGL64::run_flags`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_run_flags_length` | Internal |
 | `manifold_meshgl64_run_flags_length` | Internal |
+| `manifold_meshgl_backside` | [`MeshGL::backside`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_backside` | [`MeshGL64::backside`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl_has_normals` | [`MeshGL::has_normals`](crates/manifold-csg/src/mesh.rs) |
+| `manifold_meshgl64_has_normals` | [`MeshGL64::has_normals`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_merge` | [`MeshGL::merge`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_merge` | [`MeshGL64::merge`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_merge_from_vert` | [`MeshGL::merge_from_vert`](crates/manifold-csg/src/mesh.rs) |
@@ -391,7 +395,7 @@ otherwise (`Not used`, `Not needed (alloc size)`, `Not wrapped`).
 | Ray casting | 1 | 3 | 0 |
 | CrossSection construction & booleans | 17 | 0 | 0 |
 | CrossSection transforms & queries | 14 | 0 | 1 |
-| MeshGL/MeshGL64 | 40 | 20 | 2 |
+| MeshGL/MeshGL64 | 44 | 20 | 2 |
 | Triangulation | 1 | 2 | 1 |
 | Quality globals | 6 | 0 | 0 |
 | Box3D (BoundingBox) | 16 | 0 | 1 |
@@ -400,7 +404,7 @@ otherwise (`Not used`, `Not needed (alloc size)`, `Not wrapped`).
 | Vector containers | 0 | 10 | 6 |
 | ExecutionContext (cancel/progress + factories) | 9 | 0 | 2 |
 | Alloc/delete/destruct | 0 | 39 | 0 |
-| **Total** | **190** | **79** | **21** |
+| **Total** | **194** | **79** | **21** |
 
 190 + 79 + 21 = 290, matching the sys crate's 290 declarations.
 

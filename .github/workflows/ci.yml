@@ -25,9 +25,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Catches the drift mode where a function gets bound in the sys crate
-      # but API_COVERAGE.md is never updated, which left the whole ray-casting
-      # surface undocumented and the Summary reporting 208 against 290.
+      # Catches drift in both directions: a function bound in the sys crate but
+      # never added to API_COVERAGE.md (which left the whole ray-casting surface
+      # undocumented and the Summary reporting 208 against 290), and a function
+      # upstream added that we never bound (which hid meshgl backside/has_normals
+      # for four releases). The second check fetches the pinned manifoldc.h, so
+      # this job needs network; MANIFOLD_CSG_HEADER overrides it with a local file.
       - run: python3 scripts/check-api-coverage.py
       # upstream-watch.yml only runs weekly, so without this a syntax error in
       # its script would ship and first surface as a red job days later.
@@ -186,7 +189,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-nix-offline-${{ hashFiles('flake.lock') }}-
 
       # Exercises the MANIFOLD_CSG_LIB_DIR offline hatch (issue #49): the
-      # devShell links nixpkgs' prebuilt `manifold` (3.5.2, matching our pin)
+      # devShell links nixpkgs' prebuilt `manifold` (3.5.3, matching our pin)
       # instead of cloning + compiling manifold3d, so build.rs skips the clone
       # AND cmake. This is the only lane that covers the from-source bypass.
       - name: Build + test against prebuilt manifold

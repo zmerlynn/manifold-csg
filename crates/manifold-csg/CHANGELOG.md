@@ -7,6 +7,29 @@ migration guides live at the repo root and are linked below.
 Watch especially for **behavioral** changes marked below: these compile cleanly
 but change output, so the compiler will not catch them for you.
 
+## 0.4.1
+
+Additive; no changes required.
+
+- Upstream pin moved to manifold3d v3.5.3. It fixes degree-based angle
+  reduction on Windows ARM64, where the `std::remquo` path in `sind` gave
+  wrong results. Everything built on it was affected on that target:
+  `rotate`, `cylinder`, `circle`, `revolve`, and `extrude`'s twist.
+  Upstream's regression case extrudes a unit square to height 10 and got a
+  volume of 11.67 instead of 10. No other platform is affected, and there
+  is no C API change, so no source or API changes here. Carried by
+  `manifold-csg-sys` 3.5.105.
+- Bound `MeshGL::backside` / `has_normals` and the `MeshGL64` equivalents.
+  These decode the per-run flag bits (bit 0 backside, bit 1 normals-in-props)
+  that `run_flags` returns raw, and had been in upstream's C header, unbound,
+  since manifold3d v3.5.0. `run_flags` now documents the bit layout too.
+- `Manifold::batch_boolean` is public, matching `CrossSection::batch_boolean`.
+  It is the only way to reach `OpType::Intersect` in batch; `batch_union` and
+  `batch_difference` are unchanged.
+- Documented `to_meshgl` and `to_meshgl_with_normals` as lossy. They perform
+  the same f64 -> f32 narrowing that `to_mesh_f32` already warned about, and
+  are what it calls. Same for `smooth_f32` on the input side.
+
 ## 0.4.0
 
 **If you do not enable the `nalgebra` feature, this release changes nothing
