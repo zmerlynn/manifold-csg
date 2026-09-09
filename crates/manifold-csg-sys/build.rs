@@ -25,7 +25,7 @@ use std::sync::OnceLock;
 /// wasm-uu build (which passes it through to the shim's
 /// `wasm_cxx_shim_add_manifold()` helper as `MANIFOLD_GIT_TAG`, so both
 /// paths build against the same C API surface).
-pub(crate) const MANIFOLD_VERSION: &str = "v3.5.2";
+pub(crate) const MANIFOLD_VERSION: &str = "v3.5.3";
 
 /// Detect `sccache` on PATH and return cmake args that route the C/C++
 /// compiler through it as a launcher. Returns empty if sccache isn't

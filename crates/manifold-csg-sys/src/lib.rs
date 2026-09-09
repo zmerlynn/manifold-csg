@@ -518,6 +518,14 @@ unsafe extern "C" {
     /// Get the number of triangle runs.
     pub fn manifold_meshgl_num_run(m: *const ManifoldMeshGL) -> usize;
 
+    /// Non-zero when run `run` is a mirrored (backside) instance, i.e. bit 0
+    /// of its run flag.
+    pub fn manifold_meshgl_backside(m: *const ManifoldMeshGL, run: usize) -> c_int;
+
+    /// Non-zero when property slots 3, 4, 5 of run `run` carry world-frame
+    /// vertex normals, i.e. bit 1 of its run flag.
+    pub fn manifold_meshgl_has_normals(m: *const ManifoldMeshGL, run: usize) -> c_int;
+
     // ── MeshGL64 construction (f64 vertices, u64 indices) ───────────────
 
     /// Create a `MeshGL64` from f64 vertex properties and u64 triangle indices.
@@ -641,6 +649,14 @@ unsafe extern "C" {
 
     /// Get the number of triangle runs.
     pub fn manifold_meshgl64_num_run(m: *const ManifoldMeshGL64) -> usize;
+
+    /// Non-zero when run `run` is a mirrored (backside) instance, i.e. bit 0
+    /// of its run flag.
+    pub fn manifold_meshgl64_backside(m: *const ManifoldMeshGL64, run: usize) -> c_int;
+
+    /// Non-zero when property slots 3, 4, 5 of run `run` carry world-frame
+    /// vertex normals, i.e. bit 1 of its run flag.
+    pub fn manifold_meshgl64_has_normals(m: *const ManifoldMeshGL64, run: usize) -> c_int;
 
     // ── SDF (level set) ────────────────────────────────────────────────
 

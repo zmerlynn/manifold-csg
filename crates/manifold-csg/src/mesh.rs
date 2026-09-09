@@ -398,6 +398,11 @@ impl MeshGL {
     }
 
     /// Copy run flags out as a u8 array (one per triangle run).
+    ///
+    /// Each byte is a bitfield: bit 0 marks a backside run, bit 1 marks a run
+    /// whose property slots 3, 4, 5 hold vertex normals. Prefer
+    /// [`backside`](Self::backside) and [`has_normals`](Self::has_normals),
+    /// which decode a single run without you hard-coding the bit positions.
     #[must_use]
     pub fn run_flags(&self) -> Vec<u8> {
         // SAFETY: self.ptr is valid (invariant).
@@ -406,6 +411,32 @@ impl MeshGL {
         // SAFETY: buf has capacity len, self.ptr is valid.
         unsafe { manifold_meshgl_run_flags(buf.as_mut_ptr(), self.ptr) };
         buf
+    }
+
+    /// Whether triangle run `run` is on the backside compared to the original
+    /// mesh, for example because it came from a subtraction.
+    ///
+    /// Informational only: the kernel already orients stored normals, so the
+    /// mesh accessors return world-frame values either way. Returns `false`
+    /// for an out-of-range `run`.
+    #[must_use]
+    pub fn backside(&self, run: usize) -> bool {
+        // SAFETY: self.ptr is valid (invariant). Upstream range-checks `run`.
+        unsafe { manifold_meshgl_backside(self.ptr, run) != 0 }
+    }
+
+    /// Whether property slots 3, 4, 5 of triangle run `run` carry world-frame
+    /// vertex normals.
+    ///
+    /// Set by [`Manifold::calculate_normals`](crate::Manifold::calculate_normals)
+    /// with `normal_idx` 0 and round-tripped through the run flags. Consumers
+    /// should read that slot as normals and not re-apply the run transform to
+    /// it. The flag is per-run, so runs may disagree. Returns `false` for an
+    /// out-of-range `run`.
+    #[must_use]
+    pub fn has_normals(&self, run: usize) -> bool {
+        // SAFETY: self.ptr is valid (invariant). Upstream range-checks `run`.
+        unsafe { manifold_meshgl_has_normals(self.ptr, run) != 0 }
     }
 }
 
@@ -711,6 +742,11 @@ impl MeshGL64 {
     }
 
     /// Copy run flags out as a u8 array (one per triangle run).
+    ///
+    /// Each byte is a bitfield: bit 0 marks a backside run, bit 1 marks a run
+    /// whose property slots 3, 4, 5 hold vertex normals. Prefer
+    /// [`backside`](Self::backside) and [`has_normals`](Self::has_normals),
+    /// which decode a single run without you hard-coding the bit positions.
     #[must_use]
     pub fn run_flags(&self) -> Vec<u8> {
         // SAFETY: self.ptr is valid (invariant).
@@ -719,6 +755,32 @@ impl MeshGL64 {
         // SAFETY: buf has capacity len, self.ptr is valid.
         unsafe { manifold_meshgl64_run_flags(buf.as_mut_ptr(), self.ptr) };
         buf
+    }
+
+    /// Whether triangle run `run` is on the backside compared to the original
+    /// mesh, for example because it came from a subtraction.
+    ///
+    /// Informational only: the kernel already orients stored normals, so the
+    /// mesh accessors return world-frame values either way. Returns `false`
+    /// for an out-of-range `run`.
+    #[must_use]
+    pub fn backside(&self, run: usize) -> bool {
+        // SAFETY: self.ptr is valid (invariant). Upstream range-checks `run`.
+        unsafe { manifold_meshgl64_backside(self.ptr, run) != 0 }
+    }
+
+    /// Whether property slots 3, 4, 5 of triangle run `run` carry world-frame
+    /// vertex normals.
+    ///
+    /// Set by [`Manifold::calculate_normals`](crate::Manifold::calculate_normals)
+    /// with `normal_idx` 0 and round-tripped through the run flags. Consumers
+    /// should read that slot as normals and not re-apply the run transform to
+    /// it. The flag is per-run, so runs may disagree. Returns `false` for an
+    /// out-of-range `run`.
+    #[must_use]
+    pub fn has_normals(&self, run: usize) -> bool {
+        // SAFETY: self.ptr is valid (invariant). Upstream range-checks `run`.
+        unsafe { manifold_meshgl64_has_normals(self.ptr, run) != 0 }
     }
 
     /// Read a MeshGL64 from a Wavefront OBJ string.

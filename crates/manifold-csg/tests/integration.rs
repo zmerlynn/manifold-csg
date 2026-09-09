@@ -1331,6 +1331,31 @@ fn nalgebra_split_by_plane() {
     assert_relative_eq!(neg.volume(), 500.0, epsilon = 5.0);
 }
 
+#[cfg(feature = "nalgebra")]
+#[test]
+fn nalgebra_trim_by_plane() {
+    use nalgebra::Vector3;
+    let cube = Manifold::cube(10.0, 10.0, 10.0, true);
+    let normal = Vector3::new(0.0, 0.0, -1.0);
+    let trimmed = cube.trim_by_plane_nalgebra(&normal, 0.0);
+    assert_relative_eq!(trimmed.volume(), 500.0, epsilon = 5.0);
+}
+
+#[cfg(feature = "nalgebra")]
+#[test]
+fn nalgebra_mirror() {
+    use nalgebra::Vector3;
+    // A cube offset along x, mirrored through the yz plane, lands on the
+    // other side with its volume intact.
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true).translate(5.0, 0.0, 0.0);
+    let normal = Vector3::new(1.0, 0.0, 0.0);
+    let mirrored = cube.mirror_nalgebra(&normal);
+    assert_relative_eq!(mirrored.volume(), 8.0, epsilon = 0.01);
+    let (bb_min, bb_max) = mirrored.bounding_box_nalgebra().unwrap();
+    assert_relative_eq!(bb_min.x, -6.0, epsilon = 0.01);
+    assert_relative_eq!(bb_max.x, -4.0, epsilon = 0.01);
+}
+
 // ── BoundingBox tests ──────────────────────────────────────────────────
 
 #[test]
@@ -2823,4 +2848,114 @@ fn menger_sponge_level_2_has_more_triangles_than_level_1() {
     let l1 = menger_sponge(1);
     let l2 = menger_sponge(2);
     assert!(l2.num_tri() > l1.num_tri());
+}
+
+// ── Run metadata (run flags, backside, normals) ─────────────────────────
+
+#[test]
+fn meshgl_run_metadata_defaults_for_a_primitive() {
+    let m = Manifold::cube(2.0, 2.0, 2.0, true).to_meshgl();
+    assert_eq!(m.num_run(), 1, "an unbooleaned primitive is a single run");
+    assert_eq!(m.run_flags().len(), m.num_run());
+    assert_eq!(m.run_flags(), vec![0]);
+    assert!(m.tolerance() > 0.0);
+    assert!(!m.backside(0));
+    assert!(!m.has_normals(0));
+}
+
+#[test]
+fn meshgl64_run_metadata_defaults_for_a_primitive() {
+    let m = Manifold::cube(2.0, 2.0, 2.0, true).to_meshgl64();
+    assert_eq!(m.num_run(), 1);
+    assert_eq!(m.run_flags().len(), m.num_run());
+    assert!(m.tolerance() > 0.0);
+    assert!(!m.backside(0));
+    assert!(!m.has_normals(0));
+}
+
+#[test]
+fn difference_marks_the_subtracted_run_as_backside() {
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
+    let m = cube.difference(&Manifold::sphere(0.8, 16)).to_meshgl64();
+
+    assert_eq!(m.num_run(), 2, "the cube and the subtracted sphere");
+    assert!(!m.backside(0), "the cube's own run keeps its orientation");
+    assert!(m.backside(1), "the subtracted run is mirrored");
+
+    // The decoders must agree with the raw bits they decode.
+    let flags = m.run_flags();
+    for (run, flag) in flags.iter().enumerate() {
+        assert_eq!(m.backside(run), flag & 1 != 0);
+        assert_eq!(m.has_normals(run), flag & 2 != 0);
+    }
+}
+
+#[test]
+fn calculate_normals_sets_the_has_normals_flag() {
+    let plain = Manifold::cube(2.0, 2.0, 2.0, true).to_meshgl64();
+    assert!(!plain.has_normals(0));
+
+    let m = Manifold::cube(2.0, 2.0, 2.0, true)
+        .calculate_normals(0, 60.0)
+        .to_meshgl64();
+    assert!(m.has_normals(0));
+    assert_eq!(m.run_flags(), vec![2], "bit 1, and not the backside bit");
+}
+
+#[test]
+fn run_decoders_return_false_out_of_range() {
+    let m = Manifold::cube(1.0, 1.0, 1.0, true).to_meshgl64();
+    let past_end = m.num_run() + 500;
+    assert!(!m.backside(past_end));
+    assert!(!m.has_normals(past_end));
+}
+
+// ── Generic batch boolean ───────────────────────────────────────────────
+
+#[test]
+fn batch_boolean_intersects_offset_cubes() {
+    // Three 2-cubes centered at the origin, shifted along x by 0, 0.5 and 1.
+    // They overlap on x in [0, 1], leaving a 1 x 2 x 2 slab.
+    let cubes: Vec<Manifold> = [0.0, 0.5, 1.0]
+        .iter()
+        .map(|dx| Manifold::cube(2.0, 2.0, 2.0, true).translate(*dx, 0.0, 0.0))
+        .collect();
+    let result = Manifold::batch_boolean(&cubes, OpType::Intersect);
+    assert_relative_eq!(result.volume(), 4.0, epsilon = 0.01);
+}
+
+#[test]
+fn batch_boolean_empty_input() {
+    let result = Manifold::batch_boolean(&[], OpType::Intersect);
+    assert!(result.is_empty());
+}
+
+#[test]
+fn cross_section_batch_boolean_intersects_offset_squares() {
+    // Same construction in 2D: overlap is x in [0, 1], y in [-1, 1].
+    let squares: Vec<CrossSection> = [0.0, 0.5, 1.0]
+        .iter()
+        .map(|dx| CrossSection::square(2.0, 2.0, true).translate(*dx, 0.0))
+        .collect();
+    let result = CrossSection::batch_boolean(&squares, OpType::Intersect);
+    assert_relative_eq!(result.area(), 2.0, epsilon = 0.01);
+}
+
+// ── Tolerance and property vertices ─────────────────────────────────────
+
+#[test]
+fn set_tolerance_round_trips_through_get_tolerance() {
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
+    let before = cube.get_tolerance();
+    assert!(before > 0.0 && before < 0.25);
+
+    let loosened = cube.set_tolerance(0.25);
+    assert_relative_eq!(loosened.get_tolerance(), 0.25);
+    assert_relative_eq!(cube.get_tolerance(), before, epsilon = f64::EPSILON);
+}
+
+#[test]
+fn num_prop_vert_counts_property_vertices() {
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
+    assert_eq!(cube.num_prop_vert(), cube.num_vert());
 }

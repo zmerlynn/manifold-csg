@@ -375,7 +375,8 @@ impl Manifold {
 
     /// Create a smooth manifold from f32 mesh data with per-halfedge smoothness.
     ///
-    /// See [`smooth_f64`](Self::smooth_f64) for details.
+    /// Uses MeshGL (f32) internally. Prefer [`smooth_f64`](Self::smooth_f64)
+    /// for precision-sensitive work; see it for the parameter details.
     pub fn smooth_f32(
         vert_props: &[f32],
         n_props: usize,
@@ -495,6 +496,11 @@ impl Manifold {
     ///
     /// Returns the full [`MeshGL`] container, including run metadata, face IDs,
     /// merge vectors, and tangents when present.
+    ///
+    /// **Lossy.** The kernel holds geometry in f64; this narrows every
+    /// coordinate to f32 on the way out, which costs sub-mm detail at large
+    /// coordinates. Prefer [`to_meshgl64`](Self::to_meshgl64) unless a
+    /// downstream consumer (GPU buffer, f32 file format) requires f32.
     #[must_use]
     pub fn to_meshgl(&self) -> MeshGL {
         // SAFETY: manifold_alloc_meshgl returns a valid handle.
@@ -510,6 +516,11 @@ impl Manifold {
     /// Returns the full [`MeshGL`] container. See
     /// [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) for the
     /// `normal_idx` semantics.
+    ///
+    /// **Lossy.** The kernel holds geometry in f64; this narrows every
+    /// coordinate to f32 on the way out. Prefer
+    /// [`to_meshgl64_with_normals`](Self::to_meshgl64_with_normals) unless a
+    /// downstream consumer (GPU buffer, f32 file format) requires f32.
     #[must_use]
     pub fn to_meshgl_with_normals(&self, normal_idx: i32) -> MeshGL {
         // SAFETY: manifold_alloc_meshgl returns a valid handle.
@@ -794,7 +805,14 @@ impl Manifold {
         Self::batch_boolean(manifolds, OpType::Subtract)
     }
 
-    fn batch_boolean(manifolds: &[Self], op: OpType) -> Self {
+    /// Batch boolean: apply `op` across multiple manifolds in one operation.
+    ///
+    /// Prefer [`batch_union`](Self::batch_union) or
+    /// [`batch_difference`](Self::batch_difference) for readability. This is
+    /// the way to reach [`OpType::Intersect`] in batch, and the one to use
+    /// when the operation is chosen at runtime.
+    #[must_use]
+    pub fn batch_boolean(manifolds: &[Self], op: OpType) -> Self {
         if manifolds.is_empty() {
             return Self::empty();
         }

@@ -35,9 +35,9 @@ const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
 // surfaced by v3.5.0's new ExecutionContext-attached-via-shared_ptr
 // model. The shim's tested-pin default is `v3.5.0`.
 //
-// Our host pin (MANIFOLD_VERSION) is now `v3.5.2`, two patch releases
+// Our host pin (MANIFOLD_VERSION) is now `v3.5.3`, three patch releases
 // PAST the shim's tested pin. Build.rs passes `-DMANIFOLD_GIT_TAG=<our
-// pin>` (below), so the wasm-uu lane builds v3.5.2 through the shim.
+// pin>` (below), so the wasm-uu lane builds v3.5.3 through the shim.
 //
 // This is lower-risk than the tested-pin gap suggests: the v0.5.0 helper
 // ships no carry-patches for default-pin builds (it passes GIT_TAG
@@ -45,7 +45,7 @@ const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
 // EXTRA_MANIFOLD_PATCHES, which we do not pass). So there is no patch
 // that can fail to apply against a newer manifold. What the shim does
 // supply is the libc++/libc surface manifold compiles against, so the
-// residual risk is a compile break if v3.5.2 reaches for something the
+// residual risk is a compile break if v3.5.3 reaches for something the
 // shim lacks - which the wasm-uu CI lane catches directly.
 //
 // If it does break, the fix is either (a) a shim release pinned past our

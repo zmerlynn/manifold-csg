@@ -209,21 +209,13 @@ impl CrossSection {
             return Self::empty();
         }
 
-        let (polys_ptr, simple_ptrs) = build_polygons_ffi(polygons);
+        let polys = PolygonsFfi::new(polygons);
 
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and polys_ptr are valid.
+        // SAFETY: ptr and polys.ptr() are valid.
         unsafe {
-            manifold_cross_section_of_polygons(ptr, polys_ptr, fill_rule.to_ffi());
-        }
-
-        // Clean up polygon allocations.
-        // SAFETY: polys_ptr and simple polygon handles are valid and no longer needed.
-        unsafe { manifold_delete_polygons(polys_ptr) };
-        for sp in simple_ptrs {
-            // SAFETY: sp is valid and no longer needed.
-            unsafe { manifold_delete_simple_polygon(sp) };
+            manifold_cross_section_of_polygons(ptr, polys.ptr(), fill_rule.to_ffi());
         }
 
         Self { ptr }
@@ -305,19 +297,12 @@ impl CrossSection {
             return Self::empty();
         }
 
-        let (polys_ptr, simple_ptrs) = build_polygons_ffi(polygons);
+        let polys = PolygonsFfi::new(polygons);
 
         // SAFETY: manifold_alloc_cross_section returns a valid handle.
         let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and polys_ptr are valid.
-        unsafe { manifold_cross_section_hull_polygons(ptr, polys_ptr) };
-
-        // SAFETY: polys_ptr and simple polygon handles are valid and no longer needed.
-        unsafe { manifold_delete_polygons(polys_ptr) };
-        for sp in simple_ptrs {
-            // SAFETY: sp is valid and no longer needed.
-            unsafe { manifold_delete_simple_polygon(sp) };
-        }
+        // SAFETY: ptr and polys.ptr() are valid.
+        unsafe { manifold_cross_section_hull_polygons(ptr, polys.ptr()) };
 
         Self { ptr }
     }
@@ -782,30 +767,58 @@ impl ops::BitXor for &CrossSection {
 
 // ── Internal helper: build polygon FFI objects from Rust slices ──────────
 
-/// Build ManifoldPolygons + ManifoldSimplePolygon handles from polygon rings.
+/// A C-side `ManifoldPolygons` built from Rust rings, together with the simple
+/// polygon handles it was assembled from.
 ///
-/// The caller is responsible for freeing both the returned `ManifoldPolygons`
-/// and each `ManifoldSimplePolygon` in the vector.
-pub(crate) fn build_polygons_ffi(
-    polygons: &[Vec<[f64; 2]>],
-) -> (*mut ManifoldPolygons, Vec<*mut ManifoldSimplePolygon>) {
-    let mut simple_ptrs: Vec<*mut ManifoldSimplePolygon> = Vec::with_capacity(polygons.len());
-    for ring in polygons {
-        let vec2s: Vec<ManifoldVec2> = ring
-            .iter()
-            .map(|p| ManifoldVec2 { x: p[0], y: p[1] })
-            .collect();
-        // SAFETY: manifold_alloc_simple_polygon returns a valid handle.
-        let sp = unsafe { manifold_alloc_simple_polygon() };
-        // SAFETY: sp is valid, vec2s is a valid slice.
-        unsafe { manifold_simple_polygon(sp, vec2s.as_ptr(), vec2s.len()) };
-        simple_ptrs.push(sp);
+/// Both kinds of handle have to stay alive until the call that consumes
+/// [`ptr`](Self::ptr) returns, and both have to be freed afterwards. Owning
+/// them here and freeing in `Drop` keeps that true on every path out of the
+/// caller, including a panic, which a free at the end of the function body
+/// does not.
+pub(crate) struct PolygonsFfi {
+    ptr: *mut ManifoldPolygons,
+    simple: Vec<*mut ManifoldSimplePolygon>,
+}
+
+impl PolygonsFfi {
+    pub(crate) fn new(polygons: &[Vec<[f64; 2]>]) -> Self {
+        let mut simple: Vec<*mut ManifoldSimplePolygon> = Vec::with_capacity(polygons.len());
+        for ring in polygons {
+            let vec2s: Vec<ManifoldVec2> = ring
+                .iter()
+                .map(|p| ManifoldVec2 { x: p[0], y: p[1] })
+                .collect();
+            // SAFETY: manifold_alloc_simple_polygon returns a valid handle.
+            let sp = unsafe { manifold_alloc_simple_polygon() };
+            // SAFETY: sp is valid, vec2s is a valid slice.
+            unsafe { manifold_simple_polygon(sp, vec2s.as_ptr(), vec2s.len()) };
+            simple.push(sp);
+        }
+
+        // SAFETY: manifold_alloc_polygons returns a valid handle.
+        let ptr = unsafe { manifold_alloc_polygons() };
+        // SAFETY: ptr is valid, simple is a valid slice of valid handles.
+        unsafe { manifold_polygons(ptr, simple.as_ptr(), simple.len()) };
+
+        Self { ptr, simple }
     }
 
-    // SAFETY: manifold_alloc_polygons returns a valid handle.
-    let polys_ptr = unsafe { manifold_alloc_polygons() };
-    // SAFETY: polys_ptr is valid, simple_ptrs is a valid slice of valid handles.
-    unsafe { manifold_polygons(polys_ptr, simple_ptrs.as_ptr(), simple_ptrs.len()) };
+    pub(crate) fn ptr(&self) -> *mut ManifoldPolygons {
+        self.ptr
+    }
+}
 
-    (polys_ptr, simple_ptrs)
+impl Drop for PolygonsFfi {
+    fn drop(&mut self) {
+        if !self.ptr.is_null() {
+            // SAFETY: self.ptr is valid (invariant) and freed exactly once.
+            unsafe { manifold_delete_polygons(self.ptr) };
+        }
+        for sp in self.simple.drain(..) {
+            if !sp.is_null() {
+                // SAFETY: sp is valid (invariant) and freed exactly once.
+                unsafe { manifold_delete_simple_polygon(sp) };
+            }
+        }
+    }
 }
