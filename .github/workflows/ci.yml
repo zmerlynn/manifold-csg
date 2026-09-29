@@ -189,7 +189,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-nix-offline-${{ hashFiles('flake.lock') }}-
 
       # Exercises the MANIFOLD_CSG_LIB_DIR offline hatch (issue #49): the
-      # devShell links nixpkgs' prebuilt `manifold` (3.5.3, matching our pin)
+      # devShell links nixpkgs' prebuilt `manifold` (3.5.4, matching our pin)
       # instead of cloning + compiling manifold3d, so build.rs skips the clone
       # AND cmake. This is the only lane that covers the from-source bypass.
       - name: Build + test against prebuilt manifold
