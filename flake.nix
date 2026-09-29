@@ -9,10 +9,10 @@
   # This flake targets the *offline* build path (issue #49): it links the
   # pre-built `manifold` package from nixpkgs via the crate's
   # `MANIFOLD_CSG_LIB_DIR` escape hatch instead of letting build.rs clone +
-  # compile manifold3d. nixpkgs' `manifold` is 3.5.3, matching this crate's
+  # compile manifold3d. nixpkgs' `manifold` is 3.5.4, matching this crate's
   # MANIFOLD_VERSION pin exactly, so there's no ABI/version drift. The
   # committed flake.lock pins the exact nixpkgs revision that resolves
-  # manifold 3.5.3, so `nix develop` is reproducible (run `nix flake update`
+  # manifold 3.5.4, so `nix develop` is reproducible (run `nix flake update`
   # to advance, which must stay in step with MANIFOLD_VERSION).
   #
   # It exposes a devShell (and CI uses `nix develop -c cargo test ...` to

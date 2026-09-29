@@ -7,6 +7,17 @@ migration guides live at the repo root and are linked below.
 Watch especially for **behavioral** changes marked below: these compile cleanly
 but change output, so the compiler will not catch them for you.
 
+## 0.4.2
+
+- Upstream pin moved to manifold3d v3.5.4. **Nothing in that release reaches
+  this crate.** All of it is a fix to upstream's own JavaScript bindings:
+  `-sDYNAMIC_EXECUTION=0` and `-sEMBIND_AOT` on their `manifoldjs` emscripten
+  target, so those bindings load under a Content-Security-Policy without
+  `unsafe-eval`. We build with `MANIFOLD_JSBIND=OFF`, so that target is never
+  configured, and nothing under `src/`, `include/` or `bindings/c/` changed.
+  The bump exists to keep the pin current. Carried by `manifold-csg-sys`
+  3.5.106.
+
 ## 0.4.1
 
 Additive; no changes required.
