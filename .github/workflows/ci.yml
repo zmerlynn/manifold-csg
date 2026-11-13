@@ -312,7 +312,15 @@ jobs:
       # and the iostream patches successfully eliminated the OBJ I/O imports.
       - name: Verify zero imports (integration test wasm)
         run: |
-          WASM=$(ls -t target/wasm32-unknown-unknown/debug/deps/integration-*.wasm | head -1)
+          # Ask cargo for the path rather than globbing target/: cargo 1.100
+          # moved test binaries out of deps/ into build/<pkg>/<hash>/out/.
+          # Everything is already built, so this is a no-op build.
+          WASM=$(cargo build --target wasm32-unknown-unknown -p manifold-csg --no-default-features --features unstable-wasm-uu --tests --message-format=json \
+            | jq -r 'select(.reason == "compiler-artifact" and .target.name == "integration" and .profile.test) | .executable')
+          if [ -z "$WASM" ] || [ ! -f "$WASM" ]; then
+            echo "cargo reported no integration test wasm (got: '$WASM')"
+            exit 1
+          fi
           echo "Inspecting: $WASM"
           # wasm-objdump prints "Section not found: Import" when there's no Import section.
           if wasm-objdump -x -j Import "$WASM" 2>&1 | grep -q "Section not found"; then
