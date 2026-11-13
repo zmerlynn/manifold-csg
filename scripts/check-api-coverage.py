@@ -33,10 +33,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import pins
+
 ROOT = Path(__file__).resolve().parent.parent
 SYS = ROOT / "crates/manifold-csg-sys/src/lib.rs"
 DOC = ROOT / "API_COVERAGE.md"
-BUILD_RS = ROOT / "crates/manifold-csg-sys/build.rs"
 
 HEADER_URL = (
     "https://raw.githubusercontent.com/elalish/manifold/"
@@ -55,15 +56,12 @@ class CheckError(Exception):
 
 
 def pinned_version():
-    m = re.search(
-        r'MANIFOLD_VERSION:\s*&str\s*=\s*"([^"]+)"', BUILD_RS.read_text()
-    )
-    if not m:
-        raise CheckError(
-            f"no MANIFOLD_VERSION string in {BUILD_RS.relative_to(ROOT)}; "
-            "the constant was renamed or reshaped"
-        )
-    return m.group(1)
+    # pins.py owns the parse rule, shared with check-upstream.py and the
+    # flake-lock workflow.
+    try:
+        return pins.read("manifold")
+    except pins.PinError as e:
+        raise CheckError(str(e)) from e
 
 
 def strip_comments(text):

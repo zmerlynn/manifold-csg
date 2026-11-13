@@ -52,6 +52,11 @@ const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
 // version, or (b) pin this lane back here and cfg-gate any newer-only FFI
 // on `not(all(target_arch = "wasm32", target_os = "unknown"))`. See
 // CLAUDE.md "Versioning" / "Pin / shim follow-ups".
+//
+// Keep the line below exactly this shape: `const WASM_CXX_SHIM_TAG: &str =
+// "...";`, alone on its line, with no trailing comment, and declared only
+// once. scripts/pins.py reads it by matching that exact line, for the
+// upstream-watch check.
 const WASM_CXX_SHIM_TAG: &str = "v0.5.0";
 
 /// Diagnostic context populated up-front in `build_wasm_unknown_unknown()`,

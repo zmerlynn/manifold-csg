@@ -36,6 +36,9 @@
         # declaration line exactly, one line at a time: a whole-file regex
         # would also match a commented-out old pin or a doc example, and with
         # a greedy `.*` the last one wins. Exactly one declaration must match.
+        # scripts/pins.py applies the same rule for everything outside Nix,
+        # and the nix-offline CI lane checks that the two agree, so change
+        # both together.
         pinLines = lib.filter (l: l != null) (
           map (
             l: builtins.match ''pub\(crate\) const MANIFOLD_VERSION: &str = "([^"]*)";'' (lib.removeSuffix "\r" l)

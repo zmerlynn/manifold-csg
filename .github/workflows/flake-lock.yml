@@ -77,13 +77,9 @@ jobs:
         id: update
         run: |
           set -euo pipefail
-          # Same exact-line match flake.nix uses. A SHA pin fails here, as it
-          # fails flake.nix evaluation.
-          pin=$(sed -nE 's/^pub\(crate\) const MANIFOLD_VERSION: &str = "v([0-9]+\.[0-9]+\.[0-9]+)";\r?$/\1/p' crates/manifold-csg-sys/build.rs)
-          if [ "$(printf '%s' "$pin" | grep -c .)" != 1 ]; then
-            echo "::error::expected one vX.Y.Z MANIFOLD_VERSION line in build.rs, got: '$pin'"
-            exit 1
-          fi
+          # pins.py applies the same rule flake.nix does (CI checks they
+          # agree). A SHA pin fails here, as it fails flake.nix evaluation.
+          pin=$(python3 scripts/pins.py manifold --tag)
           title="$TITLE_PREFIX $pin"
           # manifold from the nixpkgs that flake.lock pins.
           locked() { nix eval --raw --inputs-from . nixpkgs#manifold.version; }

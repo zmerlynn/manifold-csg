@@ -196,6 +196,18 @@ jobs:
       - name: Build + test against prebuilt manifold
         run: nix develop --command bash -c "cargo test --features nalgebra"
 
+      # flake.nix has its own copy of the pin parse (Nix evaluation cannot
+      # run scripts/pins.py, which everything else uses). Check the manifold
+      # the devShell links is the version pins.py reads, so the two parsers
+      # cannot drift apart unnoticed.
+      - name: Flake and pins.py agree on MANIFOLD_VERSION
+        run: |
+          system=$(nix eval --impure --raw --expr builtins.currentSystem)
+          linked=$(nix eval --raw ".#devShells.$system.default.buildInputs" --apply 'b: (builtins.head b).version')
+          pinned=$(python3 scripts/pins.py manifold --tag)
+          echo "flake links $linked, pins.py reads $pinned"
+          test "$linked" = "$pinned"
+
   emscripten:
     name: Emscripten (wasm32)
     runs-on: ubuntu-latest

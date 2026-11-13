@@ -42,11 +42,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-BUILD_RS = ROOT / "crates/manifold-csg-sys/build.rs"
-WASM_RS = ROOT / "crates/manifold-csg-sys/build/wasm.rs"
+import pins
 
 UA = "manifold-csg-upstream-watch (+https://github.com/zmerlynn/manifold-csg)"
 MANIFOLD = "elalish/manifold"
@@ -117,21 +114,14 @@ def api(path, retries=4):
     raise last
 
 
-def const(path, name):
-    """Read a `const NAME: &str = "..."`, anchored so a doc comment or a
-    commented-out line cannot be picked up instead."""
+def const(key):
+    """A pin via pins.py, which owns the parse rule (exactly one line that is
+    exactly the declaration), so a doc comment or a commented-out line cannot
+    be picked up instead."""
     try:
-        text = path.read_text()
-    except OSError as e:
-        raise CheckError(f"cannot read {path.name} ({e})") from e
-    m = re.search(
-        rf'^\s*(?:pub(?:\([^)]*\))?\s+)?const {name}: &str = "([^"]+)";',
-        text,
-        re.M,
-    )
-    if not m:
-        raise CheckError(f"could not find `const {name}` in {path.name}")
-    return m.group(1)
+        return pins.read(key)
+    except pins.PinError as e:
+        raise CheckError(str(e)) from e
 
 
 def newest_release(repo):
@@ -153,9 +143,9 @@ def newest_release(repo):
     return best[1] if best else None
 
 
-def check_pin(label, path, name, repo):
+def check_pin(label, key, repo):
     """(finding, skip) for one pinned tag."""
-    pinned = const(path, name)
+    pinned = const(key)
     pin_v = version(pinned)
     if pin_v is None:
         return None, (
@@ -190,11 +180,11 @@ def main():
         except Exception as e:  # noqa: BLE001 - transient: network, DNS, 5xx
             errors.append(f"- **{label}**: lookup failed, status unknown ({e})")
 
-    for label, path, name, repo in (
-        ("manifold3d", BUILD_RS, "MANIFOLD_VERSION", MANIFOLD),
-        ("wasm-cxx-shim", WASM_RS, "WASM_CXX_SHIM_TAG", SHIM),
+    for label, key, repo in (
+        ("manifold3d", "manifold", MANIFOLD),
+        ("wasm-cxx-shim", "shim", SHIM),
     ):
-        run(label, lambda p=path, n=name, r=repo, l=label: check_pin(l, p, n, r))
+        run(label, lambda k=key, r=repo, l=label: check_pin(l, k, r))
 
     out = []
     if findings:
