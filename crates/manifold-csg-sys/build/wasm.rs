@@ -386,8 +386,8 @@ pub fn build_wasm_unknown_unknown() {
                 shim_build.to_str().unwrap(),
                 "--config",
                 "Release",
-                "--parallel",
             ])
+            .args(super::cmake_parallel_args())
             .status()
             .expect("failed to run cmake build for wasm-cxx-shim");
         if !status.success() {
@@ -438,8 +438,8 @@ pub fn build_wasm_unknown_unknown() {
             manifold_build.to_str().unwrap(),
             "--config",
             "Release",
-            "--parallel",
         ])
+        .args(super::cmake_parallel_args())
         .status()
         .expect("failed to run cmake build for manifold (wasm32-uu)");
     if !status.success() {
