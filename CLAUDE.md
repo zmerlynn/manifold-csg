@@ -15,7 +15,7 @@ Safe Rust bindings to the [manifold3d](https://github.com/elalish/manifold) geom
 The sys crate clones manifold3d (currently pinned to v3.5.5) via git and builds with cmake. Requires:
 - git, cmake, a C++ compiler
 - First build is slow (clones + compiles manifold3d); subsequent builds are cached
-- `cmake --build` gets `--parallel <NUM_JOBS>` (`cmake_parallel_args()` in `build.rs`), so the C++ build follows cargo's `-j` / `CARGO_BUILD_JOBS`. Never pass a bare `--parallel`: CMake turns it into `make -j` with no limit, which ignores cargo's jobserver and compiles every ready source at once (several GB of compilers).
+- `cmake --build` gets `--parallel <N>` (`cmake_parallel_args()` in `build.rs`), with N from `CMAKE_BUILD_PARALLEL_LEVEL` if set, else cargo's `NUM_JOBS`, so the C++ build follows cargo's `-j` / `CARGO_BUILD_JOBS`. Never pass a bare `--parallel`: CMake turns it into `make -j` with no limit, which ignores cargo's jobserver and compiles every ready source at once (several GB of compilers).
 
 ### Offline / bring-your-own manifold (issue #49)
 

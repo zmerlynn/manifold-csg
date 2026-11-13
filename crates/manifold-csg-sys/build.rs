@@ -33,18 +33,22 @@ use std::sync::OnceLock;
 /// nix-offline CI lane fails if they disagree.
 pub(crate) const MANIFOLD_VERSION: &str = "v3.5.5";
 
-/// `--parallel <N>` for `cmake --build`, with N from cargo's `NUM_JOBS`.
+/// `--parallel <N>` for `cmake --build`: `CMAKE_BUILD_PARALLEL_LEVEL` if set,
+/// to throttle only the C++ build, otherwise cargo's `NUM_JOBS`.
 ///
 /// A bare `--parallel` lets the native tool pick, and for Make that is `-j`
 /// with no limit. It ignores cargo's `-j`, `CARGO_BUILD_JOBS`,
 /// `CMAKE_BUILD_PARALLEL_LEVEL` and cargo's jobserver, and compiles every
 /// ready manifold source at once, which is several GB of compilers on a small
 /// machine. Cargo sets `NUM_JOBS` for every build script, so the fallback to
-/// the machine's parallelism should never be needed.
+/// the machine's parallelism should never be needed. No rerun-if-env-changed:
+/// the job count does not change the output, so it should not force a rebuild.
 fn cmake_parallel_args() -> [String; 2] {
-    let jobs = env::var("NUM_JOBS")
+    let positive = |s: &String| s.parse::<u32>().is_ok_and(|n| n > 0);
+    let jobs = env::var("CMAKE_BUILD_PARALLEL_LEVEL")
         .ok()
-        .filter(|s| s.parse::<u32>().is_ok_and(|n| n > 0))
+        .filter(positive)
+        .or_else(|| env::var("NUM_JOBS").ok().filter(positive))
         .unwrap_or_else(|| {
             std::thread::available_parallelism()
                 .map_or(1, |n| n.get())

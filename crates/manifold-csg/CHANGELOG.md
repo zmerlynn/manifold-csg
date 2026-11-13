@@ -35,7 +35,8 @@ which pins manifold3d v3.5.5 (v3.5.4 was never released on its own here).
 - v3.5.4 itself only changed upstream's JavaScript bindings
   (`-sDYNAMIC_EXECUTION=0`, `-sEMBIND_AOT`), which we never build.
 - Build fix: the bundled manifold3d C++ build now respects cargo's job
-  limit (`-j`, `CARGO_BUILD_JOBS`). It used to run `make -j` with no limit,
+  limit (`-j`, `CARGO_BUILD_JOBS`), or `CMAKE_BUILD_PARALLEL_LEVEL` if set.
+  It used to run the native build tool with no limit (`make -j` on Unix),
   compiling every ready source file at once, which could run a small
   machine or CI runner out of memory on a clean build.
 
