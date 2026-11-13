@@ -32,7 +32,8 @@ concurrency:
 jobs:
   build:
     name: Build playground wasm
-    runs-on: ubuntu-latest
+    # Same runner as the wasm32-uu CI lane, for the same reason (see ci.yml).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -43,8 +44,8 @@ jobs:
       # Same toolchain setup as the wasm32-uu CI lane.
       - name: Install LLVM 20 + libc++ + lld
         run: |
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/keyrings/llvm.asc > /dev/null
+          echo "deb [signed-by=/etc/apt/keyrings/llvm.asc] http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
           sudo apt-get update
           # binaryen ships wasm-opt, which build.sh runs post-cargo for ~20% smaller artifacts.
           sudo apt-get install -y clang-20 lld-20 libc++-20-dev libc++abi-20-dev binaryen

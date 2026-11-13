@@ -252,7 +252,10 @@ jobs:
 
   wasm32-uu:
     name: Wasm32 (unknown-unknown)
-    runs-on: ubuntu-latest
+    # Pinned to 24.04, not ubuntu-latest: 26.04 dropped apt-key, ships no
+    # libc++-20-dev, and apt.llvm.org has no LLVM 20 for it (22+ only).
+    # Moving to 26.04 means moving the shim toolchain off LLVM 20.
+    runs-on: ubuntu-24.04
     env:
       # Pinned LLVM bin dir for build.rs's find_llvm() to skip detection
       # ladder. apt.llvm.org installs the toolchain here on Debian-family.
@@ -270,8 +273,8 @@ jobs:
       # provides wasm-objdump for the import-section assertions below.
       - name: Install LLVM 20 + libc++ + lld + wabt
         run: |
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/keyrings/llvm.asc > /dev/null
+          echo "deb [signed-by=/etc/apt/keyrings/llvm.asc] http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
           sudo apt-get update
           sudo apt-get install -y clang-20 lld-20 libc++-20-dev libc++abi-20-dev wabt
 
