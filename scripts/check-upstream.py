@@ -5,7 +5,11 @@ It looks at:
 
   1. MANIFOLD_VERSION           vs the newest elalish/manifold release
   2. WASM_CXX_SHIM_TAG          vs the newest wasm-cxx-shim release
-  3. nixpkgs' manifold, at the revision our flake.lock pins, vs MANIFOLD_VERSION
+
+Whether flake.lock's nixpkgs ships the pinned manifold is not checked here.
+flake.nix builds the pinned tag itself when it does not, and
+.github/workflows/flake-lock.yml opens the `nix flake update` PR once
+nixos-unstable catches up.
 
 Only release tags are compared for drift. A SHA or branch pin is skipped,
 not flagged: per CLAUDE.md those are a deliberate exception (a post-release
@@ -16,14 +20,14 @@ read as a clean bill of health.
 Three result classes, deliberately distinct:
 
   findings  something is wrong and will stay wrong until someone acts. Drift,
-            a nixpkgs mismatch, and structural breakage (a const that no
-            longer parses, a nixpkgs package that changed shape). Hashed, so
-            a change here is what earns a notification.
+            and structural breakage (a const that no longer parses, a repo
+            with no comparable releases). Hashed, so a change here is what
+            earns a notification.
   errors    a transient lookup failure. NOT hashed, and sets complete=false,
             because an incomplete run must not rewrite the stored state or
             reopen an issue that was deliberately deferred.
-  skips     a check that could not apply, e.g. the nixpkgs version comparison
-            against a SHA pin. Informational; never drift.
+  skips     a check that could not apply, e.g. version comparison against a
+            SHA pin. Informational; never drift.
 
 Prints a markdown report on stdout. Writes `drift`, `complete`, `title` and
 `hash` to $GITHUB_OUTPUT. Exit status is 0 whenever a report was produced;
@@ -43,7 +47,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BUILD_RS = ROOT / "crates/manifold-csg-sys/build.rs"
 WASM_RS = ROOT / "crates/manifold-csg-sys/build/wasm.rs"
-FLAKE_LOCK = ROOT / "flake.lock"
 
 UA = "manifold-csg-upstream-watch (+https://github.com/zmerlynn/manifold-csg)"
 MANIFOLD = "elalish/manifold"
@@ -55,8 +58,8 @@ RELEASE_TAG = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
 
 
 class CheckError(Exception):
-    """A structural problem: a const that no longer parses, a nixpkgs package
-    that changed shape, a repo with no comparable releases.
+    """A structural problem: a const that no longer parses, a repo with no
+    comparable releases.
 
     Kept separate from transient network failures because the two need
     opposite handling. A structural break never self-heals, so it has to be a
@@ -69,7 +72,7 @@ def version(tag):
     return tuple(int(g) for g in m.groups()) if m else None
 
 
-def api(path, raw=False, retries=4):
+def api(path, retries=4):
     """GET api.github.com/{path}, retrying transient failures.
 
     Without retries a single 5xx at 13:00 Monday costs a full week of
@@ -80,15 +83,13 @@ def api(path, raw=False, retries=4):
     headers = {"User-Agent": UA}
     if tok := os.environ.get("GITHUB_TOKEN"):
         headers["Authorization"] = f"Bearer {tok}"
-    if raw:
-        headers["Accept"] = "application/vnd.github.raw"
     last = None
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=30) as r:
                 body = r.read().decode()
-            return body if raw else json.loads(body)
+            return json.loads(body)
         except urllib.error.HTTPError as e:
             last = e
             if e.code in (403, 429) or 500 <= e.code < 600:
@@ -172,48 +173,6 @@ def check_pin(label, path, name, repo):
     ), None
 
 
-def check_nixpkgs():
-    """(finding, skip) for the nix-offline invariant.
-
-    Runs whatever form the pin takes. This is an invariant, not drift, so it
-    should not be gated on the pin being a comparable tag; against a SHA pin
-    it reports what it could not compare rather than returning nothing.
-    """
-    pin = const(BUILD_RS, "MANIFOLD_VERSION")
-    try:
-        rev = json.loads(FLAKE_LOCK.read_text())["nodes"]["nixpkgs"]["locked"]["rev"]
-    except (OSError, ValueError, KeyError, TypeError) as e:
-        raise CheckError(
-            f"cannot read the nixpkgs revision from flake.lock ({e!r}); "
-            "the file moved or the input was restructured"
-        ) from e
-    pkg = api(
-        f"repos/NixOS/nixpkgs/contents/pkgs/by-name/ma/manifold/package.nix?ref={rev}",
-        raw=True,
-    )
-    m = re.search(r'^\s*version\s*=\s*"([^"]+)"', pkg, re.M)
-    if not m:
-        raise CheckError(
-            f"no `version = ...` in nixpkgs manifold/package.nix at {rev[:12]} "
-            "(package moved or changed shape?)"
-        )
-    nix_ver = m.group(1)
-    if version(pin) is None:
-        return None, (
-            f"- **nixpkgs**: our pin `{pin[:12]}` is not a release tag, so it "
-            f"cannot be compared to the `{nix_ver}` that the pinned nixpkgs "
-            "ships. Confirm the `nix-offline` lane by hand."
-        )
-    if version(nix_ver) == version(pin):
-        return None, None
-    return (
-        f"- **nixpkgs mismatch**: our pin is `{pin}` but the nixpkgs revision "
-        f"in `flake.lock` ships manifold `{nix_ver}`. The `nix-offline` lane "
-        "links that prebuilt library, so it tests against a different version "
-        "than we ship. Run `nix flake update`."
-    ), None
-
-
 def main():
     findings, errors, skips = [], [], []
 
@@ -236,7 +195,6 @@ def main():
         ("wasm-cxx-shim", WASM_RS, "WASM_CXX_SHIM_TAG", SHIM),
     ):
         run(label, lambda p=path, n=name, r=repo, l=label: check_pin(l, p, n, r))
-    run("nixpkgs check", check_nixpkgs)
 
     out = []
     if findings:
@@ -244,9 +202,9 @@ def main():
         out.append("\n".join(findings))
         out.append(
             "\nBefore bumping `MANIFOLD_VERSION`, check that `wasm-cxx-shim` "
-            "supports the new pin, and pair the bump with a `nix flake update` "
-            "so the `nix-offline` lane keeps matching. See the Versioning "
-            "section of CLAUDE.md."
+            "supports the new pin, and update `pinnedSrc` in `flake.nix` "
+            "(version + hash) or the `nix-offline` lane fails to evaluate. "
+            "Do not wait for nixpkgs. See the Versioning section of CLAUDE.md."
         )
     if errors:
         if out:

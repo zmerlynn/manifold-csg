@@ -1,0 +1,155 @@
+name: Flake lock
+
+# Opens (or refreshes) a PR that runs `nix flake update`, but only when it
+# buys something: the locked nixpkgs ships a manifold other than the one we
+# pin, and nixos-unstable now ships the pinned one. Until then the
+# nix-offline lane builds manifold from the pinned tag (see flake.nix), which
+# is correct but slow, so this is the step that puts it back on the cache.
+# The PR moves every flake input, the devShell's rustc and clippy included,
+# so CI on it is the real review.
+#
+# Needs a FLAKE_LOCK_TOKEN secret: a fine-grained PAT on this repo with
+# Contents, Pull requests and Workflows read/write. Workflows because the
+# branch is reset onto main each run, and GitHub rejects a push that brings
+# in workflow-file changes without it. GITHUB_TOKEN does not work here for
+# two reasons. The repo does not let Actions create PRs, and a PR opened with
+# GITHUB_TOKEN triggers no workflows, so its required checks would never
+# report and it could not merge.
+#
+# Closing the PR by hand means "not now": it stays closed until the pin
+# changes, same as upstream-watch treats a closed issue.
+#
+# Like upstream-watch, GitHub disables this schedule after 60 days without
+# repository activity.
+
+on:
+  schedule:
+    # Mondays 14:00 UTC, an hour after upstream-watch.
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: flake-lock
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  BRANCH: flake-lock-update
+  TITLE_PREFIX: "Update flake.lock: nixpkgs now ships manifold"
+
+jobs:
+  update:
+    name: Update flake.lock when nixpkgs ships the pin
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.FLAKE_LOCK_TOKEN }}
+    steps:
+      # Fail up front, not only on the week there is finally something to do,
+      # and use the token rather than just test it is set: an expired PAT is
+      # still a non-empty secret.
+      - name: Check the token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::FLAKE_LOCK_TOKEN is not set; see the header of flake-lock.yml"
+            exit 1
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY" --jq .permissions.push | grep -qx true; then
+            echo "::error::FLAKE_LOCK_TOKEN cannot push to $GITHUB_REPOSITORY (expired, or lost access?)"
+            exit 1
+          fi
+
+      # Always main, whatever ref a dispatch ran from: the PR targets main, so
+      # anything else would carry that ref's commits into it.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Update the lock if nixpkgs has caught up
+        id: update
+        run: |
+          set -euo pipefail
+          # Same exact-line match flake.nix uses. A SHA pin fails here, as it
+          # fails flake.nix evaluation.
+          pin=$(sed -nE 's/^pub\(crate\) const MANIFOLD_VERSION: &str = "v([0-9]+\.[0-9]+\.[0-9]+)";\r?$/\1/p' crates/manifold-csg-sys/build.rs)
+          if [ "$(printf '%s' "$pin" | grep -c .)" != 1 ]; then
+            echo "::error::expected one vX.Y.Z MANIFOLD_VERSION line in build.rs, got: '$pin'"
+            exit 1
+          fi
+          title="$TITLE_PREFIX $pin"
+          # manifold from the nixpkgs that flake.lock pins.
+          locked() { nix eval --raw --inputs-from . nixpkgs#manifold.version; }
+          open_pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+
+          before=$(locked)
+          if [ "$before" = "$pin" ]; then
+            echo "flake.lock already ships manifold $pin; nothing to do"
+            if [ -n "$open_pr" ]; then
+              gh pr close "$open_pr" --repo "$GITHUB_REPOSITORY" \
+                --comment "main's flake.lock already ships manifold $pin, so this is no longer needed."
+            fi
+            exit 0
+          fi
+          nix flake update
+          after=$(locked)
+          if [ "$after" != "$pin" ]; then
+            echo "pin is $pin, locked nixpkgs has $before, nixos-unstable has $after; waiting"
+            exit 0
+          fi
+          if [ -z "$open_pr" ]; then
+            last=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state all --limit 1 --json state,title --jq '.[0] | "\(.state) \(.title)"')
+            if [ "$last" = "CLOSED $title" ]; then
+              echo "::notice::the PR for manifold $pin was closed by hand; leaving it until the pin changes"
+              exit 0
+            fi
+          fi
+          echo "nixos-unstable now ships manifold $pin (lock had $before)"
+          {
+            echo "open=true"
+            echo "pin=$pin"
+            echo "before=$before"
+            echo "title=$title"
+            echo "pr=$open_pr"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or refresh the PR
+        if: steps.update.outputs.open == 'true'
+        env:
+          PIN: ${{ steps.update.outputs.pin }}
+          BEFORE: ${{ steps.update.outputs.before }}
+          TITLE: ${{ steps.update.outputs.title }}
+          PR: ${{ steps.update.outputs.pr }}
+        run: |
+          set -euo pipefail
+          # git authenticates through gh, which reads GH_TOKEN. Nothing lands
+          # in a remote URL or on the command line.
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -F - flake.lock <<EOF
+          $TITLE
+
+          The locked nixpkgs had manifold $BEFORE, so the nix-offline lane was
+          building the pinned tag from source. nixos-unstable now ships $PIN,
+          so the lane can use the cached package again.
+          EOF
+          # This branch belongs to the workflow. Force-push so a PR left open
+          # across weeks always carries the latest lock on the latest main.
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          body="nixos-unstable now ships manifold $PIN, matching \`MANIFOLD_VERSION\`. The locked nixpkgs had $BEFORE, so the \`nix-offline\` lane was building manifold from the pinned tag. This puts it back on the cached package. It also moves every other input, including the rustc and clippy the devShell gets from nixpkgs, so a red \`nix-offline\` here may be a toolchain change rather than manifold. Close it to defer until the pin changes. Opened by \`.github/workflows/flake-lock.yml\`."
+          if [ -n "$PR" ]; then
+            # The pin may have moved since the PR was opened.
+            gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$body"
+            echo "refreshed PR #$PR"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "$TITLE" --body "$body"
+          fi

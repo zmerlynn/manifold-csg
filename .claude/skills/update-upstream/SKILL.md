@@ -40,7 +40,7 @@ git checkout -b update-upstream-<ref>
 
 Edit `MANIFOLD_VERSION` in `crates/manifold-csg-sys/build.rs`. The constant accepts tags, branches, or commit SHAs — prefer SHAs for reproducibility (commit on master) or tags for tagged releases.
 
-Then update the Nix offline lane to match: run `nix flake update` and commit the new `flake.lock`. The `nix-offline` CI lane links nixpkgs' prebuilt `manifold` via `MANIFOLD_CSG_LIB_DIR`, so the locked nixpkgs must resolve to a `manifold` matching the new pin (or the lane links an ABI-mismatched library). If nixpkgs hasn't caught up to the new upstream version yet, note it for the user - the lane may fail until nixpkgs ships it.
+Then update `pinnedSrc` in `flake.nix` to match: set `version` to the new pin (without the `v`) and `hash` to the output of `nix flake prefetch github:elalish/manifold/v<version>`. The flake reads `MANIFOLD_VERSION` from build.rs and asserts `pinnedSrc` matches, so a missed update fails at `nix develop`. Check it with `nix develop -c true`. Do NOT wait for nixpkgs: if the locked nixpkgs ships a different manifold, the `nix-offline` lane builds the pinned tag itself (slower, still correct). Do not run `nix flake update` in the bump PR either. Once `nixos-unstable` ships the new version, `.github/workflows/flake-lock.yml` opens that PR on its own. The flake only follows `vX.Y.Z` tag pins; a SHA pin needs the fallback changed to fetch by `rev`.
 
 ### 4. Carry-patch audit
 
