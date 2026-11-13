@@ -33,6 +33,26 @@ use std::sync::OnceLock;
 /// nix-offline CI lane fails if they disagree.
 pub(crate) const MANIFOLD_VERSION: &str = "v3.5.5";
 
+/// `--parallel <N>` for `cmake --build`, with N from cargo's `NUM_JOBS`.
+///
+/// A bare `--parallel` lets the native tool pick, and for Make that is `-j`
+/// with no limit. It ignores cargo's `-j`, `CARGO_BUILD_JOBS`,
+/// `CMAKE_BUILD_PARALLEL_LEVEL` and cargo's jobserver, and compiles every
+/// ready manifold source at once, which is several GB of compilers on a small
+/// machine. Cargo sets `NUM_JOBS` for every build script, so the fallback to
+/// the machine's parallelism should never be needed.
+fn cmake_parallel_args() -> [String; 2] {
+    let jobs = env::var("NUM_JOBS")
+        .ok()
+        .filter(|s| s.parse::<u32>().is_ok_and(|n| n > 0))
+        .unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map_or(1, |n| n.get())
+                .to_string()
+        });
+    ["--parallel".to_string(), jobs]
+}
+
 /// Detect `sccache` on PATH and return cmake args that route the C/C++
 /// compiler through it as a launcher. Returns empty if sccache isn't
 /// installed, or if `MANIFOLD_CSG_NO_SCCACHE` is set in the environment.

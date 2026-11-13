@@ -15,7 +15,7 @@
 
 use std::{env, path::Path, process::Command};
 
-use super::{cmake_launcher_args, find_lib_recursive, is_apple};
+use super::{cmake_launcher_args, cmake_parallel_args, find_lib_recursive, is_apple};
 
 pub fn build(
     is_emscripten: bool,
@@ -105,8 +105,8 @@ pub fn build(
             build_dir.to_str().unwrap(),
             "--config",
             "Release",
-            "--parallel",
         ])
+        .args(cmake_parallel_args())
         .output()
         .expect("failed to run cmake build");
     if !build_output.status.success() {
