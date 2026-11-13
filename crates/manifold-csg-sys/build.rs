@@ -31,7 +31,7 @@ use std::sync::OnceLock;
 /// comment, and declared only once. `flake.nix` and `scripts/pins.py` read
 /// the pin by matching that exact line and fail on anything else. The
 /// nix-offline CI lane fails if they disagree.
-pub(crate) const MANIFOLD_VERSION: &str = "v3.5.4";
+pub(crate) const MANIFOLD_VERSION: &str = "v3.5.5";
 
 /// Detect `sccache` on PATH and return cmake args that route the C/C++
 /// compiler through it as a launcher. Returns empty if sccache isn't

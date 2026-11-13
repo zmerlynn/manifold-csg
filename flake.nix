@@ -65,8 +65,8 @@
         # assert below checks this on every evaluation, not just when the
         # fallback is taken, so a stale entry fails before it is needed.
         pinnedSrc = {
-          version = "3.5.4";
-          hash = "sha256-O9ciIM5so9WiooNw3BfLTg6u7KPTV0vTbWVec/y0crQ=";
+          version = "3.5.5";
+          hash = "sha256-zhnpJExiHnKSUVNwAZuYwOJHaL+g3tgGp72oHG/Jy0E=";
         };
 
         fromNixpkgs = pkgs.manifold.version == pin;

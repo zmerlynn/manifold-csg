@@ -2959,3 +2959,63 @@ fn num_prop_vert_counts_property_vertices() {
     let cube = Manifold::cube(2.0, 2.0, 2.0, true);
     assert_eq!(cube.num_prop_vert(), cube.num_vert());
 }
+
+// ── Out-of-range input (rejected upstream since manifold3d v3.5.5) ──────
+//
+// These reach C++ from safe Rust: the wrappers pass indices through and rely
+// on the kernel to validate them. Before v3.5.5 each one read or wrote out of
+// bounds.
+
+#[test]
+fn meshgl_merge_with_out_of_range_merge_index_is_a_noop() {
+    let verts = [0.0f32, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let mesh = MeshGL::new_with_options(
+        &verts,
+        3,
+        &[0, 1, 2],
+        MeshGLOptions::new().merge_vertices(&[99], &[0]),
+    )
+    .unwrap();
+    let merged = mesh.merge();
+    assert_eq!(merged.merge_from_vert(), vec![99]);
+    assert_eq!(merged.merge_to_vert(), vec![0]);
+}
+
+#[test]
+fn meshgl_merge_with_out_of_range_tri_index_is_a_noop() {
+    let verts = [0.0f32, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let mesh = MeshGL::new(&verts, 3, &[0, 1, 99]).unwrap();
+    let merged = mesh.merge();
+    assert_eq!(merged.tri_verts(), vec![0, 1, 99]);
+    assert!(merged.merge_from_vert().is_empty());
+}
+
+#[test]
+fn meshgl64_merge_with_out_of_range_merge_index_is_a_noop() {
+    let verts = [0.0f64, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let mesh = MeshGL64::new_with_options(
+        &verts,
+        3,
+        &[0, 1, 2],
+        MeshGL64Options::new().merge_vertices(&[0], &[99]),
+    )
+    .unwrap();
+    let merged = mesh.merge();
+    assert_eq!(merged.merge_from_vert(), vec![0]);
+    assert_eq!(merged.merge_to_vert(), vec![99]);
+}
+
+#[test]
+fn smooth_by_normals_rejects_negative_index() {
+    let cube = Manifold::cube(1.0, 1.0, 1.0, true);
+    assert!(cube.smooth_by_normals(-1).status().is_err());
+}
+
+#[test]
+fn smooth_by_normals_treats_channels_past_num_prop_as_missing() {
+    let cube = Manifold::cube(1.0, 1.0, 1.0, true);
+    assert_eq!(cube.num_prop(), 0);
+    let smoothed = cube.smooth_by_normals(3);
+    assert!(smoothed.status().is_ok());
+    assert!(!smoothed.is_empty());
+}
