@@ -25,6 +25,12 @@ use std::sync::OnceLock;
 /// wasm-uu build (which passes it through to the shim's
 /// `wasm_cxx_shim_add_manifold()` helper as `MANIFOLD_GIT_TAG`, so both
 /// paths build against the same C API surface).
+///
+/// **Keep the line below exactly this shape**: `pub(crate) const
+/// MANIFOLD_VERSION: &str = "...";`, alone on its line, with no trailing
+/// comment, and declared only once. `flake.nix` and `scripts/pins.py` read
+/// the pin by matching that exact line and fail on anything else. The
+/// nix-offline CI lane fails if they disagree.
 pub(crate) const MANIFOLD_VERSION: &str = "v3.5.4";
 
 /// Detect `sccache` on PATH and return cmake args that route the C/C++
