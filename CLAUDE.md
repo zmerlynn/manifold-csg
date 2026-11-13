@@ -12,7 +12,7 @@ Safe Rust bindings to the [manifold3d](https://github.com/elalish/manifold) geom
 
 ## Build
 
-The sys crate clones manifold3d (currently pinned to v3.5.4) via git and builds with cmake. Requires:
+The sys crate clones manifold3d (currently pinned to v3.5.5) via git and builds with cmake. Requires:
 - git, cmake, a C++ compiler
 - First build is slow (clones + compiles manifold3d); subsequent builds are cached
 
@@ -123,7 +123,7 @@ GitHub disables scheduled workflows in a public repo after 60 days without repos
 
 Things to revisit whenever the manifold pin moves OR `wasm-cxx-shim` cuts a new release:
 
-- **Re-evaluate wasm32-unknown-unknown cfg-gates.** Any FFI declaration / safe wrapper / test gated on `not(all(target_arch = "wasm32", target_os = "unknown"))` exists because that surface postdates the shim's tested manifold pin. When the shim's tested pin moves up to (or past) our host pin, those gates can be dropped and the surface unified across targets. Current gated surface: `manifold_*_obj` (OBJ I/O - gated for a different reason: iostream patches strip it; this stays regardless). NOTE: as of the v3.5.4 pin bump the host pin (v3.5.4) is four patch releases PAST the shim v0.5.0 tested pin (v3.5.0). The wasm-uu lane passes `MANIFOLD_GIT_TAG=v3.5.4` to the shim helper, so it builds the same pin as the host. Since v0.5.0 ships no carry-patches (see "Versioning" above), the gap cannot cause a patch-apply failure; a break would show up as a compile error in the wasm-uu lane instead. The `manifold_execution_context_*` factories ARE bound (unconditionally, no cfg-gate) - correct because the wasm-uu lane builds the same pin, so those symbols are present on both host and wasm-uu. A cfg-gate would only be needed if the wasm-uu lane were pinned to an older manifold lacking the symbols. Grep for `target_os = "unknown"` to enumerate the (unrelated) currently-gated surface.
+- **Re-evaluate wasm32-unknown-unknown cfg-gates.** Any FFI declaration / safe wrapper / test gated on `not(all(target_arch = "wasm32", target_os = "unknown"))` exists because that surface postdates the shim's tested manifold pin. When the shim's tested pin moves up to (or past) our host pin, those gates can be dropped and the surface unified across targets. Current gated surface: `manifold_*_obj` (OBJ I/O - gated for a different reason: iostream patches strip it; this stays regardless). NOTE: as of the v3.5.5 pin bump the host pin (v3.5.5) is five patch releases PAST the shim v0.5.0 tested pin (v3.5.0). The wasm-uu lane passes `MANIFOLD_GIT_TAG=v3.5.5` to the shim helper, so it builds the same pin as the host. Since v0.5.0 ships no carry-patches (see "Versioning" above), the gap cannot cause a patch-apply failure; a break would show up as a compile error in the wasm-uu lane instead. The `manifold_execution_context_*` factories ARE bound (unconditionally, no cfg-gate) - correct because the wasm-uu lane builds the same pin, so those symbols are present on both host and wasm-uu. A cfg-gate would only be needed if the wasm-uu lane were pinned to an older manifold lacking the symbols. Grep for `target_os = "unknown"` to enumerate the (unrelated) currently-gated surface.
 - **Re-evaluate carry-patches.** For each patch in `crates/manifold-csg-sys/patches/` (if any), check whether it's merged upstream and included in the new pin; if so, delete it.
 
 ## Carry-patches

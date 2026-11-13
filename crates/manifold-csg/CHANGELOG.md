@@ -9,14 +9,31 @@ but change output, so the compiler will not catch them for you.
 
 ## 0.4.2
 
-- Upstream pin moved to manifold3d v3.5.4. **Nothing in that release reaches
-  this crate.** All of it is a fix to upstream's own JavaScript bindings:
-  `-sDYNAMIC_EXECUTION=0` and `-sEMBIND_AOT` on their `manifoldjs` emscripten
-  target, so those bindings load under a Content-Security-Policy without
-  `unsafe-eval`. We build with `MANIFOLD_JSBIND=OFF`, so that target is never
-  configured, and nothing under `src/`, `include/` or `bindings/c/` changed.
-  The bump exists to keep the pin current. Carried by `manifold-csg-sys`
-  3.5.106.
+No source or API changes required. Carried by `manifold-csg-sys` 3.5.106,
+which pins manifold3d v3.5.5 (v3.5.4 was never released on its own here).
+
+- **Behavioral:** upstream v3.5.5 rejects out-of-range input that used to
+  crash or read/write out of bounds. Calls that did that now return an
+  error status or an unchanged result instead:
+  - `MeshGL::merge` / `MeshGL64::merge` return the mesh unchanged when a
+    merge or triangle index is out of range (this crate only checks that
+    the merge vectors have equal length).
+  - `smooth_by_normals` with a negative `normal_idx` returns an invalid
+    manifold. Channels past `num_prop` count as missing normals.
+  - `from_sdf` with non-finite or inverted `bounds`, or a non-positive
+    `edge_length`, returns an empty manifold with `InvalidConstruction`.
+    A grid too large to index returns `ResultTooLarge`.
+  - `extrude` with a non-finite height, twist or scale returns an invalid
+    manifold.
+  - `set_properties`, `calculate_normals` and `calculate_curvature` return
+    `ResultTooLarge` when the property array would not fit in an `int`.
+- **Behavioral:** `extrude`, `revolve` and triangulation now skip contours
+  with fewer than 3 points instead of passing them to the triangulator.
+- Building a `Manifold` from a mesh with an odd number of halfedges (e.g.
+  after degenerate triangles were dropped) is now rejected as not manifold
+  instead of following an uninitialized pair index.
+- v3.5.4 itself only changed upstream's JavaScript bindings
+  (`-sDYNAMIC_EXECUTION=0`, `-sEMBIND_AOT`), which we never build.
 
 ## 0.4.1
 
