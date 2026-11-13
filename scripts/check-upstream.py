@@ -42,8 +42,12 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
-import pins
+# pins.py sits next to this script. Put its directory on the path
+# explicitly, so `python3 -I` (which drops it) still works.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import pins  # noqa: E402
 
 UA = "manifold-csg-upstream-watch (+https://github.com/zmerlynn/manifold-csg)"
 MANIFOLD = "elalish/manifold"

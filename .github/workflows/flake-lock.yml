@@ -79,7 +79,10 @@ jobs:
           set -euo pipefail
           # pins.py applies the same rule flake.nix does (CI checks they
           # agree). A SHA pin fails here, as it fails flake.nix evaluation.
-          pin=$(python3 scripts/pins.py manifold --tag)
+          pin=$(python3 scripts/pins.py manifold --tag) || {
+            echo "::error::could not read MANIFOLD_VERSION (see the pins.py message above)"
+            exit 1
+          }
           title="$TITLE_PREFIX $pin"
           # manifold from the nixpkgs that flake.lock pins.
           locked() { nix eval --raw --inputs-from . nixpkgs#manifold.version; }

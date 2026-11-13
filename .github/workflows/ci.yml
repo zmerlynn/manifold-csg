@@ -188,18 +188,11 @@ jobs:
           key: ${{ runner.os }}-cargo-nix-offline-${{ hashFiles('flake.lock') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-nix-offline-${{ hashFiles('flake.lock') }}-
 
-      # Exercises the MANIFOLD_CSG_LIB_DIR offline hatch (issue #49): the
-      # devShell links a `manifold` at exactly MANIFOLD_VERSION
-      # (nixpkgs' cached one when it matches, else built from the pinned tag
-      # in the Nix sandbox; see flake.nix), so build.rs skips the clone AND
-      # cmake. This is the only lane that covers the from-source bypass.
-      - name: Build + test against prebuilt manifold
-        run: nix develop --command bash -c "cargo test --features nalgebra"
-
       # flake.nix has its own copy of the pin parse (Nix evaluation cannot
       # run scripts/pins.py, which everything else uses). Check the manifold
       # the devShell links is the version pins.py reads, so the two parsers
-      # cannot drift apart unnoticed.
+      # cannot drift apart unnoticed. Before the tests, so a disagreement
+      # fails here with a clear message rather than as a link error.
       - name: Flake and pins.py agree on MANIFOLD_VERSION
         run: |
           system=$(nix eval --impure --raw --expr builtins.currentSystem)
@@ -207,6 +200,14 @@ jobs:
           pinned=$(python3 scripts/pins.py manifold --tag)
           echo "flake links $linked, pins.py reads $pinned"
           test "$linked" = "$pinned"
+
+      # Exercises the MANIFOLD_CSG_LIB_DIR offline hatch (issue #49): the
+      # devShell links a `manifold` at exactly MANIFOLD_VERSION
+      # (nixpkgs' cached one when it matches, else built from the pinned tag
+      # in the Nix sandbox; see flake.nix), so build.rs skips the clone AND
+      # cmake. This is the only lane that covers the from-source bypass.
+      - name: Build + test against prebuilt manifold
+        run: nix develop --command bash -c "cargo test --features nalgebra"
 
   emscripten:
     name: Emscripten (wasm32)

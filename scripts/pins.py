@@ -31,7 +31,7 @@ PINS = {
     "shim": (SYS / "build/wasm.rs", 'const WASM_CXX_SHIM_TAG: &str = "'),
 }
 
-TAG = re.compile(r"v(\d+\.\d+\.\d+)")
+TAG = re.compile(r"v([0-9]+\.[0-9]+\.[0-9]+)")
 
 
 class PinError(Exception):
@@ -41,9 +41,12 @@ class PinError(Exception):
 def read(name):
     path, decl = PINS[name]
     try:
-        lines = path.read_text().splitlines()
-    except OSError as e:
+        text = path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as e:
         raise PinError(f"cannot read {path.relative_to(ROOT)} ({e})") from e
+    # Split exactly as flake.nix does: on "\n" only, then drop one trailing
+    # "\r". str.splitlines() would also split on \f, \x85, U+2028 and more.
+    lines = [line.removesuffix("\r") for line in text.split("\n")]
     pat = re.compile(re.escape(decl) + r'([^"]*)";')
     found = [m.group(1) for line in lines if (m := pat.fullmatch(line))]
     if len(found) != 1:
@@ -51,6 +54,8 @@ def read(name):
             f"expected exactly one line `{decl}...\";` in "
             f"{path.relative_to(ROOT)}, found {len(found)}"
         )
+    if not found[0]:
+        raise PinError(f"{name} pin in {path.relative_to(ROOT)} is empty")
     return found[0]
 
 
