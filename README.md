@@ -136,9 +136,11 @@ check that its `manifold` still matches: `build.rs` validates that the
 libraries are present but cannot check their version.
 
 A repo-root `flake.nix` wires the same thing up as a devShell for working on
-this repo: `nix develop` drops you into a shell that links nixpkgs' prebuilt
-`manifold` via `MANIFOLD_CSG_LIB_DIR`, so `cargo build` / `cargo test` skip
-the manifold3d clone and C++ compile entirely.
+this repo: `nix develop` drops you into a shell that links `manifold` via
+`MANIFOLD_CSG_LIB_DIR`, so `cargo build` / `cargo test` skip the manifold3d
+clone and C++ compile entirely. It links exactly the pinned version: nixpkgs'
+prebuilt one when the locked nixpkgs ships it, otherwise one built from the
+pinned tag.
 
 Tested on Linux, macOS, Windows, `wasm32-unknown-emscripten`, and
 `wasm32-unknown-unknown` (see below).
