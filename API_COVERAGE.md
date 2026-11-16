@@ -131,6 +131,8 @@ and frees it, so the vector accessors are internal.
 | `manifold_cross_section_square` | [`CrossSection::square`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_circle` | [`CrossSection::circle`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_of_polygons` | [`CrossSection::from_polygons`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_even_odd_polygons` | [`CrossSection::from_polygons_with_fill_rule`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_non_zero_polygons` | [`CrossSection::from_polygons_with_fill_rule`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_copy` | [`Clone` impl](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_union` | [`CrossSection::union`](crates/manifold-csg/src/cross_section.rs), `&a + &b` |
 | `manifold_cross_section_difference` | [`CrossSection::difference`](crates/manifold-csg/src/cross_section.rs), `&a - &b` |
@@ -139,8 +141,9 @@ and frees it, so the vector accessors are internal.
 | `manifold_cross_section_batch_boolean` | [`CrossSection::batch_boolean`](crates/manifold-csg/src/cross_section.rs), [`batch_union`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_batch_hull` | [`CrossSection::batch_hull`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_hull` | [`CrossSection::hull`](crates/manifold-csg/src/cross_section.rs) |
-| `manifold_cross_section_compose` | [`CrossSection::compose`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_of_simple_polygon` | [`CrossSection::from_simple_polygon`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_even_odd_simple_polygon` | [`CrossSection::from_simple_polygon_with_fill_rule`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_non_zero_simple_polygon` | [`CrossSection::from_simple_polygon_with_fill_rule`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_hull_polygons` | [`CrossSection::hull_polygons`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_hull_simple_polygon` | [`CrossSection::hull_simple_polygon`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_decompose` | [`CrossSection::decompose`](crates/manifold-csg/src/cross_section.rs) |
@@ -163,7 +166,6 @@ and frees it, so the vector accessors are internal.
 | `manifold_cross_section_bounds` | [`CrossSection::bounds`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_to_polygons` | [`CrossSection::to_polygons`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_transform` | [`CrossSection::transform`](crates/manifold-csg/src/cross_section.rs) |
-| `manifold_cross_section_size` | Not needed (alloc size) |
 
 ## MeshGL (f32) & MeshGL64 (f64)
 
@@ -310,11 +312,9 @@ Used internally by `CrossSection::from_polygons`, `slice_at_z`, `triangulate_pol
 | `manifold_polygons_simple_length` | Internal |
 | `manifold_polygons_get_point` | Internal |
 | `manifold_polygons_get_simple` | Not used |
-| `manifold_polygons_size` | Not used |
 | `manifold_simple_polygon` | Internal |
 | `manifold_simple_polygon_get_point` | Not used |
 | `manifold_simple_polygon_length` | Not used |
-| `manifold_simple_polygon_size` | Not used |
 
 ## Vector Containers (Internal)
 
@@ -337,7 +337,6 @@ Used internally by batch operations, decompose, etc.
 | `manifold_cross_section_vec_push_back` | Internal |
 | `manifold_cross_section_vec_reserve` | Not used |
 | `manifold_cross_section_vec_set` | Not used |
-| `manifold_cross_section_vec_size` | Not used |
 
 ## Execution Context (cancellation + progress)
 
@@ -362,9 +361,9 @@ and `Drop` implementations.
 
 | Function group | Count |
 |---|---|
-| `manifold_alloc_*` | 6 |
+| `manifold_alloc_*` | 2 |
 | `manifold_delete_*` | 13 |
-| `manifold_destruct_*` | 6 |
+| `manifold_destruct_*` | 2 |
 
 ---
 
@@ -386,20 +385,20 @@ otherwise (`Not used`, `Not needed (alloc size)`, `Not wrapped`).
 | Manifold queries | 17 | 0 | 2 |
 | Manifold hull/decompose/mesh | 12 | 0 | 0 |
 | Ray casting | 1 | 2 | 0 |
-| CrossSection construction & booleans | 17 | 0 | 0 |
-| CrossSection transforms & queries | 14 | 0 | 1 |
+| CrossSection construction & booleans | 20 | 0 | 0 |
+| CrossSection transforms & queries | 14 | 0 | 0 |
 | MeshGL/MeshGL64 | 44 | 20 | 0 |
 | Triangulation | 1 | 2 | 0 |
 | Quality globals | 6 | 0 | 0 |
 | Box3D (BoundingBox) | 16 | 0 | 0 |
 | Rect2D (Rect) | 16 | 0 | 0 |
-| Polygon helpers | 0 | 5 | 5 |
-| Vector containers | 0 | 10 | 6 |
+| Polygon helpers | 0 | 5 | 3 |
+| Vector containers | 0 | 10 | 5 |
 | ExecutionContext (cancel/progress + factories) | 9 | 0 | 1 |
-| Alloc/delete/destruct | 0 | 25 | 0 |
-| **Total** | **194** | **64** | **15** |
+| Alloc/delete/destruct | 0 | 17 | 0 |
+| **Total** | **197** | **56** | **11** |
 
-194 + 64 + 15 = 273, matching the sys crate's 273 declarations.
+197 + 56 + 11 = 264, matching the sys crate's 264 declarations.
 
 "Bound, unused" means the function is declared in `manifold-csg-sys` but the
 safe crate never calls it: `*_size` queries the crate does not need because it

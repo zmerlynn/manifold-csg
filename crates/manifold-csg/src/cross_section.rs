@@ -43,27 +43,43 @@ impl JoinType {
 /// Fill rule for constructing cross-sections from polygons.
 ///
 /// Determines how self-intersecting or overlapping polygon contours are
-/// interpreted when creating a [`CrossSection`].
+/// interpreted when creating a [`CrossSection`]. The rule only decides how the
+/// input is read: the result is regularized like any other cross-section.
+///
+/// Upstream manifold 4.0 dropped the `Negative` rule. Reverse the contours and
+/// use [`Positive`](Self::Positive) for the same result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum FillRule {
-    /// Alternating inside/outside based on crossing count parity.
+    /// Alternating inside/outside based on crossing count parity. Use this
+    /// for input authored for an even-odd tool such as OpenSCAD.
     EvenOdd,
-    /// Inside if crossing count is non-zero.
+    /// Inside where the winding number is non-zero, so a winding of two is
+    /// still filled.
     NonZero,
-    /// Inside if crossing count is positive.
+    /// Inside where the winding number is positive. The upstream default.
     Positive,
-    /// Inside if crossing count is negative.
-    Negative,
 }
 
+/// A C constructor taking one kind of polygon input.
+type PolygonCtor<P> = unsafe extern "C" fn(*const P) -> *mut ManifoldCrossSection;
+
 impl FillRule {
-    pub(crate) const fn to_ffi(self) -> ManifoldFillRule {
+    /// The C constructor that reads polygons with this rule.
+    pub(crate) fn polygons_ctor(self) -> PolygonCtor<ManifoldPolygons> {
         match self {
-            FillRule::EvenOdd => ManifoldFillRule::EvenOdd,
-            FillRule::NonZero => ManifoldFillRule::NonZero,
-            FillRule::Positive => ManifoldFillRule::Positive,
-            FillRule::Negative => ManifoldFillRule::Negative,
+            FillRule::EvenOdd => manifold_cross_section_even_odd_polygons,
+            FillRule::NonZero => manifold_cross_section_non_zero_polygons,
+            FillRule::Positive => manifold_cross_section_of_polygons,
+        }
+    }
+
+    /// The C constructor that reads one contour with this rule.
+    fn simple_polygon_ctor(self) -> PolygonCtor<ManifoldSimplePolygon> {
+        match self {
+            FillRule::EvenOdd => manifold_cross_section_even_odd_simple_polygon,
+            FillRule::NonZero => manifold_cross_section_non_zero_simple_polygon,
+            FillRule::Positive => manifold_cross_section_of_simple_polygon,
         }
     }
 }
@@ -120,7 +136,7 @@ impl std::fmt::Debug for CrossSection {
 }
 
 // SAFETY: Same rationale as Manifold — single-ownership transfer across
-// threads is sound. The underlying Clipper2 data is an owned heap allocation.
+// threads is sound. The underlying polygon data is an owned heap allocation.
 unsafe impl Send for CrossSection {}
 
 // SAFETY: The C++ CrossSection class synchronizes lazy path evaluation, so
@@ -129,10 +145,8 @@ unsafe impl Sync for CrossSection {}
 
 impl Clone for CrossSection {
     fn clone(&self) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr is valid from alloc, self.ptr is valid (invariant).
-        unsafe { manifold_cross_section_copy(ptr, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_copy(self.ptr) });
         Self { ptr }
     }
 }
@@ -140,8 +154,7 @@ impl Clone for CrossSection {
 impl Drop for CrossSection {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            // SAFETY: self.ptr was allocated by manifold_alloc_cross_section
-            // and has not been freed (Drop runs once).
+            // SAFETY: self.ptr came from a manifold_* constructor and is freed only here.
             unsafe { manifold_delete_cross_section(self.ptr) };
             self.ptr = std::ptr::null_mut();
         }
@@ -160,31 +173,25 @@ impl CrossSection {
     /// Empty cross-section (identity for union).
     #[must_use]
     pub fn empty() -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe { manifold_cross_section_empty(ptr) };
+        // SAFETY: takes no arguments and returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_empty() });
         Self { ptr }
     }
 
     /// Axis-aligned rectangle. If `center` is true, centered at origin.
     #[must_use]
     pub fn square(x: f64, y: f64, center: bool) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe { manifold_cross_section_square(ptr, x, y, i32::from(center)) };
+        // SAFETY: takes plain values and returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_square(x, y, i32::from(center)) });
         Self { ptr }
     }
 
     /// Circle centered at the origin.
     #[must_use]
     pub fn circle(radius: f64, circular_segments: i32) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        with_quality_lock_if_auto_segments(circular_segments, || {
-            // SAFETY: ptr is valid from alloc.
-            unsafe { manifold_cross_section_circle(ptr, radius, circular_segments) };
+        let ptr = with_quality_lock_if_auto_segments(circular_segments, || {
+            // SAFETY: takes plain values and returns a new handle.
+            owned(unsafe { manifold_cross_section_circle(radius, circular_segments) })
         });
         Self { ptr }
     }
@@ -212,13 +219,10 @@ impl CrossSection {
 
         let polys = PolygonsFfi::new(polygons);
 
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and polys.ptr() are valid.
-        unsafe {
-            manifold_cross_section_of_polygons(ptr, polys.ptr(), fill_rule.to_ffi());
-        }
-
+        let ctor = fill_rule.polygons_ctor();
+        // SAFETY: polys.ptr() is valid until polys drops at the end of this
+        // function, and ctor returns a new handle.
+        let ptr = owned(unsafe { ctor(polys.ptr()) });
         Self { ptr }
     }
 
@@ -248,15 +252,13 @@ impl CrossSection {
             .iter()
             .map(|p| ManifoldVec2 { x: p[0], y: p[1] })
             .collect();
-        // SAFETY: manifold_alloc_simple_polygon returns a valid handle.
-        let sp = unsafe { manifold_alloc_simple_polygon() };
-        // SAFETY: sp valid, vec2s is a valid slice.
-        unsafe { manifold_simple_polygon(sp, vec2s.as_ptr(), vec2s.len()) };
+        // SAFETY: vec2s outlives the call, and the call returns a new handle.
+        let sp = owned(unsafe { manifold_simple_polygon(vec2s.as_ptr(), vec2s.len()) });
 
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and sp are valid.
-        unsafe { manifold_cross_section_of_simple_polygon(ptr, sp, fill_rule.to_ffi()) };
+        let ctor = fill_rule.simple_polygon_ctor();
+        // SAFETY: sp is valid until it is deleted below, and ctor returns a
+        // new handle.
+        let ptr = owned(unsafe { ctor(sp) });
 
         // SAFETY: sp is valid and no longer needed.
         unsafe { manifold_delete_simple_polygon(sp) };
@@ -275,15 +277,11 @@ impl CrossSection {
             .iter()
             .map(|p| ManifoldVec2 { x: p[0], y: p[1] })
             .collect();
-        // SAFETY: manifold_alloc_simple_polygon returns a valid handle.
-        let sp = unsafe { manifold_alloc_simple_polygon() };
-        // SAFETY: sp valid, vec2s is a valid slice.
-        unsafe { manifold_simple_polygon(sp, vec2s.as_ptr(), vec2s.len()) };
+        // SAFETY: vec2s outlives the call, and the call returns a new handle.
+        let sp = owned(unsafe { manifold_simple_polygon(vec2s.as_ptr(), vec2s.len()) });
 
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
         // SAFETY: ptr and sp are valid.
-        unsafe { manifold_cross_section_hull_simple_polygon(ptr, sp) };
+        let ptr = owned(unsafe { manifold_cross_section_hull_simple_polygon(sp) });
 
         // SAFETY: sp is valid and no longer needed.
         unsafe { manifold_delete_simple_polygon(sp) };
@@ -300,10 +298,8 @@ impl CrossSection {
 
         let polys = PolygonsFfi::new(polygons);
 
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
         // SAFETY: ptr and polys.ptr() are valid.
-        unsafe { manifold_cross_section_hull_polygons(ptr, polys.ptr()) };
+        let ptr = owned(unsafe { manifold_cross_section_hull_polygons(polys.ptr()) });
 
         Self { ptr }
     }
@@ -313,30 +309,24 @@ impl CrossSection {
     /// Boolean union: `self ∪ other`.
     #[must_use]
     pub fn union(&self, other: &Self) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_cross_section_union(ptr, self.ptr, other.ptr) };
+        // SAFETY: self.ptr and other.ptr are valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_union(self.ptr, other.ptr) });
         Self { ptr }
     }
 
     /// Boolean difference: `self − other`.
     #[must_use]
     pub fn difference(&self, other: &Self) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_cross_section_difference(ptr, self.ptr, other.ptr) };
+        // SAFETY: self.ptr and other.ptr are valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_difference(self.ptr, other.ptr) });
         Self { ptr }
     }
 
     /// Boolean intersection: `self ∩ other`.
     #[must_use]
     pub fn intersection(&self, other: &Self) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_cross_section_intersection(ptr, self.ptr, other.ptr) };
+        // SAFETY: self.ptr and other.ptr are valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_intersection(self.ptr, other.ptr) });
         Self { ptr }
     }
 
@@ -347,10 +337,9 @@ impl CrossSection {
     /// or operator overloads for readability.
     #[must_use]
     pub fn boolean(&self, other: &Self, op: OpType) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_cross_section_boolean(ptr, self.ptr, other.ptr, op.to_ffi()) };
+        // SAFETY: self.ptr and other.ptr are valid (invariant), and the call returns a new handle.
+        let ptr =
+            owned(unsafe { manifold_cross_section_boolean(self.ptr, other.ptr, op.to_ffi()) });
         Self { ptr }
     }
 
@@ -358,7 +347,7 @@ impl CrossSection {
 
     /// Inflate (positive delta) or deflate (negative delta) the cross-section.
     ///
-    /// Uses Clipper2's offset algorithm for true geometric offsetting.
+    /// A true geometric offset, not a scale.
     ///
     /// # Arguments
     ///
@@ -374,20 +363,17 @@ impl CrossSection {
         miter_limit: f64,
         circular_segments: i32,
     ) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        with_quality_lock_if_auto_segments(circular_segments, || {
-            // SAFETY: ptr and self.ptr are valid.
-            unsafe {
+        let ptr = with_quality_lock_if_auto_segments(circular_segments, || {
+            // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+            owned(unsafe {
                 manifold_cross_section_offset(
-                    ptr,
                     self.ptr,
                     delta,
                     join_type.to_ffi(),
                     miter_limit,
                     circular_segments,
-                );
-            }
+                )
+            })
         });
         Self { ptr }
     }
@@ -397,10 +383,8 @@ impl CrossSection {
     /// Convex hull of this cross-section.
     #[must_use]
     pub fn hull(&self) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_cross_section_hull(ptr, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_hull(self.ptr) });
         Self { ptr }
     }
 
@@ -409,40 +393,32 @@ impl CrossSection {
     /// Translate by (x, y).
     #[must_use]
     pub fn translate(&self, x: f64, y: f64) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_cross_section_translate(ptr, self.ptr, x, y) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_translate(self.ptr, x, y) });
         Self { ptr }
     }
 
     /// Rotate by `degrees` (counter-clockwise).
     #[must_use]
     pub fn rotate(&self, degrees: f64) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_cross_section_rotate(ptr, self.ptr, degrees) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_rotate(self.ptr, degrees) });
         Self { ptr }
     }
 
     /// Scale by (x, y).
     #[must_use]
     pub fn scale(&self, x: f64, y: f64) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_cross_section_scale(ptr, self.ptr, x, y) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_scale(self.ptr, x, y) });
         Self { ptr }
     }
 
     /// Mirror across an axis defined by direction (ax_x, ax_y).
     #[must_use]
     pub fn mirror(&self, ax_x: f64, ax_y: f64) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_cross_section_mirror(ptr, self.ptr, ax_x, ax_y) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_mirror(self.ptr, ax_x, ax_y) });
         Self { ptr }
     }
 
@@ -454,12 +430,10 @@ impl CrossSection {
     /// - col3 `(x3,y3)` — translation
     #[must_use]
     pub fn transform(&self, m: &[f64; 6]) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe {
-            manifold_cross_section_transform(ptr, self.ptr, m[0], m[1], m[2], m[3], m[4], m[5]);
-        }
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe {
+            manifold_cross_section_transform(self.ptr, m[0], m[1], m[2], m[3], m[4], m[5])
+        });
         Self { ptr }
     }
 
@@ -468,18 +442,14 @@ impl CrossSection {
     /// Decompose into connected components.
     #[must_use]
     pub fn decompose(&self) -> Vec<Self> {
-        // SAFETY: manifold_alloc_cross_section_vec returns a valid handle.
-        let vec_ptr = unsafe { manifold_alloc_cross_section_vec() };
         // SAFETY: vec_ptr and self.ptr are valid.
-        unsafe { manifold_cross_section_decompose(vec_ptr, self.ptr) };
+        let vec_ptr = owned(unsafe { manifold_cross_section_decompose(self.ptr) });
         // SAFETY: vec_ptr is valid.
         let n = unsafe { manifold_cross_section_vec_length(vec_ptr) };
         let mut result = Vec::with_capacity(n);
         for i in 0..n {
-            // SAFETY: manifold_alloc_cross_section returns a valid handle.
-            let cs_ptr = unsafe { manifold_alloc_cross_section() };
-            // SAFETY: vec_ptr is valid, i is in range.
-            unsafe { manifold_cross_section_vec_get(cs_ptr, vec_ptr, i) };
+            // SAFETY: vec_ptr is valid for the call, and the call returns a new handle.
+            let cs_ptr = owned(unsafe { manifold_cross_section_vec_get(vec_ptr, i) });
             result.push(Self { ptr: cs_ptr });
         }
         // SAFETY: vec_ptr is valid and no longer needed.
@@ -547,10 +517,8 @@ impl CrossSection {
     /// Simplify the cross-section, removing vertices closer than `epsilon`.
     #[must_use]
     pub fn simplify(&self, epsilon: f64) -> Self {
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_cross_section_simplify(ptr, self.ptr, epsilon) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_simplify(self.ptr, epsilon) });
         Self { ptr }
     }
 
@@ -560,24 +528,19 @@ impl CrossSection {
         if sections.is_empty() {
             return Self::empty();
         }
-        // SAFETY: manifold_alloc_cross_section_vec returns a valid handle.
-        let vec_ptr = unsafe { manifold_alloc_cross_section_vec() };
-        // SAFETY: vec_ptr is valid from alloc.
-        unsafe { manifold_cross_section_empty_vec(vec_ptr) };
+        // SAFETY: takes no arguments and returns a new handle.
+        let vec_ptr = owned(unsafe { manifold_cross_section_empty_vec() });
         for cs in sections {
-            // SAFETY: manifold_alloc_cross_section returns a valid handle.
-            let copy_ptr = unsafe { manifold_alloc_cross_section() };
-            // SAFETY: copy_ptr is valid from alloc, cs.ptr is valid (invariant).
-            unsafe { manifold_cross_section_copy(copy_ptr, cs.ptr) };
+            // SAFETY: cs.ptr is valid for the call, and the call returns a new handle.
+            let copy_ptr = owned(unsafe { manifold_cross_section_copy(cs.ptr) });
             // SAFETY: vec_ptr is valid, copy_ptr is a valid cross-section.
             unsafe { manifold_cross_section_vec_push_back(vec_ptr, copy_ptr) };
             // SAFETY: push_back copies the value; free the temporary allocation.
             unsafe { manifold_delete_cross_section(copy_ptr) };
         }
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and vec_ptr are valid.
-        unsafe { manifold_cross_section_batch_boolean(ptr, vec_ptr, op.to_ffi()) };
+        // SAFETY: vec_ptr is valid until it is deleted below, and the call
+        // returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_batch_boolean(vec_ptr, op.to_ffi()) });
         // SAFETY: vec_ptr is valid and no longer needed.
         unsafe { manifold_delete_cross_section_vec(vec_ptr) };
         Self { ptr }
@@ -595,50 +558,19 @@ impl CrossSection {
         if sections.is_empty() {
             return Self::empty();
         }
-        // SAFETY: manifold_alloc_cross_section_vec returns a valid handle.
-        let vec_ptr = unsafe { manifold_alloc_cross_section_vec() };
-        // SAFETY: vec_ptr is valid from alloc.
-        unsafe { manifold_cross_section_empty_vec(vec_ptr) };
+        // SAFETY: takes no arguments and returns a new handle.
+        let vec_ptr = owned(unsafe { manifold_cross_section_empty_vec() });
         for cs in sections {
-            // SAFETY: manifold_alloc_cross_section returns a valid handle.
-            let copy_ptr = unsafe { manifold_alloc_cross_section() };
-            // SAFETY: copy_ptr is valid from alloc, cs.ptr is valid (invariant).
-            unsafe { manifold_cross_section_copy(copy_ptr, cs.ptr) };
+            // SAFETY: cs.ptr is valid for the call, and the call returns a new handle.
+            let copy_ptr = owned(unsafe { manifold_cross_section_copy(cs.ptr) });
             // SAFETY: vec_ptr is valid, copy_ptr is a valid cross-section.
             unsafe { manifold_cross_section_vec_push_back(vec_ptr, copy_ptr) };
             // SAFETY: push_back copies the value; free the temporary allocation.
             unsafe { manifold_delete_cross_section(copy_ptr) };
         }
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and vec_ptr are valid.
-        unsafe { manifold_cross_section_batch_hull(ptr, vec_ptr) };
-        // SAFETY: vec_ptr is valid and no longer needed.
-        unsafe { manifold_delete_cross_section_vec(vec_ptr) };
-        Self { ptr }
-    }
-
-    /// Compose multiple cross-sections into one (without boolean).
-    #[must_use]
-    pub fn compose(sections: &[Self]) -> Self {
-        // SAFETY: manifold_alloc_cross_section_vec returns a valid handle.
-        let vec_ptr = unsafe { manifold_alloc_cross_section_vec() };
-        // SAFETY: vec_ptr is valid from alloc.
-        unsafe { manifold_cross_section_empty_vec(vec_ptr) };
-        for cs in sections {
-            // SAFETY: manifold_alloc_cross_section returns a valid handle.
-            let copy_ptr = unsafe { manifold_alloc_cross_section() };
-            // SAFETY: copy_ptr is valid from alloc, cs.ptr is valid (invariant).
-            unsafe { manifold_cross_section_copy(copy_ptr, cs.ptr) };
-            // SAFETY: vec_ptr is valid, copy_ptr is a valid cross-section.
-            unsafe { manifold_cross_section_vec_push_back(vec_ptr, copy_ptr) };
-            // SAFETY: push_back copies the value; free the temporary allocation.
-            unsafe { manifold_delete_cross_section(copy_ptr) };
-        }
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr and vec_ptr are valid.
-        unsafe { manifold_cross_section_compose(ptr, vec_ptr) };
+        // SAFETY: vec_ptr is valid until it is deleted below, and the call
+        // returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_batch_hull(vec_ptr) });
         // SAFETY: vec_ptr is valid and no longer needed.
         unsafe { manifold_delete_cross_section_vec(vec_ptr) };
         Self { ptr }
@@ -704,14 +636,12 @@ impl CrossSection {
             panic: Mutex::new(None),
         };
         let ctx_ptr = &mut ctx as *mut Context<'_, F> as *mut std::ffi::c_void;
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: ptr valid from alloc, self.ptr valid (invariant), trampoline+ctx valid.
-        unsafe {
-            manifold_cross_section_warp_context(ptr, self.ptr, Some(trampoline::<F>), ctx_ptr)
-        };
+        // SAFETY: self.ptr is valid (invariant), ctx_ptr is valid for the call, and the call returns a new handle.
+        let ptr = owned(unsafe {
+            manifold_cross_section_warp_context(self.ptr, Some(trampoline::<F>), ctx_ptr)
+        });
         if let Some(payload) = take_stored_panic(&ctx.panic) {
-            // SAFETY: ptr was allocated above and will not be returned.
+            // SAFETY: ptr came from the call above and is not returned.
             unsafe { manifold_delete_cross_section(ptr) };
             std::panic::resume_unwind(payload);
         }
@@ -725,10 +655,8 @@ impl CrossSection {
     /// Returns a list of contours, each being a list of `[x, y]` points.
     #[must_use]
     pub fn to_polygons(&self) -> Vec<Vec<[f64; 2]>> {
-        // SAFETY: manifold_alloc_polygons returns a valid handle.
-        let poly_ptr = unsafe { manifold_alloc_polygons() };
         // SAFETY: poly_ptr and self.ptr are valid.
-        unsafe { manifold_cross_section_to_polygons(poly_ptr, self.ptr) };
+        let poly_ptr = owned(unsafe { manifold_cross_section_to_polygons(self.ptr) });
 
         let result = read_polygons(poly_ptr);
 
@@ -787,17 +715,18 @@ impl PolygonsFfi {
                 .iter()
                 .map(|p| ManifoldVec2 { x: p[0], y: p[1] })
                 .collect();
-            // SAFETY: manifold_alloc_simple_polygon returns a valid handle.
-            let sp = unsafe { manifold_alloc_simple_polygon() };
-            // SAFETY: sp is valid, vec2s is a valid slice.
-            unsafe { manifold_simple_polygon(sp, vec2s.as_ptr(), vec2s.len()) };
+            // SAFETY: vec2s outlives the call, and the call returns a new handle.
+            let sp = owned(unsafe { manifold_simple_polygon(vec2s.as_ptr(), vec2s.len()) });
             simple.push(sp);
         }
 
-        // SAFETY: manifold_alloc_polygons returns a valid handle.
-        let ptr = unsafe { manifold_alloc_polygons() };
-        // SAFETY: ptr is valid, simple is a valid slice of valid handles.
-        unsafe { manifold_polygons(ptr, simple.as_ptr(), simple.len()) };
+        // SAFETY: as_ptr is valid for the call, and the call returns a new handle.
+        let ptr = owned(unsafe {
+            manifold_polygons(
+                simple.as_ptr().cast::<*const ManifoldSimplePolygon>(),
+                simple.len(),
+            )
+        });
 
         Self { ptr, simple }
     }

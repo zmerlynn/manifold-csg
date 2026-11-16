@@ -578,13 +578,11 @@ fn slice_to_cross_section_with_fill_rule() {
     let positive = cube.slice_to_cross_section_with_fill_rule(0.0, FillRule::Positive);
     let non_zero = cube.slice_to_cross_section_with_fill_rule(0.0, FillRule::NonZero);
 
+    let even_odd = cube.slice_to_cross_section_with_fill_rule(0.0, FillRule::EvenOdd);
+
     assert_relative_eq!(positive.area(), default_cs.area(), epsilon = 1.0);
     assert_relative_eq!(non_zero.area(), 100.0, epsilon = 1.0);
-
-    // Negative fill rule drops the positively-oriented contour entirely,
-    // proving the fill rule is actually threaded through (not ignored).
-    let negative = cube.slice_to_cross_section_with_fill_rule(0.0, FillRule::Negative);
-    assert!(negative.is_empty());
+    assert_relative_eq!(even_odd.area(), 100.0, epsilon = 1.0);
 }
 
 #[test]
@@ -1149,17 +1147,6 @@ fn original_id_is_non_negative() {
     assert!(cube.original_id() >= 0);
 }
 
-// ── CrossSection compose test ───────────────────────────────────────
-
-#[test]
-fn cross_section_compose() {
-    let a = CrossSection::square(5.0, 5.0, true).translate(-10.0, 0.0);
-    let b = CrossSection::square(5.0, 5.0, true).translate(10.0, 0.0);
-    let composed = CrossSection::compose(&[a, b]);
-    assert!(!composed.is_empty());
-    assert_relative_eq!(composed.area(), 50.0, epsilon = 1.0);
-}
-
 // ── Batch difference test ───────────────────────────────────────────
 
 #[test]
@@ -1582,14 +1569,34 @@ fn fill_rule_non_zero() {
 }
 
 #[test]
-fn fill_rule_positive_negative() {
-    // Verify Positive and Negative variants don't crash.
-    let square = vec![vec![[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]];
-    let pos = CrossSection::from_polygons_with_fill_rule(&square, FillRule::Positive);
-    let neg = CrossSection::from_polygons_with_fill_rule(&square, FillRule::Negative);
-    // At minimum, one of these should be valid for a CCW polygon.
-    assert!(pos.area() >= 0.0);
-    assert!(neg.area() >= 0.0);
+fn fill_rule_reads_winding() {
+    // A clockwise square has winding -1 inside. Positive drops it, NonZero
+    // and EvenOdd keep it, which also proves the rule is threaded through
+    // to a different C constructor rather than ignored.
+    let cw = vec![vec![[0.0, 0.0], [0.0, 10.0], [10.0, 10.0], [10.0, 0.0]]];
+    let positive = CrossSection::from_polygons_with_fill_rule(&cw, FillRule::Positive);
+    let non_zero = CrossSection::from_polygons_with_fill_rule(&cw, FillRule::NonZero);
+    let even_odd = CrossSection::from_polygons_with_fill_rule(&cw, FillRule::EvenOdd);
+    assert!(positive.is_empty());
+    assert_relative_eq!(non_zero.area(), 100.0, epsilon = 0.1);
+    assert_relative_eq!(even_odd.area(), 100.0, epsilon = 0.1);
+
+    // Upstream dropped the Negative rule. Reversing the contours and using
+    // Positive gives the same result.
+    let reversed: Vec<Vec<[f64; 2]>> = cw
+        .iter()
+        .map(|ring| ring.iter().rev().copied().collect())
+        .collect();
+    let as_negative = CrossSection::from_polygons_with_fill_rule(&reversed, FillRule::Positive);
+    assert_relative_eq!(as_negative.area(), 100.0, epsilon = 0.1);
+
+    // Same for a single contour.
+    let simple_positive =
+        CrossSection::from_simple_polygon_with_fill_rule(&cw[0], FillRule::Positive);
+    let simple_non_zero =
+        CrossSection::from_simple_polygon_with_fill_rule(&cw[0], FillRule::NonZero);
+    assert!(simple_positive.is_empty());
+    assert_relative_eq!(simple_non_zero.area(), 100.0, epsilon = 0.1);
 }
 
 // ── CrossSection::transform tests ──────────────────────────────────────
@@ -1627,8 +1634,8 @@ fn cross_section_decompose_single() {
 fn cross_section_decompose_two_disjoint() {
     let a = CrossSection::square(5.0, 5.0, false);
     let b = CrossSection::square(5.0, 5.0, false).translate(20.0, 0.0);
-    let composed = CrossSection::compose(&[a, b]);
-    let parts = composed.decompose();
+    let both = CrossSection::batch_union(&[a, b]);
+    let parts = both.decompose();
     assert_eq!(parts.len(), 2);
 }
 

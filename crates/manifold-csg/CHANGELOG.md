@@ -15,6 +15,11 @@ Tracks upstream manifold master on its way to 4.0. Not published yet.
   leaving) and is now `#[non_exhaustive]`, so code that built a `RayHit`
   with a struct literal no longer compiles. Results only ever come from
   `Manifold::ray_cast`.
+- `FillRule::Negative` is gone, because upstream dropped it. Reverse the
+  contours and use `FillRule::Positive` for the same result. `EvenOdd`,
+  `NonZero` and `Positive` work as before.
+- `CrossSection::compose` is gone, because upstream dropped it. For
+  disjoint pieces, `CrossSection::batch_union` gives the same result.
 
 ## 0.4.2
 

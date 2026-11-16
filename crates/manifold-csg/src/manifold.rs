@@ -706,10 +706,8 @@ impl Manifold {
     /// Returns a list of polygon rings (each ring is a list of `[x, y]` points).
     #[must_use]
     pub fn slice_at_z(&self, height: f64) -> Vec<Vec<[f64; 2]>> {
-        // SAFETY: manifold_alloc_polygons returns a valid handle.
-        let poly_ptr = unsafe { manifold_alloc_polygons() };
-        // SAFETY: self.ptr is valid (invariant), poly_ptr is valid from alloc.
-        unsafe { manifold_slice(poly_ptr, self.ptr, height) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let poly_ptr = owned(unsafe { manifold_slice(self.ptr, height) });
 
         let result = read_polygons(poly_ptr);
 
@@ -743,18 +741,13 @@ impl Manifold {
         height: f64,
         fill_rule: FillRule,
     ) -> CrossSection {
-        // SAFETY: manifold_alloc_polygons returns a valid handle.
-        let poly_ptr = unsafe { manifold_alloc_polygons() };
-        // SAFETY: self.ptr is valid (invariant), poly_ptr is valid from alloc.
-        unsafe { manifold_slice(poly_ptr, self.ptr, height) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let poly_ptr = owned(unsafe { manifold_slice(self.ptr, height) });
 
-        // SAFETY: manifold_alloc_cross_section returns a valid handle.
-        let cs_ptr = unsafe { manifold_alloc_cross_section() };
-        // SAFETY: cs_ptr and poly_ptr are valid.
-        unsafe {
-            manifold_cross_section_of_polygons(cs_ptr, poly_ptr, fill_rule.to_ffi());
-        }
-
+        let ctor = fill_rule.polygons_ctor();
+        // SAFETY: poly_ptr is valid until it is deleted below, and ctor returns
+        // a new handle.
+        let cs_ptr = owned(unsafe { ctor(poly_ptr) });
         // SAFETY: poly_ptr is valid and no longer needed.
         unsafe { manifold_delete_polygons(poly_ptr) };
         CrossSection { ptr: cs_ptr }
@@ -766,10 +759,8 @@ impl Manifold {
     #[must_use]
     pub fn extrude(cross_section: &CrossSection, height: f64) -> Self {
         // First convert cross-section to polygons (manifold_extrude takes polygons).
-        // SAFETY: manifold_alloc_polygons returns a valid handle.
-        let poly_ptr = unsafe { manifold_alloc_polygons() };
-        // SAFETY: poly_ptr is valid, cross_section.ptr is valid (invariant).
-        unsafe { manifold_cross_section_to_polygons(poly_ptr, cross_section.ptr) };
+        // SAFETY: cross_section.ptr is valid for the call, and the call returns a new handle.
+        let poly_ptr = owned(unsafe { manifold_cross_section_to_polygons(cross_section.ptr) });
 
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
@@ -882,7 +873,7 @@ impl Manifold {
         if self.is_empty() {
             return None;
         }
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let ptr = owned(unsafe { manifold_bounding_box(self.ptr) });
         Some(BoundingBox { ptr })
     }
@@ -1111,10 +1102,8 @@ impl Manifold {
         circular_segments: i32,
         revolve_degrees: f64,
     ) -> Self {
-        // SAFETY: manifold_alloc_polygons returns a valid handle.
-        let poly_ptr = unsafe { manifold_alloc_polygons() };
-        // SAFETY: poly_ptr is valid, cross_section.ptr is valid (invariant).
-        unsafe { manifold_cross_section_to_polygons(poly_ptr, cross_section.ptr) };
+        // SAFETY: cross_section.ptr is valid for the call, and the call returns a new handle.
+        let poly_ptr = owned(unsafe { manifold_cross_section_to_polygons(cross_section.ptr) });
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         with_quality_lock_if_auto_segments(circular_segments, || {
@@ -1136,10 +1125,8 @@ impl Manifold {
         scale_x: f64,
         scale_y: f64,
     ) -> Self {
-        // SAFETY: manifold_alloc_polygons returns a valid handle.
-        let poly_ptr = unsafe { manifold_alloc_polygons() };
-        // SAFETY: poly_ptr is valid, cross_section.ptr is valid (invariant).
-        unsafe { manifold_cross_section_to_polygons(poly_ptr, cross_section.ptr) };
+        // SAFETY: cross_section.ptr is valid for the call, and the call returns a new handle.
+        let poly_ptr = owned(unsafe { manifold_cross_section_to_polygons(cross_section.ptr) });
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         // SAFETY: ptr is valid from alloc, poly_ptr is valid.
@@ -1218,10 +1205,8 @@ impl Manifold {
     /// Project the manifold onto the XY plane, returning 2D polygons.
     #[must_use]
     pub fn project(&self) -> Vec<Vec<[f64; 2]>> {
-        // SAFETY: manifold_alloc_polygons returns a valid handle.
-        let poly_ptr = unsafe { manifold_alloc_polygons() };
-        // SAFETY: self.ptr is valid (invariant), poly_ptr is valid from alloc.
-        unsafe { manifold_project(poly_ptr, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let poly_ptr = owned(unsafe { manifold_project(self.ptr) });
         let result = read_polygons(poly_ptr);
         // SAFETY: poly_ptr is valid and no longer needed.
         unsafe { manifold_delete_polygons(poly_ptr) };
