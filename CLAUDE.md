@@ -53,10 +53,10 @@ A repo-root `flake.nix` exposes a devShell that links a `manifold` built outside
 
 ## FFI safety rules
 
-- Every `manifold_alloc_*` must be paired with `manifold_delete_*` on all code paths
+- Every handle a `manifold_*` function returns as `T*` is owned by the caller: wrap it with `crate::owned` (which panics on null) and free it with the matching `manifold_delete_*` on all code paths. A `const T*` return is borrowed from an input and valid only while that input lives, so copy it out (`crate::copy_out`) before the input can drop. On the 3.5.x line (`main`) the C API took caller-allocated memory instead, and every `manifold_alloc_*` had to be paired with `manifold_delete_*`.
 - All `Drop` impls must null-check before freeing
 - All FFI callback trampolines must use `catch_unwind` to prevent panic-across-FFI UB
-- `FnMut` callback trampolines are valid only for upstream callbacks that are sequential in the pinned source. In v3.5.0, `Warp` and non-null `SetProperties` callbacks use sequential execution; parallel callbacks must use `Sync`/shared-state-safe bounds like `from_sdf`.
+- `FnMut` callback trampolines are valid only for upstream callbacks that are sequential in the pinned source. In v3.5.0 and on the `next` pin, `Warp` and non-null `SetProperties` callbacks use sequential execution; parallel callbacks must use `Sync`/shared-state-safe bounds like `from_sdf`.
 - `unsafe impl Send` requires documented justification on each type
 - `Sync` is implemented for `Manifold` and `CrossSection` (upstream synchronizes lazy evaluation with a mutex). `MeshGL`/`MeshGL64` are also `Sync` (pure data, no lazy state)
 - `manifold_meshgl_merge` / `manifold_meshgl64_merge` had an upstream ownership bug (returning the input pointer on failure, causing double-free). This was fixed upstream in #1632 (included in our pinned commit).

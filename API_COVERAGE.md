@@ -1,15 +1,15 @@
 # API Coverage
 
-This document maps every function in the bundled manifold3d 3.5.x C API to its
+This document maps every function in the bundled manifold3d C API to its
 status in `manifold-csg-sys` (raw FFI) and `manifold-csg` (safe wrapper).
 
 All C API functions are bound in `manifold-csg-sys`. The safe crate wraps the
-most commonly needed operations; infrastructure functions (allocation, vectors,
+most commonly needed operations; infrastructure functions (deallocation, vectors,
 polygon helpers) are used internally and don't need direct safe wrappers.
 
 **Legend:**
 - **Wrapped** - has a safe public method
-- **Internal** - used internally by safe wrappers (allocation, Drop, helpers)
+- **Internal** - used internally by safe wrappers (Drop, helpers)
 - **Not wrapped** - bound in sys but no safe wrapper yet
 
 ---
@@ -31,8 +31,6 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_copy` | [`Clone` impl](crates/manifold-csg/src/manifold.rs) |
 | `manifold_level_set` | [`Manifold::from_sdf`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_read_obj` | [`Manifold::from_obj`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_smooth` | [`Manifold::smooth_f32`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_smooth64` | [`Manifold::smooth_f64`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_level_set_seq` | [`Manifold::from_sdf_seq`](crates/manifold-csg/src/manifold.rs) |
 
 ## Manifold - Boolean Operations
@@ -61,10 +59,8 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_refine` | [`Manifold::refine`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_refine_to_length` | [`Manifold::refine_to_length`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_refine_to_tolerance` | [`Manifold::refine_to_tolerance`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_set_tolerance` | [`Manifold::set_tolerance`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_simplify` | [`Manifold::simplify`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_smooth_by_normals` | [`Manifold::smooth_by_normals`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_smooth_out` | [`Manifold::smooth_out`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_calculate_normals` | [`Manifold::calculate_normals`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_calculate_curvature` | [`Manifold::calculate_curvature`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_set_properties` | [`Manifold::set_properties`](crates/manifold-csg/src/manifold.rs) |
@@ -82,17 +78,15 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_num_edge` | [`Manifold::num_edge`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_num_prop` | [`Manifold::num_prop`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_epsilon` | [`Manifold::epsilon`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_get_tolerance` | [`Manifold::get_tolerance`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_num_prop_vert` | [`Manifold::num_prop_vert`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_genus` | [`Manifold::genus`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_bounding_box` | [`Manifold::bounding_box`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_original_id` | [`Manifold::original_id`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_winding_number` | [`Manifold::winding_number`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_min_gap` | [`Manifold::min_gap`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_status` | [`Manifold::status`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_with_context` | [`Manifold::with_context`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_as_original` | [`Manifold::as_original`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_manifold_size` | Not needed (alloc size) |
-| `manifold_manifold_pair_size` | Not needed (alloc size) |
 
 ## Manifold - Hull, Decomposition & Mesh Extraction
 
@@ -254,6 +248,9 @@ and frees it, so the vector accessors are internal.
 | `manifold_reset_to_circular_defaults` | [`reset_to_circular_defaults`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_get_circular_segments` | [`get_circular_segments`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_reserve_ids` | [`reserve_ids`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_set_relative_precision` | [`set_relative_precision`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_get_relative_precision` | [`get_relative_precision`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_version` | [`manifold_version`](crates/manifold-csg/src/manifold.rs) |
 
 ## Box3D Operations (`BoundingBox`)
 
@@ -329,7 +326,6 @@ Used internally by batch operations, decompose, etc.
 | `manifold_manifold_vec_push_back` | Internal |
 | `manifold_manifold_vec_reserve` | Not used |
 | `manifold_manifold_vec_set` | Not used |
-| `manifold_manifold_vec_size` | Not used |
 | `manifold_cross_section_vec` | Internal |
 | `manifold_cross_section_empty_vec` | Internal |
 | `manifold_cross_section_vec_get` | Internal |
@@ -350,20 +346,17 @@ Used internally by batch operations, decompose, etc.
 | `manifold_execution_context_level_set_seq` | [`Manifold::from_sdf_seq_with_context`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_execution_context_of_meshgl` | [`Manifold::from_meshgl_with_context`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_execution_context_of_meshgl64` | [`Manifold::from_meshgl64_with_context`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_execution_context_smooth` | Not wrapped (no f32 `smooth` in safe API; see `manifold_smooth`) |
-| `manifold_execution_context_smooth64` | [`Manifold::smooth_f64_with_context`](crates/manifold-csg/src/manifold.rs) |
 
-## Allocation & Deallocation (Internal)
+## Deallocation (Internal)
 
-Every `manifold_alloc_*` and `manifold_delete_*`/`manifold_destruct_*` function
-is bound in `manifold-csg-sys` and used internally by the safe wrappers' constructors
-and `Drop` implementations.
+Every C function that returns a handle (`T*`) allocates it, and the caller
+frees it with the matching `manifold_delete_*`. The safe wrappers do that in
+their `Drop` implementations. Functions returning `const T*` lend a pointer
+into an object's own storage instead, which the safe wrappers copy out.
 
 | Function group | Count |
 |---|---|
-| `manifold_alloc_*` | 2 |
 | `manifold_delete_*` | 13 |
-| `manifold_destruct_*` | 2 |
 
 ---
 
@@ -375,36 +368,34 @@ if it doesn't, a function was bound without being documented here.
 
 A row counts as **Wrapped** when its status cell links a safe method,
 **Internal** when the cell starts with `Internal`, and **Bound, unused**
-otherwise (`Not used`, `Not needed (alloc size)`, `Not wrapped`).
+otherwise (`Not used`, `Not wrapped`).
 
 | Category | Wrapped | Internal | Bound, unused |
 |---|---|---|---|
-| Manifold construction | 16 | 0 | 0 |
+| Manifold construction | 14 | 0 | 0 |
 | Manifold booleans | 8 | 0 | 0 |
-| Manifold transforms | 17 | 0 | 0 |
-| Manifold queries | 17 | 0 | 2 |
+| Manifold transforms | 15 | 0 | 0 |
+| Manifold queries | 17 | 0 | 0 |
 | Manifold hull/decompose/mesh | 12 | 0 | 0 |
 | Ray casting | 1 | 2 | 0 |
 | CrossSection construction & booleans | 20 | 0 | 0 |
 | CrossSection transforms & queries | 14 | 0 | 0 |
 | MeshGL/MeshGL64 | 44 | 20 | 0 |
 | Triangulation | 1 | 2 | 0 |
-| Quality globals | 6 | 0 | 0 |
+| Quality globals | 9 | 0 | 0 |
 | Box3D (BoundingBox) | 16 | 0 | 0 |
 | Rect2D (Rect) | 16 | 0 | 0 |
 | Polygon helpers | 0 | 5 | 3 |
-| Vector containers | 0 | 10 | 5 |
-| ExecutionContext (cancel/progress + factories) | 9 | 0 | 1 |
-| Alloc/delete/destruct | 0 | 17 | 0 |
-| **Total** | **197** | **56** | **11** |
+| Vector containers | 0 | 10 | 4 |
+| ExecutionContext (cancel/progress + factories) | 8 | 0 | 0 |
+| Delete | 0 | 13 | 0 |
+| **Total** | **195** | **52** | **7** |
 
-197 + 56 + 11 = 264, matching the sys crate's 264 declarations.
+195 + 52 + 7 = 254, matching the sys crate's 254 declarations.
 
 "Bound, unused" means the function is declared in `manifold-csg-sys` but the
-safe crate never calls it: `*_size` queries the crate does not need because it
-allocates through `manifold_alloc_*`, vector and polygon operations with no
-safe-API consumer, and the f32 `manifold_execution_context_smooth` (left
-unwrapped to mirror the unwrapped f32 `manifold_smooth`). They stay bound so
-callers working at the sys level have the whole C API available.
+safe crate never calls it: vector and polygon operations with no safe-API
+consumer. They stay bound so callers working at the sys level have the whole C
+API available.
 
 All operations commonly needed for CSG workflows have safe wrappers.

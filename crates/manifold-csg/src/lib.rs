@@ -43,8 +43,9 @@ pub use cross_section::{CrossSection, FillRule, JoinType, Rect2};
 pub use execution::ExecutionContext;
 pub use manifold::Manifold;
 pub use manifold::{
-    get_circular_segments, reserve_ids, reset_to_circular_defaults, set_circular_segments,
-    set_min_circular_angle, set_min_circular_edge_length,
+    get_circular_segments, get_relative_precision, manifold_version, reserve_ids,
+    reset_to_circular_defaults, set_circular_segments, set_min_circular_angle,
+    set_min_circular_edge_length, set_relative_precision,
 };
 pub use mesh::{MeshGL, MeshGL64, MeshGL64Options, MeshGLOptions};
 pub use ray::RayHit;

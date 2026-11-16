@@ -120,7 +120,10 @@ fn main() {
 
     let a = Manifold::sphere(3.0, 32).translate(-10.0, 0.0, 0.0);
     let b = Manifold::sphere(3.0, 32).translate(10.0, 0.0, 0.0);
-    let composed = Manifold::compose(&[a, b]);
+    let composed = Manifold::batch_union(&[a, b]);
     let parts = composed.decompose();
-    println!("\nComposed 2 spheres -> decompose -> {} parts", parts.len(),);
+    println!(
+        "\nUnioned 2 disjoint spheres -> decompose -> {} parts",
+        parts.len(),
+    );
 }
