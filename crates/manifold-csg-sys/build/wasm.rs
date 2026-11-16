@@ -16,9 +16,7 @@ use std::{
 // The build path here is fundamentally different from the host/emscripten
 // path: a different toolchain (clang via wasm-cxx-shim's toolchain file),
 // different cmake flags (-fno-exceptions, -fno-rtti, -nostdlib, -nostdinc++,
-// MANIFOLD_PAR=OFF, etc.), additional dependencies (Clipper2 cloned
-// separately so we can patch it), additional carry-patches to manifold
-// (iostream gating), and a libcxx-extras.cpp consumer-side file that
+// MANIFOLD_PAR=OFF, etc.), manifold's iostream gating, and a libcxx-extras.cpp consumer-side file that
 // provides the libc++ source-file symbols (shared_ptr internals, etc.)
 // the shim deliberately doesn't ship.
 //
@@ -30,34 +28,31 @@ use std::{
 // build.rs instead of a cmake file).
 
 const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
-// v0.5.0 catches up to manifold v3.5.0: adds `assert.h` to libc and
-// `<memory>` shared_ptr atomic-free-function stubs to libcxx, both
-// surfaced by v3.5.0's new ExecutionContext-attached-via-shared_ptr
-// model. The shim's tested-pin default is `v3.5.0`.
+// v0.6.0 catches up to manifold master 46e5d2c9 (pre-4.0), the same commit
+// `next` pins, so the wasm-uu lane builds exactly the shim's tested pin.
+// Build.rs still passes `-DMANIFOLD_GIT_TAG=<our pin>` (below), so a pin move
+// on our side is what the lane builds, tested by the shim or not.
 //
-// Our host pin (MANIFOLD_VERSION) is now `v3.5.5`, five patch releases
-// PAST the shim's tested pin. Build.rs passes `-DMANIFOLD_GIT_TAG=<our
-// pin>` (below), so the wasm-uu lane builds v3.5.5 through the shim.
+// The shim's helper ships no carry-patches for default-pin builds (it passes
+// GIT_TAG straight to FetchContent, and patches only arrive via the caller's
+// EXTRA_MANIFOLD_PATCHES, which we do not pass), so no patch can fail to
+// apply against a newer manifold. What the shim does supply is the
+// libc++/libc surface manifold compiles against, plus the reference copies
+// of the files in wasm32-uu/ (__config_site, the <mutex> stub,
+// libcxx-extras.cpp), which we keep in step with the shim's
+// test/manifold-link/. A newer manifold reaching for something the shim
+// lacks breaks the wasm-uu CI lane directly.
 //
-// This is lower-risk than the tested-pin gap suggests: the v0.5.0 helper
-// ships no carry-patches for default-pin builds (it passes GIT_TAG
-// straight to FetchContent, and patches only arrive via the caller's
-// EXTRA_MANIFOLD_PATCHES, which we do not pass). So there is no patch
-// that can fail to apply against a newer manifold. What the shim does
-// supply is the libc++/libc surface manifold compiles against, so the
-// residual risk is a compile break if v3.5.5 reaches for something the
-// shim lacks - which the wasm-uu CI lane catches directly.
-//
-// If it does break, the fix is either (a) a shim release pinned past our
-// version, or (b) pin this lane back here and cfg-gate any newer-only FFI
-// on `not(all(target_arch = "wasm32", target_os = "unknown"))`. See
+// If it does break, the fix is either (a) a shim release that covers the
+// new pin, or (b) pin this lane back and cfg-gate any newer-only FFI on
+// `not(all(target_arch = "wasm32", target_os = "unknown"))`. See
 // CLAUDE.md "Versioning" / "Pin / shim follow-ups".
 //
 // Keep the line below exactly this shape: `const WASM_CXX_SHIM_TAG: &str =
 // "...";`, alone on its line, with no trailing comment, and declared only
 // once. scripts/pins.py reads it by matching that exact line, for the
 // upstream-watch check.
-const WASM_CXX_SHIM_TAG: &str = "v0.5.0";
+const WASM_CXX_SHIM_TAG: &str = "v0.6.0";
 
 /// Diagnostic context populated up-front in `build_wasm_unknown_unknown()`,
 /// passed to `bail_with_diagnostics()` so cmake/clang failures emit the
@@ -258,8 +253,8 @@ pub fn build_wasm_unknown_unknown() {
     println!("cargo:rerun-if-changed=patches");
     println!("cargo:rerun-if-changed=wasm32-uu");
 
-    // wasm32-unknown-unknown support is provisional: the build path carries
-    // patches against upstream manifold and Clipper2, ships without an
+    // wasm32-unknown-unknown support is provisional: the build path stubs
+    // parts of libc++ (see wasm32-uu/), ships without an
     // exception runtime (implicit STL throws abort), disables OBJ I/O, and
     // depends on a precise LLVM toolchain. Require an explicit feature flag
     // so this is acknowledged at the consumer's Cargo.toml.
@@ -276,7 +271,7 @@ pub fn build_wasm_unknown_unknown() {
     }
     println!(
         "cargo:warning=manifold-csg-sys: wasm32-unknown-unknown support is \
-         provisional. Patched manifold and Clipper2 (via wasm-cxx-shim helper); \
+         provisional. manifold built via the wasm-cxx-shim helper; \
          no exception runtime; OBJ I/O disabled. See README for details."
     );
     // Env vars that influence toolchain selection. Without these,
@@ -395,12 +390,11 @@ pub fn build_wasm_unknown_unknown() {
         }
     }
 
-    // ---- Stage 2: build manifold + Clipper2 via the shim's helper -------
+    // ---- Stage 2: build manifold via the shim's helper -----------------
     //
     // The shim's `wasm_cxx_shim_add_manifold()` helper owns the high-
     // change-rate parts of the integration cocktail: FetchContent of
-    // manifold + Clipper2 (with tested-pin defaults, carry-patches, and
-    // manifold/Clipper2 CMake options). Our wrapper at
+    // manifold (with tested-pin defaults and manifold's CMake options). Our wrapper at
     // wasm32-uu/CMakeLists.txt sets up the consumer-side `-isystem`
     // chain (libc++ headers + our `__config_site` override + the
     // `<mutex>` stub) and calls the helper. See WASM_CXX_SHIM_TAG above
@@ -515,7 +509,7 @@ pub fn build_wasm_unknown_unknown() {
     // test/manifold-link/CMakeLists.txt:
     //
     //   user obj/rlib (Rust crate) → libcxx_extras → manifoldc → manifold
-    //     → Clipper2 → wasm-cxx-shim-libcxx → wasm-cxx-shim-libc
+    //     → wasm-cxx-shim-libcxx → wasm-cxx-shim-libc
     //     → wasm-cxx-shim-libm
 
     println!("cargo:rustc-link-search=native={}", out_dir.display());
@@ -525,7 +519,7 @@ pub fn build_wasm_unknown_unknown() {
     // manifold's libraries further nested under bindings/c and src. Walk
     // the build dir rather than hardcoding paths, so we stay robust
     // against helper/cmake layout changes.
-    for libname in ["manifoldc", "manifold", "Clipper2"] {
+    for libname in ["manifoldc", "manifold"] {
         let dir = crate::find_lib_recursive(&manifold_build, libname).unwrap_or_else(|| {
             panic!(
                 "could not find lib{libname}.a under {}. \
@@ -540,7 +534,6 @@ pub fn build_wasm_unknown_unknown() {
     }
     println!("cargo:rustc-link-lib=static=manifoldc");
     println!("cargo:rustc-link-lib=static=manifold");
-    println!("cargo:rustc-link-lib=static=Clipper2");
 
     let shim_lib_dirs = [
         shim_build.join("libcxx"),

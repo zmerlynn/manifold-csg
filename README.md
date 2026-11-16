@@ -187,9 +187,9 @@ runtime gap (`wasm32-unknown-unknown` ships no libc, no libc++, no
 libc++abi) is filled by [`wasm-cxx-shim`](https://github.com/zmerlynn/wasm-cxx-shim),
 which is cloned and built automatically by `build.rs`.
 
-**This target is provisional.** The build carries patches against upstream
-manifold and Clipper2, ships without an exception runtime (implicit STL
-throws abort), and disables OBJ I/O. To acknowledge these constraints,
+**This target is provisional.** The build stubs parts of libc++ (see
+`crates/manifold-csg-sys/wasm32-uu/`), ships without an exception runtime
+(implicit STL throws abort), and disables OBJ I/O. To acknowledge these constraints,
 the `unstable-wasm-uu` cargo feature is required for any build targeting
 `wasm32-unknown-unknown`. Without it, `build.rs` aborts with an instructive
 error.
@@ -231,8 +231,8 @@ to GitHub Pages).
 
 Notes:
 
-- First build is slow (clones manifold + Clipper2 + wasm-cxx-shim, builds
-  three cmake projects in cross-compile). Subsequent builds use the cached
+- First build is slow (clones manifold + wasm-cxx-shim, builds two cmake
+  projects in cross-compile). Subsequent builds use the cached
   artifacts.
 - The `parallel` feature is unavailable on this target (no threads in
   default `wasm32-unknown-unknown`).
