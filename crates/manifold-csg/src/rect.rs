@@ -1,5 +1,6 @@
 //! 2D axis-aligned bounding rectangle wrapping `ManifoldRect`.
 
+use crate::owned;
 use manifold_csg_sys::*;
 
 /// A 2D axis-aligned bounding rectangle.
@@ -31,7 +32,7 @@ impl Clone for Rect {
 impl Drop for Rect {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            // SAFETY: self.ptr was allocated by manifold_alloc_rect.
+            // SAFETY: self.ptr came from a manifold_* constructor and is freed only here.
             unsafe { manifold_delete_rect(self.ptr) };
             self.ptr = std::ptr::null_mut();
         }
@@ -51,12 +52,8 @@ impl Rect {
     /// Create a rectangle from min and max corners.
     #[must_use]
     pub fn new(min: [f64; 2], max: [f64; 2]) -> Self {
-        // SAFETY: manifold_alloc_rect returns a valid handle.
-        let ptr = unsafe { manifold_alloc_rect() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe {
-            manifold_rect(ptr, min[0], min[1], max[0], max[1]);
-        }
+        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_rect(min[0], min[1], max[0], max[1]) });
         Self { ptr }
     }
 
@@ -148,10 +145,8 @@ impl Rect {
     /// Return the union (smallest rectangle containing both) of two rectangles.
     #[must_use]
     pub fn union(&self, other: &Rect) -> Rect {
-        // SAFETY: manifold_alloc_rect returns a valid handle.
-        let ptr = unsafe { manifold_alloc_rect() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_rect_union(ptr, self.ptr, other.ptr) };
+        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_rect_union(self.ptr, other.ptr) });
         Rect { ptr }
     }
 
@@ -163,32 +158,25 @@ impl Rect {
     /// - col3 `(x3,y3)` — translation
     #[must_use]
     pub fn transform(&self, m: &[f64; 6]) -> Rect {
-        // SAFETY: manifold_alloc_rect returns a valid handle.
-        let ptr = unsafe { manifold_alloc_rect() };
-        // SAFETY: all pointers are valid.
-        unsafe {
-            manifold_rect_transform(ptr, self.ptr, m[0], m[1], m[2], m[3], m[4], m[5]);
-        }
+        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        let ptr =
+            owned(unsafe { manifold_rect_transform(self.ptr, m[0], m[1], m[2], m[3], m[4], m[5]) });
         Rect { ptr }
     }
 
     /// Translate the rectangle by `[x, y]`.
     #[must_use]
     pub fn translate(&self, v: [f64; 2]) -> Rect {
-        // SAFETY: manifold_alloc_rect returns a valid handle.
-        let ptr = unsafe { manifold_alloc_rect() };
-        // SAFETY: all pointers are valid.
-        unsafe { manifold_rect_translate(ptr, self.ptr, v[0], v[1]) };
+        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_rect_translate(self.ptr, v[0], v[1]) });
         Rect { ptr }
     }
 
     /// Scale the rectangle by `[x, y]` factors.
     #[must_use]
     pub fn mul(&self, v: [f64; 2]) -> Rect {
-        // SAFETY: manifold_alloc_rect returns a valid handle.
-        let ptr = unsafe { manifold_alloc_rect() };
-        // SAFETY: all pointers are valid.
-        unsafe { manifold_rect_mul(ptr, self.ptr, v[0], v[1]) };
+        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_rect_mul(self.ptr, v[0], v[1]) });
         Rect { ptr }
     }
 }

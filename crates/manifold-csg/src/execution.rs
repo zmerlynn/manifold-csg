@@ -43,9 +43,9 @@
 //! Available since manifold3d's post-v3.4.1 master.
 
 use manifold_csg_sys::{
-    ManifoldExecutionContext, manifold_alloc_execution_context, manifold_delete_execution_context,
-    manifold_execution_context, manifold_execution_context_cancel,
-    manifold_execution_context_cancelled, manifold_execution_context_progress,
+    ManifoldExecutionContext, manifold_delete_execution_context, manifold_execution_context,
+    manifold_execution_context_cancel, manifold_execution_context_cancelled,
+    manifold_execution_context_progress,
 };
 
 /// Observes progress and allows cooperative cancellation of long-running
@@ -66,12 +66,8 @@ impl ExecutionContext {
     /// Create a fresh, un-cancelled context with zero progress.
     #[must_use]
     pub fn new() -> Self {
-        // SAFETY: alloc returns a valid handle; the constructor takes that
-        // raw memory and constructs an ExecutionContext into it (returning
-        // the same pointer).
-        let mem = unsafe { manifold_alloc_execution_context() };
-        // SAFETY: mem is a valid, freshly-allocated handle.
-        let ptr = unsafe { manifold_execution_context(mem) };
+        // SAFETY: takes no arguments and returns a new handle.
+        let ptr = crate::owned(unsafe { manifold_execution_context() });
         Self { ptr }
     }
 
@@ -118,7 +114,7 @@ impl Default for ExecutionContext {
 impl Drop for ExecutionContext {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            // SAFETY: ptr was returned by alloc + construct; not freed since.
+            // SAFETY: ptr came from manifold_execution_context and is not freed elsewhere.
             unsafe { manifold_delete_execution_context(self.ptr) };
             self.ptr = std::ptr::null_mut();
         }

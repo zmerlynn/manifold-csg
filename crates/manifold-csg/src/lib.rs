@@ -51,3 +51,15 @@ pub use ray::RayHit;
 pub use rect::Rect;
 pub use triangulation::triangulate_polygons;
 pub use types::{CsgError, OpType};
+
+/// Takes a handle the C API just returned.
+///
+/// Every `manifold_*` function that produces a handle heap-allocates it with
+/// C++ `new`, which throws rather than returning null, so a null here is an
+/// upstream bug. Panicking keeps it from becoming a null dereference later.
+/// The caller owns the handle and frees it with the matching
+/// `manifold_delete_*`.
+pub(crate) fn owned<T>(ptr: *mut T) -> *mut T {
+    assert!(!ptr.is_null(), "manifold C API returned a null handle");
+    ptr
+}
