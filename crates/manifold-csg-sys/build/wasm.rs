@@ -30,34 +30,33 @@ use std::{
 // build.rs instead of a cmake file).
 
 const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
-// v0.5.0 catches up to manifold v3.5.0: adds `assert.h` to libc and
-// `<memory>` shared_ptr atomic-free-function stubs to libcxx, both
-// surfaced by v3.5.0's new ExecutionContext-attached-via-shared_ptr
-// model. The shim's tested-pin default is `v3.5.0`.
+// v0.7.0's tested-pin default is manifold master (pre-4.0), which is
+// what the `next` branch builds. The shim no longer tests a 3.x tag in
+// its own CI, but it still supports one as an override: the helper keeps
+// the `CLIPPER2_*` options, which only matter for 3.x. Its libc/libm/
+// libcxx surface is a superset of v0.5.0's, which built v3.5.0 through
+// v3.5.5: v0.6.0 added `fmod` and `frexp` to libm and made aligned
+// `operator new` round the size up to the alignment. Our vendored
+// `wasm32-uu/` files stay at their 3.5.x versions, because the shim's
+// newer copies target manifold master (see its CHANGELOG's Upgrading
+// notes).
 //
-// Our host pin (MANIFOLD_VERSION) is now `v3.5.5`, five patch releases
-// PAST the shim's tested pin. Build.rs passes `-DMANIFOLD_GIT_TAG=<our
-// pin>` (below), so the wasm-uu lane builds v3.5.5 through the shim.
+// Build.rs passes `-DMANIFOLD_GIT_TAG=<our pin>` (below), so the wasm-uu
+// lane builds MANIFOLD_VERSION through the shim. The helper ships no
+// carry-patches, so nothing can fail to apply against our pin. The
+// residual risk is a compile break if manifold reaches for something the
+// shim lacks, which the wasm-uu CI lane catches directly.
 //
-// This is lower-risk than the tested-pin gap suggests: the v0.5.0 helper
-// ships no carry-patches for default-pin builds (it passes GIT_TAG
-// straight to FetchContent, and patches only arrive via the caller's
-// EXTRA_MANIFOLD_PATCHES, which we do not pass). So there is no patch
-// that can fail to apply against a newer manifold. What the shim does
-// supply is the libc++/libc surface manifold compiles against, so the
-// residual risk is a compile break if v3.5.5 reaches for something the
-// shim lacks - which the wasm-uu CI lane catches directly.
-//
-// If it does break, the fix is either (a) a shim release pinned past our
-// version, or (b) pin this lane back here and cfg-gate any newer-only FFI
-// on `not(all(target_arch = "wasm32", target_os = "unknown"))`. See
+// If it does break, the fix is either (a) a shim release that covers our
+// version, or (b) pin this lane back and cfg-gate any newer-only FFI on
+// `not(all(target_arch = "wasm32", target_os = "unknown"))`. See
 // CLAUDE.md "Versioning" / "Pin / shim follow-ups".
 //
 // Keep the line below exactly this shape: `const WASM_CXX_SHIM_TAG: &str =
 // "...";`, alone on its line, with no trailing comment, and declared only
 // once. scripts/pins.py reads it by matching that exact line, for the
 // upstream-watch check.
-const WASM_CXX_SHIM_TAG: &str = "v0.5.0";
+const WASM_CXX_SHIM_TAG: &str = "v0.7.0";
 
 /// Diagnostic context populated up-front in `build_wasm_unknown_unknown()`,
 /// passed to `bail_with_diagnostics()` so cmake/clang failures emit the
