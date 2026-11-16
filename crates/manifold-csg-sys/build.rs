@@ -31,7 +31,7 @@ use std::sync::OnceLock;
 /// comment, and declared only once. `flake.nix` and `scripts/pins.py` read
 /// the pin by matching that exact line and fail on anything else. The
 /// nix-offline CI lane fails if they disagree.
-pub(crate) const MANIFOLD_VERSION: &str = "v3.5.5";
+pub(crate) const MANIFOLD_VERSION: &str = "46e5d2c9686836ad938cf1258a52a119d78dfb90";
 
 /// `--parallel <N>` for `cmake --build`: `CMAKE_BUILD_PARALLEL_LEVEL` if set,
 /// to throttle only the C++ build, otherwise cargo's `NUM_JOBS`.
@@ -235,7 +235,7 @@ fn try_external_lib(target_env: &str, target_os: &str, target_vendor: &str) -> b
         "cargo:warning=manifold-csg-sys: linking external manifold from \
          MANIFOLD_CSG_LIB_DIR={lib_dir} (kind={kind}); skipping clone + cmake. \
          You are responsible for matching the pinned upstream version (see \
-         MANIFOLD_VERSION) and build flags (CROSS_SECTION, C bindings)."
+         MANIFOLD_VERSION) and build flags (C bindings)."
     );
     if kind == "dylib" {
         println!(

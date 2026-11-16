@@ -1,7 +1,10 @@
 [package]
 name = "manifold-csg-sys"
 description = "Raw FFI bindings to the manifold3d C API for constructive solid geometry"
-version = "3.5.106"
+version = "3.99.100-dev"
+# next carries the manifold 4.0 port and must not publish. See
+# docs/next-branch.md, "Publish guard".
+publish = false
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

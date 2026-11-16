@@ -2,6 +2,9 @@
 name = "manifold3d"
 description = "Safe Rust bindings to manifold3d (facade crate - re-exports manifold-csg)"
 version.workspace = true
+# next carries the manifold 4.0 port and must not publish. See
+# docs/next-branch.md, "Publish guard".
+publish = false
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -17,7 +20,7 @@ nalgebra = ["manifold-csg/nalgebra"]
 unstable-wasm-uu = ["manifold-csg/unstable-wasm-uu"]
 
 [dependencies]
-manifold-csg = { path = "../manifold-csg", version = "=0.4.2", default-features = false }
+manifold-csg = { path = "../manifold-csg", version = "=0.5.0-dev", default-features = false }
 
 [package.metadata.docs.rs]
 features = ["nalgebra", "parallel"]

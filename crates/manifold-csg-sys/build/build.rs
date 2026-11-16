@@ -51,8 +51,6 @@ pub fn build(
         "-DMANIFOLD_PYBIND=OFF".to_string(),
         "-DMANIFOLD_JSBIND=OFF".to_string(),
         "-DMANIFOLD_CBIND=ON".to_string(),
-        "-DMANIFOLD_CROSS_SECTION=ON".to_string(),
-        "-DMANIFOLD_USE_BUILTIN_CLIPPER2=ON".to_string(),
         "-DBUILD_SHARED_LIBS=OFF".to_string(),
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON".to_string(),
     ];
@@ -119,17 +117,16 @@ pub fn build(
     // On Unix, cmake puts libraries directly in the build subdirectories.
     // On MSVC, cmake's multi-config generator puts them in Release/ subdirs.
     // We use find_lib_recursive to handle both layouts reliably.
-    let required_libs = ["manifoldc", "manifold", "Clipper2"];
+    let required_libs = ["manifoldc", "manifold"];
     for lib_name in &required_libs {
         if let Some(lib_dir) = find_lib_recursive(build_dir, lib_name) {
             println!("cargo:rustc-link-search=native={}", lib_dir.display());
         }
     }
 
-    // Link order matters: manifoldc depends on manifold, which depends on Clipper2 and TBB.
+    // Link order matters: manifoldc depends on manifold, which depends on TBB.
     println!("cargo:rustc-link-lib=static=manifoldc");
     println!("cargo:rustc-link-lib=static=manifold");
-    println!("cargo:rustc-link-lib=static=Clipper2");
 
     // TBB (builtin, for parallel CSG operations — only when "parallel" feature is enabled).
     // On different platforms, the TBB static library has different names:

@@ -2,6 +2,9 @@
 name = "manifold-csg"
 description = "Safe Rust bindings to manifold3d - f64-precision CSG booleans, 2D cross-sections, extrusion, SDF, and OBJ I/O with Send safety and automatic memory management"
 version.workspace = true
+# next carries the manifold 4.0 port and must not publish. See
+# docs/next-branch.md, "Publish guard".
+publish = false
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -20,7 +23,7 @@ nalgebra = ["dep:nalgebra"]
 unstable-wasm-uu = ["manifold-csg-sys/unstable-wasm-uu"]
 
 [dependencies]
-manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.5.106", default-features = false }
+manifold-csg-sys = { path = "../manifold-csg-sys", version = "3.99.100-dev", default-features = false }
 thiserror = "2"
 log = "0.4"
 nalgebra = { version = "0.35", optional = true }
