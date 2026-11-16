@@ -29,7 +29,8 @@ env:
 jobs:
   build:
     name: next at upstream master
-    runs-on: ubuntu-latest
+    # 24.04 for its clang-18, which the ABI check is pinned to.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       GH_TOKEN: ${{ github.token }}
@@ -115,7 +116,7 @@ jobs:
             echo "::warning::next has no scripts/check-abi.py yet (it arrives with the next main -> next sync); skipping"
             exit 0
           fi
-          python3 scripts/check-abi.py
+          CLANG=clang-18 python3 scripts/check-abi.py
 
       - name: Test
         if: ${{ !cancelled() && steps.next.outputs.exists == 'true' }}
