@@ -63,6 +63,21 @@ jobs:
           fi
           python3 scripts/check-abi.py "${args[@]}"
           python3 scripts/abi/selftest.py "${args[@]}"
+      # PRs into main only exercise the baseline mode above. Run this
+      # branch's checker in strict mode against next's tree too, so a change
+      # to the checker cannot break next's check unseen. next keeps its own
+      # declarations; only the checker files are overlaid.
+      - name: ABI check against next (strict mode)
+        if: (github.base_ref || github.ref_name) == 'main'
+        run: |
+          git fetch -q --depth=1 origin next:refs/remotes/origin/next
+          git worktree add -q --detach "$RUNNER_TEMP/next" origin/next
+          mkdir -p "$RUNNER_TEMP/next/scripts/abi"
+          cp scripts/check-abi.py "$RUNNER_TEMP/next/scripts/"
+          cp scripts/abi/cbindgen.toml scripts/abi/exceptions.json scripts/abi/selftest.py "$RUNNER_TEMP/next/scripts/abi/"
+          cd "$RUNNER_TEMP/next"
+          python3 scripts/check-abi.py
+          python3 scripts/abi/selftest.py
       # upstream-watch.yml only runs weekly, so without this a syntax error in
       # its script would ship and first surface as a red job days later.
       - run: python3 -m py_compile scripts/check-upstream.py

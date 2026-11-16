@@ -23,6 +23,22 @@
  },
  "_reasons": {
   "added_const_fields": "input-only pointers, tightened to *const in manifold-csg-sys 3.5.101 (see CLAUDE.md, Versioning)",
-  "enum_names": "ManifoldError::VertexOutOfBounds predates the header's VERTEX_INDEX_OUT_OF_BOUNDS naming"
- }
+  "enum_names": "ManifoldError::VertexOutOfBounds predates the header's VERTEX_INDEX_OUT_OF_BOUNDS naming",
+  "opaque_handles": "C++ objects the C API only hands out by pointer; declared in Rust as `_private: [u8; 0]` structs"
+ },
+ "opaque_handles": [
+  "ManifoldManifold",
+  "ManifoldManifoldVec",
+  "ManifoldPolygons",
+  "ManifoldSimplePolygon",
+  "ManifoldRayHitVec",
+  "ManifoldExecutionContext",
+  "ManifoldTriangulation",
+  "ManifoldMeshGL",
+  "ManifoldMeshGL64",
+  "ManifoldBox",
+  "ManifoldCrossSection",
+  "ManifoldCrossSectionVec",
+  "ManifoldRect"
+ ]
 }

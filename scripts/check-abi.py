@@ -116,10 +116,45 @@ def fetch_headers(dest):
 
 
 def strip_rust_comments(src):
-    """Drop // and /* */ comments (doc comments included), keeping strings.
-    Good enough for the sys crate, which has no comment markers in strings."""
-    src = re.sub(r"/\*.*?\*/", " ", src, flags=re.S)
-    return re.sub(r"//[^\n]*", "", src)
+    """Replace comments (line, block, nested block, doc) with spaces, leaving
+    string, raw string, byte string and char literals intact. A small lexer,
+    so a comment marker inside a string cannot hide live code."""
+    out, i, n = [], 0, len(src)
+    while i < n:
+        c = src[i]
+        if src.startswith("//", i):
+            j = src.find("\n", i)
+            i = n if j < 0 else j
+        elif src.startswith("/*", i):
+            depth, i = 1, i + 2
+            while i < n and depth:
+                if src.startswith("/*", i):
+                    depth, i = depth + 1, i + 2
+                elif src.startswith("*/", i):
+                    depth, i = depth - 1, i + 2
+                else:
+                    i += 1
+            out.append(" ")
+        elif c == "r" and re.match(r'r#*"', src[i:]) and (i == 0 or not (src[i - 1].isalnum() or src[i - 1] == "_")):
+            hashes = re.match(r'r(#*)"', src[i:]).group(1)
+            end = src.find('"' + hashes, i + len(hashes) + 2)
+            end = n if end < 0 else end + 1 + len(hashes)
+            out.append(src[i:end])
+            i = end
+        elif c == '"':
+            j = i + 1
+            while j < n and src[j] != '"':
+                j += 2 if src[j] == "\\" else 1
+            out.append(src[i:j + 1])
+            i = j + 1
+        elif c == "'" and re.match(r"'(\\.|[^\\'])'", src[i:]):
+            m = re.match(r"'(\\.|[^\\'])'", src[i:])
+            out.append(m.group(0))
+            i += len(m.group(0))
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
 
 
 def rust_source():
@@ -136,9 +171,13 @@ def check_rust_source(src):
             problems.append(f'extern "{abi}" in the sys crate: only "C" is compared')
     if re.search(r"\bextern\s+(?:fn|\{)", src):
         problems.append('an `extern` without an explicit ABI string in the sys crate: write extern "C"')
-    for rep in sorted(set(re.findall(r"#\s*\[\s*repr\s*\(([^)]*)\)\s*\]", src))):
+    # Non-greedy up to the closing `)]`, so nested parentheses such as
+    # align(32) stay inside the capture.
+    for rep in sorted(set(re.findall(r"#\s*\[\s*repr\s*\((.*?)\)\s*\]", src, re.S))):
         if rep.replace(" ", "") != "C":
             problems.append(f"#[repr({rep})] in the sys crate: only plain #[repr(C)] is compared (cbindgen drops or renders other reprs unfaithfully)")
+    if re.search(r"#\s*!?\s*\[\s*cfg_attr\b", src):
+        problems.append("#[cfg_attr(...)] in the sys crate: it can add repr or cfg out of sight of this check; not supported")
     for cfg in sorted(set(re.findall(r"#\s*\[\s*cfg\s*\((.*?)\)\s*\]\s*(?=\S)", src, re.S))):
         if " ".join(cfg.split()) != KNOWN_CFG:
             problems.append(f"#[cfg({' '.join(cfg.split())})] in the sys crate: cbindgen runs once on the host, so only the known wasm32-unknown-unknown OBJ gate is accepted")
@@ -195,7 +234,10 @@ def clang_ast(source, include_dir, target):
 IDENT = re.compile(r"[A-Za-z_]\w*")
 C_KEYWORDS = {"const", "volatile", "restrict", "struct", "enum", "union", "unsigned", "signed",
               "int", "long", "short", "char", "double", "float", "void", "_Bool"}
-CALLCONV = re.compile(r"__attribute__\s*\(\(\s*(?:stdcall|cdecl|fastcall|thiscall|vectorcall|ms_abi|sysv_abi)|__(?:stdcall|cdecl|fastcall|thiscall|vectorcall)\b")
+# Any attribute or double-underscore keyword in a function type (calling
+# conventions such as stdcall, regcall, preserve_most, ms_abi): rejected, not
+# compared. Conservative on purpose.
+CALLCONV = re.compile(r"__attribute__|\b__\w+\b")
 
 
 def constant_value(node):
@@ -223,17 +265,17 @@ class Model:
             if kind == "FunctionDecl" and name:
                 qual = node["type"]["qualType"]
                 if CALLCONV.search(qual):
-                    self.unsupported.append(f"fn {name}: calling-convention attribute in its type ({qual}); not compared")
+                    self.unsupported.append(f"fn {name}: attribute in its type ({qual}); calling conventions are not compared")
                 params = [(p.get("name", ""), p["type"]["qualType"])
                           for p in node.get("inner", []) if p.get("kind") == "ParmVarDecl"]
                 ret = qual[: qual.index("(")].strip()
-                if "(*" in qual[: qual.rindex(")")] and re.match(r"^[^(]*\(\s*\*", qual):
+                if re.match(r"^[^(]*\(\s*\*", qual):
                     self.unsupported.append(f"fn {name}: returns a function pointer ({qual}); not supported, compare it by hand")
                 self.functions[name] = (ret, params, "..." in qual)
             elif kind == "TypedefDecl" and name:
                 self.typedefs[name] = node["type"]["qualType"]
-                if CALLCONV.search(node["type"]["qualType"]):
-                    self.unsupported.append(f"typedef {name}: calling-convention attribute; not compared")
+                if CALLCONV.search(node["type"]["qualType"]) and not name.startswith("__"):
+                    self.unsupported.append(f"typedef {name}: attribute in its type; calling conventions are not compared")
             elif kind == "RecordDecl" and name and node.get("completeDefinition"):
                 self.records[name] = [(f["name"], f["type"]["qualType"])
                                       for f in node.get("inner", []) if f.get("kind") == "FieldDecl"]
@@ -272,6 +314,14 @@ class Model:
             out = re.sub(rf"\b{re.escape(tok)}\b", resolved, out)
         return self._tidy(out)
 
+    def param(self, qual):
+        """canonical() minus top-level qualifiers, which C ignores in a
+        function's type: `const int x` is an int parameter."""
+        t = self.canonical(qual)
+        if "*" in t:
+            return re.sub(r"(\*)\s+const$", r"\1", t)
+        return re.sub(r"^const\s+", "", t)
+
     def _tidy(self, t):
         t = re.sub(r"\b(struct|enum|union)\s+", "", t)
         t = re.sub(r"\bbool\b", "_Bool", t)
@@ -306,6 +356,9 @@ def compare(c, r, decl, exceptions, baseline):
             continue
         cret, cparams, cvar = c.functions[name]
         rr, cr = r.canonical(rret), c.canonical(cret)
+        if "(" in rr or "(" in cr:
+            problems.append(f"fn {name}: returns a function pointer; not supported, compare it by hand")
+            continue
         if differs(f"{name}:return", rr, cr):
             problems.append(f"fn {name}: returns {rr}, header has {cr}")
         if rvar != cvar:
@@ -314,7 +367,7 @@ def compare(c, r, decl, exceptions, baseline):
             problems.append(f"fn {name}: {len(rparams)} parameters, header has {len(cparams)}")
             continue
         for i, ((rn, rt), (cn, ct)) in enumerate(zip(rparams, cparams)):
-            rc, cc = r.canonical(rt), c.canonical(ct)
+            rc, cc = r.param(rt), c.param(ct)
             if differs(f"{name}:{i + 1}", rc, cc):
                 problems.append(f"fn {name}: parameter {i + 1} ({rn}) is {rc}, header has {cc} ({cn})")
 
@@ -336,10 +389,30 @@ def compare(c, r, decl, exceptions, baseline):
         if rc != cc:
             problems.append(f"typedef {name}: is {rc}, header has {cc}")
 
+    opaque = set(exceptions["opaque_handles"])
+    for name in sorted(opaque - set(r_records)):
+        problems.append(f"opaque handle {name} is listed in exceptions.json but not declared")
+    used_by_value = set()
+    for _, (ret, params, _) in r.functions.items():
+        for t in [r.canonical(ret)] + [r.param(pt) for _, pt in params]:
+            if t.replace("const ", "") in opaque:
+                used_by_value.add(t.replace("const ", ""))
+    for fields in r_records.values():
+        for _, t in fields:
+            if r.canonical(t).replace("const ", "") in opaque:
+                used_by_value.add(r.canonical(t).replace("const ", ""))
+    for name in sorted(used_by_value):
+        problems.append(f"opaque handle {name} is used by value somewhere; opaque handles may only be used through pointers")
+
     const_fields = exceptions.get("added_const_fields", {})
     for name, rfields in sorted(r_records.items()):
-        if [f for f, _ in rfields] == ["_private"]:
-            continue  # opaque handle
+        is_private = [f for f, _ in rfields] == ["_private"]
+        if is_private and name in opaque:
+            continue  # opaque handle, used only through pointers (checked above)
+        if is_private or name in opaque:
+            problems.append(f"struct {name}: opaque on one side only: a `_private`-only struct must be in "
+                            "exceptions.json's opaque_handles, and a listed handle must have only `_private`")
+            continue
         if name not in c.records:
             problems.append(f"struct {name}: declared with fields in the sys crate but not defined in the header")
             continue
@@ -381,11 +454,11 @@ def compare(c, r, decl, exceptions, baseline):
     return problems, accepted
 
 
-def layout_check(tmp, target, r):
+def layout_check(tmp, target, r, opaque):
     """Compile both sides' types in one TU and assert their layouts match."""
     lines = ["#include <stddef.h>", '#include "manifold/manifoldc.h"', '#include "rust_types.h"']
     for rname, fields in sorted(r.records.items()):
-        if [f for f, _ in fields] == ["_private"]:
+        if [f for f, _ in fields] == ["_private"] and rname.removeprefix(r.prefix) in opaque:
             continue
         c = rname.removeprefix(r.prefix)
         lines.append(f'_Static_assert(sizeof({rname}) == sizeof({c}), "struct {c}: size differs");')
@@ -437,12 +510,20 @@ def run(baseline_path=None, write_baseline=None):
                     if not m:
                         raise Fail(f"cannot baseline this difference, fix it instead: {p}")
                     if m.group(2):
-                        recorded.add((f"{m.group(1)}:return", m.group(2), m.group(3)))
+                        entry = (f"{m.group(1)}:return", m.group(2), m.group(3))
                     else:
-                        recorded.add((f"{m.group(1)}:{m.group(4)}", m.group(5), m.group(6)))
+                        entry = (f"{m.group(1)}:{m.group(4)}", m.group(5), m.group(6))
+                    _, rust_t, c_t = entry
+                    typed_mem = c_t == "void *" and re.fullmatch(r"(const )?[\w ]+ \*", rust_t)
+                    added_const = re.sub(r"\bconst ", "", rust_t, count=1) == c_t and rust_t.endswith("*")
+                    if not (typed_mem or added_const):
+                        raise Fail(f"refusing to baseline a difference that is neither a typed mem buffer "
+                                   f"nor one added const; fix it instead: {p}")
+                    recorded.add(entry)
                 found = []
             used |= accepted
-            found += layout_check(tmp, target, Model(clang_ast(tmp / "rust.c", tmp, target), prefix="RS_"))
+            found += layout_check(tmp, target, Model(clang_ast(tmp / "rust.c", tmp, target), prefix="RS_"),
+                                  set(exceptions["opaque_handles"]))
             for p in found:
                 per_target.setdefault(p, []).append(target)
         stats = (len(r.functions), sum(1 for f in r.records.values() if [x for x, _ in f] != ["_private"]),
@@ -472,6 +553,13 @@ def main():
     except Fail as e:
         print(f"FAIL: {e}")
         return 1
+    if args.write_baseline:
+        entries = json.loads(Path(args.write_baseline).read_text())["accepted"]
+        for e in entries:
+            print(f"BASELINE: {e}")
+        print(f"wrote {len(entries)} entries to {args.write_baseline}; review the diff, then rerun with --baseline. "
+              "Exiting non-zero so a baseline is never written and used in one step.")
+        return 2
     if problems:
         for p in problems:
             print(f"FAIL: {p}")

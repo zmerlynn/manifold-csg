@@ -117,6 +117,9 @@ jobs:
             exit 0
           fi
           CLANG=clang-18 python3 scripts/check-abi.py
+          # And that the checker still catches deliberate breaks against
+          # master's header.
+          CLANG=clang-18 python3 scripts/abi/selftest.py
 
       - name: Test
         if: ${{ !cancelled() && steps.next.outputs.exists == 'true' }}
