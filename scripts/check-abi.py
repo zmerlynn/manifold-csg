@@ -135,9 +135,11 @@ def strip_rust_comments(src):
                 else:
                     i += 1
             out.append(" ")
-        elif c == "r" and re.match(r'r#*"', src[i:]) and (i == 0 or not (src[i - 1].isalnum() or src[i - 1] == "_")):
-            hashes = re.match(r'r(#*)"', src[i:]).group(1)
-            end = src.find('"' + hashes, i + len(hashes) + 2)
+        elif re.match(r'[bc]?r#*"', src[i:]) and (i == 0 or not (src[i - 1].isalnum() or src[i - 1] == "_")):
+            # Raw string, raw byte string (br) or raw C string (cr).
+            m = re.match(r'([bc]?r)(#*)"', src[i:])
+            hashes = m.group(2)
+            end = src.find('"' + hashes, i + len(m.group(0)))
             end = n if end < 0 else end + 1 + len(hashes)
             out.append(src[i:end])
             i = end
