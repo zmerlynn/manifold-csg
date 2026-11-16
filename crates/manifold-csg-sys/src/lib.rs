@@ -387,7 +387,7 @@ unsafe extern "C" {
     pub fn manifold_meshgl_copy(m: *const ManifoldMeshGL) -> *mut ManifoldMeshGL;
 
     /// Merge coincident vertices in a `MeshGL`, returning a new merged mesh.
-    pub fn manifold_meshgl_merge(m: *const ManifoldMeshGL) -> *mut ManifoldMeshGL;
+    pub fn manifold_meshgl_merge(m: *const ManifoldMeshGL, tolerance: f32) -> *mut ManifoldMeshGL;
 
     // ── MeshGL data access ──────────────────────────────────────────────
 
@@ -447,9 +447,6 @@ unsafe extern "C" {
     /// while `m` is alive and unmodified. The length comes from the matching
     /// `_length` function.
     pub fn manifold_meshgl_halfedge_tangent(m: *const ManifoldMeshGL) -> *const f32;
-
-    /// Get the tolerance of a MeshGL.
-    pub fn manifold_meshgl_tolerance(m: *const ManifoldMeshGL) -> f32;
 
     /// Get the number of run flags.
     pub fn manifold_meshgl_run_flags_length(m: *const ManifoldMeshGL) -> usize;
@@ -517,7 +514,10 @@ unsafe extern "C" {
     pub fn manifold_meshgl64_copy(m: *const ManifoldMeshGL64) -> *mut ManifoldMeshGL64;
 
     /// Merge coincident vertices in a `MeshGL64`, returning a new merged mesh.
-    pub fn manifold_meshgl64_merge(m: *const ManifoldMeshGL64) -> *mut ManifoldMeshGL64;
+    pub fn manifold_meshgl64_merge(
+        m: *const ManifoldMeshGL64,
+        tolerance: f64,
+    ) -> *mut ManifoldMeshGL64;
 
     // ── MeshGL64 data access ────────────────────────────────────────────
 
@@ -577,9 +577,6 @@ unsafe extern "C" {
     /// while `m` is alive and unmodified. The length comes from the matching
     /// `_length` function.
     pub fn manifold_meshgl64_halfedge_tangent(m: *const ManifoldMeshGL64) -> *const f64;
-
-    /// Get the tolerance of a MeshGL64.
-    pub fn manifold_meshgl64_tolerance(m: *const ManifoldMeshGL64) -> f64;
 
     /// Get the number of run flags.
     pub fn manifold_meshgl64_run_flags_length(m: *const ManifoldMeshGL64) -> usize;

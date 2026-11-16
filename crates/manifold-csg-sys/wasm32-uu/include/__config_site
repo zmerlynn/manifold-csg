@@ -9,10 +9,8 @@
 //   https://github.com/llvm/llvm-project/blob/main/libcxx/include/__config_site.in
 //
 // Disables libc++'s assumptions about threads, filesystem, locale,
-// wide chars, etc. Without this, libc++ headers drag in symbols our shim
-// doesn't and shouldn't ship. The monotonic clock is declared (manifold
-// master names steady_clock), but nothing reads a real one: now() is a fake
-// in ../libcxx-extras.cpp.
+// wide chars, monotonic clock, etc. Without this, libc++ headers drag in
+// symbols our shim doesn't and shouldn't ship.
 //
 // Placed on the include path BEFORE libc++'s own config so libc++
 // picks ours up instead of the install-tree-baked one.
@@ -34,7 +32,7 @@
 #define _LIBCPP_ABI_FORCE_MICROSOFT 0
 
 #define _LIBCPP_HAS_THREADS 0              // no pthreads on wasm32-unknown-unknown
-#define _LIBCPP_HAS_MONOTONIC_CLOCK 1      // declares steady_clock; now() is a fake in libcxx-extras.cpp (no clock_gettime)
+#define _LIBCPP_HAS_MONOTONIC_CLOCK 0      // no clock_gettime
 #define _LIBCPP_HAS_TERMINAL 0
 #define _LIBCPP_HAS_MUSL_LIBC 1            // wasm-cxx-shim provides musl-style headers
 #define _LIBCPP_HAS_THREAD_API_PTHREAD 0

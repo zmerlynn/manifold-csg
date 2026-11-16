@@ -1707,7 +1707,7 @@ fn meshgl_merge_smoke() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f32();
     let mesh = MeshGL::new(&verts, n_props, &indices).expect("valid MeshGL");
-    let merged = mesh.merge();
+    let merged = mesh.merge(0.0);
     assert_eq!(merged.num_prop(), mesh.num_prop());
     assert!(merged.num_vert() <= mesh.num_vert());
 }
@@ -1717,7 +1717,7 @@ fn meshgl64_merge_smoke() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, false);
     let (verts, n_props, indices) = cube.to_mesh_f64();
     let mesh = MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64");
-    let merged = mesh.merge();
+    let merged = mesh.merge(0.0);
     assert_eq!(merged.num_prop(), mesh.num_prop());
     assert!(merged.num_vert() <= mesh.num_vert());
 }
@@ -2832,7 +2832,6 @@ fn meshgl_run_metadata_defaults_for_a_primitive() {
     assert_eq!(m.num_run(), 1, "an unbooleaned primitive is a single run");
     assert_eq!(m.run_flags().len(), m.num_run());
     assert_eq!(m.run_flags(), vec![0]);
-    assert!(m.tolerance() > 0.0);
     assert!(!m.backside(0));
     assert!(!m.has_normals(0));
 }
@@ -2842,7 +2841,6 @@ fn meshgl64_run_metadata_defaults_for_a_primitive() {
     let m = Manifold::cube(2.0, 2.0, 2.0, true).to_meshgl64();
     assert_eq!(m.num_run(), 1);
     assert_eq!(m.run_flags().len(), m.num_run());
-    assert!(m.tolerance() > 0.0);
     assert!(!m.backside(0));
     assert!(!m.has_normals(0));
 }
@@ -2942,7 +2940,7 @@ fn meshgl_merge_with_out_of_range_merge_index_is_a_noop() {
         MeshGLOptions::new().merge_vertices(&[99], &[0]),
     )
     .unwrap();
-    let merged = mesh.merge();
+    let merged = mesh.merge(0.0);
     assert_eq!(merged.merge_from_vert(), vec![99]);
     assert_eq!(merged.merge_to_vert(), vec![0]);
 }
@@ -2951,7 +2949,7 @@ fn meshgl_merge_with_out_of_range_merge_index_is_a_noop() {
 fn meshgl_merge_with_out_of_range_tri_index_is_a_noop() {
     let verts = [0.0f32, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
     let mesh = MeshGL::new(&verts, 3, &[0, 1, 99]).unwrap();
-    let merged = mesh.merge();
+    let merged = mesh.merge(0.0);
     assert_eq!(merged.tri_verts(), vec![0, 1, 99]);
     assert!(merged.merge_from_vert().is_empty());
 }
@@ -2966,7 +2964,7 @@ fn meshgl64_merge_with_out_of_range_merge_index_is_a_noop() {
         MeshGL64Options::new().merge_vertices(&[0], &[99]),
     )
     .unwrap();
-    let merged = mesh.merge();
+    let merged = mesh.merge(0.0);
     assert_eq!(merged.merge_from_vert(), vec![0]);
     assert_eq!(merged.merge_to_vert(), vec![99]);
 }
@@ -3028,4 +3026,31 @@ fn manifold_version_matches_the_pin() {
     // when a pin move changes that, so a build linking some other manifold
     // fails here.
     assert_eq!(manifold_csg::manifold_version(), [3, 5, 1]);
+}
+
+#[test]
+fn meshgl64_merge_tolerance_welds_nearby_open_edge_verts() {
+    // Two triangles sharing an edge, but with the second triangle's copies of
+    // the shared verts 1e-3 away, so the edge is open in two places.
+    #[rustfmt::skip]
+    let verts = [
+        0.0f64, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, // tri 0
+        1.0, 1e-3, 0.0, 0.0, 1.0 + 1e-3, 0.0, 1.0, 1.0, 0.0, // tri 1
+    ];
+    let mesh = MeshGL64::new(&verts, 3, &[0, 1, 2, 3, 5, 4]).unwrap();
+    let tight = mesh.merge(0.0);
+    assert!(
+        tight.merge_from_vert().is_empty(),
+        "1e-3 is far beyond the baseline tolerance"
+    );
+    let loose = mesh.merge(1e-2);
+    assert_eq!(loose.merge_from_vert().len(), 2);
+    assert_eq!(loose.merge_from_vert().len(), loose.merge_to_vert().len());
+}
+
+#[test]
+fn meshgl_face_id_is_empty_without_input_face_ids() {
+    // Upstream no longer fills faceID from its coplanar-face calculation.
+    let m = Manifold::cube(2.0, 2.0, 2.0, true).to_meshgl();
+    assert!(m.face_id().is_empty());
 }

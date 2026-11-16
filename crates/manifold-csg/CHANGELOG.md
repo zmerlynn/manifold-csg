@@ -27,7 +27,10 @@ Tracks upstream manifold master on its way to 4.0. Not published yet. See the
   `smooth_f64`, `smooth_f64_with_context` and `smooth_out` (use
   `smooth_by_normals`, or supply tangents through `MeshGL`), and
   `Manifold::set_tolerance` / `get_tolerance` (see
-  `set_relative_precision` below).
+  `set_relative_precision` below), and `MeshGL::tolerance` /
+  `MeshGL64::tolerance`.
+- `MeshGL::merge` / `MeshGL64::merge` take a `tolerance`. Pass `0.0` for
+  the old behavior (the bounding-box baseline).
 - New: `Manifold::winding_number`, `set_relative_precision` /
   `get_relative_precision` (process-global, default `1e-12`), and
   `manifold_version`.
@@ -45,6 +48,9 @@ Tracks upstream manifold master on its way to 4.0. Not published yet. See the
   invalid input (`status()` returns an error; it used to return an empty
   manifold), revolves the other way for a negative angle, and handles
   small angles that used to give an empty result.
+- **Behavioral:** `MeshGL::face_id` / `MeshGL64::face_id` are empty
+  unless the input carried face IDs. Upstream no longer fills them from
+  its coplanar-face calculation.
 - **Behavioral:** `reset_to_circular_defaults` also resets the new
   relative precision to `1e-12`, because upstream resets every quality
   global. Set the precision again afterwards if you changed it.

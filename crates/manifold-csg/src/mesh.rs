@@ -293,14 +293,18 @@ impl MeshGL {
         unsafe { crate::copy_out(data, len) }
     }
 
-    /// Merge coincident vertices, returning a new mesh.
+    /// Add merge vectors that weld open-edge vertices closer than
+    /// `tolerance`, returning a new mesh (the original is unchanged).
     ///
-    /// Processes the mesh's merge vectors to weld vertices that share
-    /// the same position. Returns a new mesh (the original is unchanged).
+    /// The effective tolerance is the larger of `tolerance` and a baseline
+    /// from the mesh's bounding box, so `0.0` uses the baseline. Existing
+    /// merge vectors are kept. If the mesh is already manifold or is
+    /// invalid, the copy is unchanged. This is best effort: the result is
+    /// not guaranteed to be manifold.
     #[must_use]
-    pub fn merge(&self) -> Self {
+    pub fn merge(&self, tolerance: f32) -> Self {
         // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
-        let ptr = owned(unsafe { manifold_meshgl_merge(self.ptr) });
+        let ptr = owned(unsafe { manifold_meshgl_merge(self.ptr, tolerance) });
         Self { ptr }
     }
 
@@ -393,13 +397,6 @@ impl MeshGL {
         // SAFETY: data addresses len initialized elements owned by self,
         // which outlives the copy.
         unsafe { crate::copy_out(data, len) }
-    }
-
-    /// Tolerance used for merging and vertex welding.
-    #[must_use]
-    pub fn tolerance(&self) -> f32 {
-        // SAFETY: self.ptr is valid (invariant).
-        unsafe { manifold_meshgl_tolerance(self.ptr) }
     }
 
     /// Number of triangle runs.
@@ -647,14 +644,18 @@ impl MeshGL64 {
         unsafe { crate::copy_out(data, len) }
     }
 
-    /// Merge coincident vertices, returning a new mesh.
+    /// Add merge vectors that weld open-edge vertices closer than
+    /// `tolerance`, returning a new mesh (the original is unchanged).
     ///
-    /// Processes the mesh's merge vectors to weld vertices that share
-    /// the same position. Returns a new mesh (the original is unchanged).
+    /// The effective tolerance is the larger of `tolerance` and a baseline
+    /// from the mesh's bounding box, so `0.0` uses the baseline. Existing
+    /// merge vectors are kept. If the mesh is already manifold or is
+    /// invalid, the copy is unchanged. This is best effort: the result is
+    /// not guaranteed to be manifold.
     #[must_use]
-    pub fn merge(&self) -> Self {
+    pub fn merge(&self, tolerance: f64) -> Self {
         // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
-        let ptr = owned(unsafe { manifold_meshgl64_merge(self.ptr) });
+        let ptr = owned(unsafe { manifold_meshgl64_merge(self.ptr, tolerance) });
         Self { ptr }
     }
 
@@ -747,13 +748,6 @@ impl MeshGL64 {
         // SAFETY: data addresses len initialized elements owned by self,
         // which outlives the copy.
         unsafe { crate::copy_out(data, len) }
-    }
-
-    /// Tolerance used for merging and vertex welding.
-    #[must_use]
-    pub fn tolerance(&self) -> f64 {
-        // SAFETY: self.ptr is valid (invariant).
-        unsafe { manifold_meshgl64_tolerance(self.ptr) }
     }
 
     /// Number of triangle runs.

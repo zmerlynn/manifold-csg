@@ -28,7 +28,7 @@ use std::{
 // build.rs instead of a cmake file).
 
 const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
-// v0.6.0 catches up to manifold master 46e5d2c9 (pre-4.0), the same commit
+// v0.7.0's tested pin is manifold master 74493803 (pre-4.0), the same commit
 // `next` pins, so the wasm-uu lane builds exactly the shim's tested pin.
 // Build.rs still passes `-DMANIFOLD_GIT_TAG=<our pin>` (below), so a pin move
 // on our side is what the lane builds, tested by the shim or not.
@@ -52,7 +52,7 @@ const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
 // "...";`, alone on its line, with no trailing comment, and declared only
 // once. scripts/pins.py reads it by matching that exact line, for the
 // upstream-watch check.
-const WASM_CXX_SHIM_TAG: &str = "v0.6.0";
+const WASM_CXX_SHIM_TAG: &str = "v0.7.0";
 
 /// Diagnostic context populated up-front in `build_wasm_unknown_unknown()`,
 /// passed to `bail_with_diagnostics()` so cmake/clang failures emit the

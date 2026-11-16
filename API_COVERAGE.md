@@ -191,8 +191,6 @@ and frees it, so the vector accessors are internal.
 | `manifold_meshgl64_halfedge_tangent` | [`MeshGL64::halfedge_tangent`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_tangent_length` | Internal |
 | `manifold_meshgl64_tangent_length` | Internal |
-| `manifold_meshgl_tolerance` | [`MeshGL::tolerance`](crates/manifold-csg/src/mesh.rs) |
-| `manifold_meshgl64_tolerance` | [`MeshGL64::tolerance`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_num_run` | [`MeshGL::num_run`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_num_run` | [`MeshGL64::num_run`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_run_flags` | [`MeshGL::run_flags`](crates/manifold-csg/src/mesh.rs) |
@@ -380,7 +378,7 @@ otherwise (`Not used`, `Not wrapped`).
 | Ray casting | 1 | 2 | 0 |
 | CrossSection construction & booleans | 20 | 0 | 0 |
 | CrossSection transforms & queries | 14 | 0 | 0 |
-| MeshGL/MeshGL64 | 44 | 20 | 0 |
+| MeshGL/MeshGL64 | 42 | 20 | 0 |
 | Triangulation | 1 | 2 | 0 |
 | Quality globals | 9 | 0 | 0 |
 | Box3D (BoundingBox) | 16 | 0 | 0 |
@@ -389,9 +387,9 @@ otherwise (`Not used`, `Not wrapped`).
 | Vector containers | 0 | 10 | 4 |
 | ExecutionContext (cancel/progress + factories) | 8 | 0 | 0 |
 | Delete | 0 | 13 | 0 |
-| **Total** | **195** | **52** | **7** |
+| **Total** | **193** | **52** | **7** |
 
-195 + 52 + 7 = 254, matching the sys crate's 254 declarations.
+193 + 52 + 7 = 252, matching the sys crate's 252 declarations.
 
 "Bound, unused" means the function is declared in `manifold-csg-sys` but the
 safe crate never calls it: vector and polygon operations with no safe-API
