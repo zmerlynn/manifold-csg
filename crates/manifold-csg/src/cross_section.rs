@@ -46,7 +46,7 @@ impl JoinType {
 /// interpreted when creating a [`CrossSection`]. The rule only decides how the
 /// input is read: the result is regularized like any other cross-section.
 ///
-/// Upstream manifold 4.0 dropped the `Negative` rule. Reverse the contours and
+/// Upstream master (the upcoming manifold 4.0) dropped the `Negative` rule. Reverse the contours and
 /// use [`Positive`](Self::Positive) for the same result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
@@ -280,7 +280,8 @@ impl CrossSection {
         // SAFETY: vec2s outlives the call, and the call returns a new handle.
         let sp = owned(unsafe { manifold_simple_polygon(vec2s.as_ptr(), vec2s.len()) });
 
-        // SAFETY: ptr and sp are valid.
+        // SAFETY: sp is valid until it is deleted below, and the call returns a
+        // new handle.
         let ptr = owned(unsafe { manifold_cross_section_hull_simple_polygon(sp) });
 
         // SAFETY: sp is valid and no longer needed.
@@ -298,7 +299,8 @@ impl CrossSection {
 
         let polys = PolygonsFfi::new(polygons);
 
-        // SAFETY: ptr and polys.ptr() are valid.
+        // SAFETY: polys.ptr() is valid until polys drops, and the call returns a
+        // new handle.
         let ptr = owned(unsafe { manifold_cross_section_hull_polygons(polys.ptr()) });
 
         Self { ptr }
@@ -442,7 +444,7 @@ impl CrossSection {
     /// Decompose into connected components.
     #[must_use]
     pub fn decompose(&self) -> Vec<Self> {
-        // SAFETY: vec_ptr and self.ptr are valid.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let vec_ptr = owned(unsafe { manifold_cross_section_decompose(self.ptr) });
         // SAFETY: vec_ptr is valid.
         let n = unsafe { manifold_cross_section_vec_length(vec_ptr) };
@@ -531,12 +533,9 @@ impl CrossSection {
         // SAFETY: takes no arguments and returns a new handle.
         let vec_ptr = owned(unsafe { manifold_cross_section_empty_vec() });
         for cs in sections {
-            // SAFETY: cs.ptr is valid for the call, and the call returns a new handle.
-            let copy_ptr = owned(unsafe { manifold_cross_section_copy(cs.ptr) });
-            // SAFETY: vec_ptr is valid, copy_ptr is a valid cross-section.
-            unsafe { manifold_cross_section_vec_push_back(vec_ptr, copy_ptr) };
-            // SAFETY: push_back copies the value; free the temporary allocation.
-            unsafe { manifold_delete_cross_section(copy_ptr) };
+            // SAFETY: vec_ptr and cs.ptr are valid. push_back copies the
+            // cross-section into the vector, so cs keeps its own handle.
+            unsafe { manifold_cross_section_vec_push_back(vec_ptr, cs.ptr) };
         }
         // SAFETY: vec_ptr is valid until it is deleted below, and the call
         // returns a new handle.
@@ -561,12 +560,9 @@ impl CrossSection {
         // SAFETY: takes no arguments and returns a new handle.
         let vec_ptr = owned(unsafe { manifold_cross_section_empty_vec() });
         for cs in sections {
-            // SAFETY: cs.ptr is valid for the call, and the call returns a new handle.
-            let copy_ptr = owned(unsafe { manifold_cross_section_copy(cs.ptr) });
-            // SAFETY: vec_ptr is valid, copy_ptr is a valid cross-section.
-            unsafe { manifold_cross_section_vec_push_back(vec_ptr, copy_ptr) };
-            // SAFETY: push_back copies the value; free the temporary allocation.
-            unsafe { manifold_delete_cross_section(copy_ptr) };
+            // SAFETY: vec_ptr and cs.ptr are valid. push_back copies the
+            // cross-section into the vector, so cs keeps its own handle.
+            unsafe { manifold_cross_section_vec_push_back(vec_ptr, cs.ptr) };
         }
         // SAFETY: vec_ptr is valid until it is deleted below, and the call
         // returns a new handle.
@@ -655,7 +651,7 @@ impl CrossSection {
     /// Returns a list of contours, each being a list of `[x, y]` points.
     #[must_use]
     pub fn to_polygons(&self) -> Vec<Vec<[f64; 2]>> {
-        // SAFETY: poly_ptr and self.ptr are valid.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let poly_ptr = owned(unsafe { manifold_cross_section_to_polygons(self.ptr) });
 
         let result = read_polygons(poly_ptr);
@@ -694,17 +690,14 @@ impl ops::BitXor for &CrossSection {
 
 // ── Internal helper: build polygon FFI objects from Rust slices ──────────
 
-/// A C-side `ManifoldPolygons` built from Rust rings, together with the simple
-/// polygon handles it was assembled from.
+/// A C-side `ManifoldPolygons` built from Rust rings.
 ///
-/// Both kinds of handle have to stay alive until the call that consumes
-/// [`ptr`](Self::ptr) returns, and both have to be freed afterwards. Owning
-/// them here and freeing in `Drop` keeps that true on every path out of the
-/// caller, including a panic, which a free at the end of the function body
-/// does not.
+/// The handle has to stay alive until the call that consumes
+/// [`ptr`](Self::ptr) returns, and has to be freed afterwards. Owning it here
+/// and freeing in `Drop` keeps that true on every path out of the caller,
+/// including a panic, which a free at the end of the function body does not.
 pub(crate) struct PolygonsFfi {
     ptr: *mut ManifoldPolygons,
-    simple: Vec<*mut ManifoldSimplePolygon>,
 }
 
 impl PolygonsFfi {
@@ -720,7 +713,9 @@ impl PolygonsFfi {
             simple.push(sp);
         }
 
-        // SAFETY: as_ptr is valid for the call, and the call returns a new handle.
+        // SAFETY: simple holds simple.len() valid handles, and the cast only adds
+        // const (*mut T and *const T have the same layout). The call
+        // deep-copies each contour and returns a new handle.
         let ptr = owned(unsafe {
             manifold_polygons(
                 simple.as_ptr().cast::<*const ManifoldSimplePolygon>(),
@@ -728,7 +723,13 @@ impl PolygonsFfi {
             )
         });
 
-        Self { ptr, simple }
+        for sp in simple {
+            // SAFETY: sp came from manifold_simple_polygon above, and
+            // manifold_polygons copied it, so nothing else refers to it.
+            unsafe { manifold_delete_simple_polygon(sp) };
+        }
+
+        Self { ptr }
     }
 
     pub(crate) fn ptr(&self) -> *mut ManifoldPolygons {
@@ -741,12 +742,6 @@ impl Drop for PolygonsFfi {
         if !self.ptr.is_null() {
             // SAFETY: self.ptr is valid (invariant) and freed exactly once.
             unsafe { manifold_delete_polygons(self.ptr) };
-        }
-        for sp in self.simple.drain(..) {
-            if !sp.is_null() {
-                // SAFETY: sp is valid (invariant) and freed exactly once.
-                unsafe { manifold_delete_simple_polygon(sp) };
-            }
         }
     }
 }
