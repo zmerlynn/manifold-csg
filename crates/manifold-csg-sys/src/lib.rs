@@ -225,17 +225,7 @@ pub enum ManifoldOpType {
     Intersect = 2,
 }
 
-/// Fill rule for constructing CrossSections from polygons.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ManifoldFillRule {
-    EvenOdd = 0,
-    NonZero = 1,
-    Positive = 2,
-    Negative = 3,
-}
-
-/// Join type for CrossSection offset operations (Clipper2).
+/// Join type for CrossSection offset operations.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ManifoldJoinType {
@@ -293,29 +283,17 @@ unsafe extern "C" {
 
     pub fn manifold_manifold_size() -> usize;
     pub fn manifold_manifold_vec_size() -> usize;
-    pub fn manifold_cross_section_size() -> usize;
-    pub fn manifold_cross_section_vec_size() -> usize;
-    pub fn manifold_simple_polygon_size() -> usize;
-    pub fn manifold_polygons_size() -> usize;
     pub fn manifold_manifold_pair_size() -> usize;
 
     // ── Allocation ─────────────────────────────────────────────────────
 
     pub fn manifold_alloc_manifold() -> *mut ManifoldManifold;
     pub fn manifold_alloc_manifold_vec() -> *mut ManifoldManifoldVec;
-    pub fn manifold_alloc_cross_section() -> *mut ManifoldCrossSection;
-    pub fn manifold_alloc_cross_section_vec() -> *mut ManifoldCrossSectionVec;
-    pub fn manifold_alloc_simple_polygon() -> *mut ManifoldSimplePolygon;
-    pub fn manifold_alloc_polygons() -> *mut ManifoldPolygons;
 
     // ── Destruction (destruct only, does not free) ─────────────────────
 
     pub fn manifold_destruct_manifold(m: *mut ManifoldManifold);
     pub fn manifold_destruct_manifold_vec(ms: *mut ManifoldManifoldVec);
-    pub fn manifold_destruct_cross_section(m: *mut ManifoldCrossSection);
-    pub fn manifold_destruct_cross_section_vec(csv: *mut ManifoldCrossSectionVec);
-    pub fn manifold_destruct_simple_polygon(p: *mut ManifoldSimplePolygon);
-    pub fn manifold_destruct_polygons(p: *mut ManifoldPolygons);
 
     // ── Deletion (destruct + free) ─────────────────────────────────────
 
@@ -337,15 +315,13 @@ unsafe extern "C" {
 
     /// Create a simple polygon from an array of 2D points.
     pub fn manifold_simple_polygon(
-        mem: *mut ManifoldSimplePolygon,
         ps: *const ManifoldVec2,
         length: usize,
     ) -> *mut ManifoldSimplePolygon;
 
     /// Create a polygon set from an array of simple polygon pointers.
     pub fn manifold_polygons(
-        mem: *mut ManifoldPolygons,
-        ps: *const *mut ManifoldSimplePolygon,
+        ps: *const *const ManifoldSimplePolygon,
         length: usize,
     ) -> *mut ManifoldPolygons;
 
@@ -366,7 +342,6 @@ unsafe extern "C" {
 
     /// Extract a simple polygon from a polygon set by index.
     pub fn manifold_polygons_get_simple(
-        mem: *mut ManifoldSimplePolygon,
         ps: *const ManifoldPolygons,
         idx: usize,
     ) -> *mut ManifoldSimplePolygon;
@@ -784,17 +759,10 @@ unsafe extern "C" {
     // ── 3D to 2D ────────────────────────────────────────────────────────
 
     /// Slice a manifold at a given Z height, returning 2D polygons.
-    pub fn manifold_slice(
-        mem: *mut ManifoldPolygons,
-        m: *const ManifoldManifold,
-        height: f64,
-    ) -> *mut ManifoldPolygons;
+    pub fn manifold_slice(m: *const ManifoldManifold, height: f64) -> *mut ManifoldPolygons;
 
     /// Project a manifold onto the XY plane, returning 2D polygons.
-    pub fn manifold_project(
-        mem: *mut ManifoldPolygons,
-        m: *const ManifoldManifold,
-    ) -> *mut ManifoldPolygons;
+    pub fn manifold_project(m: *const ManifoldManifold) -> *mut ManifoldPolygons;
 
     // ── Convex hulls ────────────────────────────────────────────────────
 
@@ -1252,70 +1220,71 @@ unsafe extern "C" {
 
     // ── CrossSection constructors ───────────────────────────────────────
 
-    pub fn manifold_cross_section_empty(
-        mem: *mut ManifoldCrossSection,
-    ) -> *mut ManifoldCrossSection;
+    pub fn manifold_cross_section_empty() -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_copy(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
     ) -> *mut ManifoldCrossSection;
 
+    /// Cross-section from one contour, filled with the Positive rule (inside
+    /// where the winding number is greater than zero).
     pub fn manifold_cross_section_of_simple_polygon(
-        mem: *mut ManifoldCrossSection,
         p: *const ManifoldSimplePolygon,
-        fr: ManifoldFillRule,
     ) -> *mut ManifoldCrossSection;
 
+    /// Cross-section from contours, filled with the Positive rule.
     pub fn manifold_cross_section_of_polygons(
-        mem: *mut ManifoldCrossSection,
         p: *const ManifoldPolygons,
-        fr: ManifoldFillRule,
+    ) -> *mut ManifoldCrossSection;
+
+    /// Cross-section from one contour, filled with the even-odd rule.
+    pub fn manifold_cross_section_even_odd_simple_polygon(
+        p: *const ManifoldSimplePolygon,
+    ) -> *mut ManifoldCrossSection;
+
+    /// Cross-section from contours, filled with the even-odd rule.
+    pub fn manifold_cross_section_even_odd_polygons(
+        p: *const ManifoldPolygons,
+    ) -> *mut ManifoldCrossSection;
+
+    /// Cross-section from one contour, filled with the non-zero rule.
+    pub fn manifold_cross_section_non_zero_simple_polygon(
+        p: *const ManifoldSimplePolygon,
+    ) -> *mut ManifoldCrossSection;
+
+    /// Cross-section from contours, filled with the non-zero rule.
+    pub fn manifold_cross_section_non_zero_polygons(
+        p: *const ManifoldPolygons,
     ) -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_square(
-        mem: *mut ManifoldCrossSection,
         x: f64,
         y: f64,
         center: c_int,
     ) -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_circle(
-        mem: *mut ManifoldCrossSection,
         radius: f64,
         circular_segments: c_int,
-    ) -> *mut ManifoldCrossSection;
-
-    /// Compose multiple cross-sections into a single compound cross-section.
-    pub fn manifold_cross_section_compose(
-        mem: *mut ManifoldCrossSection,
-        csv: *mut ManifoldCrossSectionVec,
     ) -> *mut ManifoldCrossSection;
 
     // ── CrossSection decompose ──────────────────────────────────────────
 
     pub fn manifold_cross_section_decompose(
-        mem: *mut ManifoldCrossSectionVec,
         cs: *const ManifoldCrossSection,
     ) -> *mut ManifoldCrossSectionVec;
 
     // ── CrossSection vectors ────────────────────────────────────────────
 
-    pub fn manifold_cross_section_empty_vec(
-        mem: *mut ManifoldCrossSectionVec,
-    ) -> *mut ManifoldCrossSectionVec;
+    pub fn manifold_cross_section_empty_vec() -> *mut ManifoldCrossSectionVec;
 
-    pub fn manifold_cross_section_vec(
-        mem: *mut ManifoldCrossSectionVec,
-        sz: usize,
-    ) -> *mut ManifoldCrossSectionVec;
+    pub fn manifold_cross_section_vec(sz: usize) -> *mut ManifoldCrossSectionVec;
 
     pub fn manifold_cross_section_vec_reserve(csv: *mut ManifoldCrossSectionVec, sz: usize);
 
     pub fn manifold_cross_section_vec_length(csv: *const ManifoldCrossSectionVec) -> usize;
 
     pub fn manifold_cross_section_vec_get(
-        mem: *mut ManifoldCrossSection,
         csv: *const ManifoldCrossSectionVec,
         idx: usize,
     ) -> *mut ManifoldCrossSection;
@@ -1323,19 +1292,18 @@ unsafe extern "C" {
     pub fn manifold_cross_section_vec_set(
         csv: *mut ManifoldCrossSectionVec,
         idx: usize,
-        cs: *mut ManifoldCrossSection,
+        cs: *const ManifoldCrossSection,
     );
 
     pub fn manifold_cross_section_vec_push_back(
         csv: *mut ManifoldCrossSectionVec,
-        cs: *mut ManifoldCrossSection,
+        cs: *const ManifoldCrossSection,
     );
 
     // ── CrossSection booleans ───────────────────────────────────────────
 
     /// Generic boolean operation between two cross-sections.
     pub fn manifold_cross_section_boolean(
-        mem: *mut ManifoldCrossSection,
         a: *const ManifoldCrossSection,
         b: *const ManifoldCrossSection,
         op: ManifoldOpType,
@@ -1343,25 +1311,21 @@ unsafe extern "C" {
 
     /// Batch boolean: apply `op` across all cross-sections in the vector.
     pub fn manifold_cross_section_batch_boolean(
-        mem: *mut ManifoldCrossSection,
-        csv: *mut ManifoldCrossSectionVec,
+        csv: *const ManifoldCrossSectionVec,
         op: ManifoldOpType,
     ) -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_union(
-        mem: *mut ManifoldCrossSection,
         a: *const ManifoldCrossSection,
         b: *const ManifoldCrossSection,
     ) -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_difference(
-        mem: *mut ManifoldCrossSection,
         a: *const ManifoldCrossSection,
         b: *const ManifoldCrossSection,
     ) -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_intersection(
-        mem: *mut ManifoldCrossSection,
         a: *const ManifoldCrossSection,
         b: *const ManifoldCrossSection,
     ) -> *mut ManifoldCrossSection;
@@ -1369,59 +1333,50 @@ unsafe extern "C" {
     // ── CrossSection convex hulls ───────────────────────────────────────
 
     pub fn manifold_cross_section_hull(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
     ) -> *mut ManifoldCrossSection;
 
     /// Compute the convex hull of a set of cross-sections.
     pub fn manifold_cross_section_batch_hull(
-        mem: *mut ManifoldCrossSection,
-        css: *mut ManifoldCrossSectionVec,
+        css: *const ManifoldCrossSectionVec,
     ) -> *mut ManifoldCrossSection;
 
     /// Compute the convex hull of a simple polygon.
     pub fn manifold_cross_section_hull_simple_polygon(
-        mem: *mut ManifoldCrossSection,
         ps: *const ManifoldSimplePolygon,
     ) -> *mut ManifoldCrossSection;
 
     /// Compute the convex hull of a polygon set.
     pub fn manifold_cross_section_hull_polygons(
-        mem: *mut ManifoldCrossSection,
         ps: *const ManifoldPolygons,
     ) -> *mut ManifoldCrossSection;
 
     // ── CrossSection transforms ─────────────────────────────────────────
 
     pub fn manifold_cross_section_translate(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
         x: f64,
         y: f64,
     ) -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_rotate(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
         deg: f64,
     ) -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_scale(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
         x: f64,
         y: f64,
     ) -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_mirror(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
         ax_x: f64,
         ax_y: f64,
     ) -> *mut ManifoldCrossSection;
 
     pub fn manifold_cross_section_transform(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
         x1: f64,
         y1: f64,
@@ -1433,28 +1388,25 @@ unsafe extern "C" {
 
     /// Warp a cross-section by applying a function to each vertex.
     pub fn manifold_cross_section_warp_context(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
         fun: Option<unsafe extern "C" fn(f64, f64, *mut std::ffi::c_void) -> ManifoldVec2>,
         ctx: *mut std::ffi::c_void,
     ) -> *mut ManifoldCrossSection;
 
-    /// Simplify the contours of a cross-section to within `epsilon` tolerance.
+    /// Simplify the contours of a cross-section to within `tolerance`.
     pub fn manifold_cross_section_simplify(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
-        epsilon: f64,
+        tolerance: f64,
     ) -> *mut ManifoldCrossSection;
 
     // ── CrossSection offset ─────────────────────────────────────────────
 
     /// Offset (inflate/deflate) a cross-section by `delta`.
     ///
-    /// Uses Clipper2 under the hood. `jt` selects the join type.
+    /// `jt` selects the join type.
     /// `miter_limit` is used when `jt` is Miter.
     /// `circular_segments` controls round join resolution.
     pub fn manifold_cross_section_offset(
-        mem: *mut ManifoldCrossSection,
         cs: *const ManifoldCrossSection,
         delta: f64,
         jt: ManifoldJoinType,
@@ -1474,7 +1426,6 @@ unsafe extern "C" {
     // ── CrossSection extraction ─────────────────────────────────────────
 
     pub fn manifold_cross_section_to_polygons(
-        mem: *mut ManifoldPolygons,
         cs: *const ManifoldCrossSection,
     ) -> *mut ManifoldPolygons;
 

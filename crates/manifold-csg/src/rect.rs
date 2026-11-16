@@ -145,7 +145,7 @@ impl Rect {
     /// Return the union (smallest rectangle containing both) of two rectangles.
     #[must_use]
     pub fn union(&self, other: &Rect) -> Rect {
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: self.ptr and other.ptr are valid (invariant), and the call returns a new handle.
         let ptr = owned(unsafe { manifold_rect_union(self.ptr, other.ptr) });
         Rect { ptr }
     }
@@ -158,7 +158,7 @@ impl Rect {
     /// - col3 `(x3,y3)` — translation
     #[must_use]
     pub fn transform(&self, m: &[f64; 6]) -> Rect {
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let ptr =
             owned(unsafe { manifold_rect_transform(self.ptr, m[0], m[1], m[2], m[3], m[4], m[5]) });
         Rect { ptr }
@@ -167,7 +167,7 @@ impl Rect {
     /// Translate the rectangle by `[x, y]`.
     #[must_use]
     pub fn translate(&self, v: [f64; 2]) -> Rect {
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let ptr = owned(unsafe { manifold_rect_translate(self.ptr, v[0], v[1]) });
         Rect { ptr }
     }
@@ -175,7 +175,7 @@ impl Rect {
     /// Scale the rectangle by `[x, y]` factors.
     #[must_use]
     pub fn mul(&self, v: [f64; 2]) -> Rect {
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let ptr = owned(unsafe { manifold_rect_mul(self.ptr, v[0], v[1]) });
         Rect { ptr }
     }
