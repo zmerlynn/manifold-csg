@@ -1,10 +1,10 @@
 # Wrapper around wasm-cxx-shim's `wasm_cxx_shim_add_manifold()` helper.
 #
 # The helper (added in shim v0.3.0) absorbs the high-change-rate parts
-# of the integration cocktail: FetchContent of manifold + Clipper2 with
-# tested-pin defaults, the three carry-patches (MANIFOLD_NO_IOSTREAM /
-# MANIFOLD_NO_FILESYSTEM / CLIPPER2_NO_IOSTREAM), manifold's CMake
-# options, and the base compile flags. We're left with the consumer-side
+# of the integration cocktail: FetchContent of manifold with tested-pin
+# defaults, the MANIFOLD_NO_IOSTREAM option, manifold's CMake options, and
+# the base compile flags. Upstream master no longer uses Clipper2, so there
+# is no Clipper2 archive to build or link. We're left with the consumer-side
 # specifics: the `-isystem` chain (libc++ headers + our `__config_site`
 # override + the `<mutex>` stub).
 #
@@ -19,7 +19,6 @@
 # After the configure, `cmake --build` produces:
 #   _deps/manifold-build/bindings/c/libmanifoldc.a
 #   _deps/manifold-build/src/libmanifold.a
-#   _deps/clipper2-build/libClipper2.a
 # which build.rs picks up via find_lib_recursive() and emits as
 # rustc-link-lib=static.
 #
@@ -65,7 +64,7 @@ add_compile_options(
     -nostdlibinc
 )
 
-# FetchContent + manifold/Clipper2 options + base compile flags.
+# FetchContent + manifold options + base compile flags.
 # Host build.rs passes -DMANIFOLD_GIT_TAG so the wasm-uu lane builds
 # against the same manifold commit the host pins. The shim's tested-pin
 # default (currently 3ce9622b) is older than typical host pins; without
@@ -77,8 +76,8 @@ else()
     wasm_cxx_shim_add_manifold()
 endif()
 
-# Force the manifold + Clipper2 archives to build by default. Without
+# Force the manifold archives to build by default. Without
 # this, `cmake --build` only builds targets marked ALL; FetchContent
 # subprojects' libraries aren't ALL by default in some configurations.
 add_custom_target(_force_manifold_build ALL
-    DEPENDS manifoldc manifold Clipper2)
+    DEPENDS manifoldc manifold)

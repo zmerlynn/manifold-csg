@@ -18,7 +18,17 @@
 
 #include <__config>
 
-namespace std { inline namespace __1 {
+// libc++ defines lock_guard, unique_lock and the defer/try_to/adopt lock
+// tags in internal headers that are not gated on _LIBCPP_HAS_THREADS, and
+// other standard headers (<memory_resource>, for one) pull them in. Use
+// those definitions rather than our own, or a translation unit that sees
+// both fails with redefinition errors. They only call lock()/unlock() on
+// the mutex, which the stubs below provide.
+#include <__mutex/lock_guard.h>
+#include <__mutex/tag_types.h>
+#include <__mutex/unique_lock.h>
+
+_LIBCPP_BEGIN_NAMESPACE_STD
 
 class mutex {
 public:
@@ -42,14 +52,6 @@ public:
     void unlock()     {}
 };
 
-template <class _Mutex>
-class lock_guard {
-public:
-    explicit lock_guard(_Mutex&) {}
-    lock_guard(const lock_guard&) = delete;
-    lock_guard& operator=(const lock_guard&) = delete;
-};
-
 template <class... _MArgs>
 class scoped_lock {
 public:
@@ -58,26 +60,7 @@ public:
     scoped_lock& operator=(const scoped_lock&) = delete;
 };
 
-template <class _Mutex>
-class unique_lock {
-public:
-    unique_lock() = default;
-    explicit unique_lock(_Mutex&) {}
-    unique_lock(const unique_lock&) = delete;
-    unique_lock(unique_lock&&) = default;
-    unique_lock& operator=(unique_lock&&) = default;
-    void lock()       {}
-    bool try_lock()   { return true; }
-    void unlock()     {}
-};
 
-struct defer_lock_t  { explicit defer_lock_t()  = default; };
-struct try_to_lock_t { explicit try_to_lock_t() = default; };
-struct adopt_lock_t  { explicit adopt_lock_t()  = default; };
-inline constexpr defer_lock_t  defer_lock{};
-inline constexpr try_to_lock_t try_to_lock{};
-inline constexpr adopt_lock_t  adopt_lock{};
-
-}}  // namespace std::__1
+_LIBCPP_END_NAMESPACE_STD
 
 #endif
