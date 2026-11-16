@@ -63,3 +63,19 @@ pub(crate) fn owned<T>(ptr: *mut T) -> *mut T {
     assert!(!ptr.is_null(), "manifold C API returned a null handle");
     ptr
 }
+
+/// Copies `len` elements out of storage the C API lends, such as a mesh's
+/// vertex array.
+///
+/// # Safety
+///
+/// When `len > 0`, `data` must point at `len` initialized elements that stay
+/// valid for the duration of this call. When `len == 0`, `data` may be null
+/// (an empty C++ vector's `data()` can be).
+pub(crate) unsafe fn copy_out<T: Copy>(data: *const T, len: usize) -> Vec<T> {
+    if len == 0 {
+        return Vec::new();
+    }
+    // SAFETY: the caller guarantees data addresses len initialized elements.
+    unsafe { std::slice::from_raw_parts(data, len) }.to_vec()
+}
