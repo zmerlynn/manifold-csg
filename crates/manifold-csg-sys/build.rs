@@ -126,11 +126,11 @@ pub(crate) fn is_apple(target_vendor: &str) -> bool {
 ///
 /// Link kind defaults to `dylib` (matching how distros, nixpkgs, and the
 /// upstream flake build manifold - `BUILD_SHARED_LIBS=ON`). A shared
-/// `libmanifold` records its own `Clipper2`/`tbb`/`stdc++` dependencies as
-/// `NEEDED`, so we don't re-link them. Set `MANIFOLD_CSG_LIB_KIND=static`
-/// for a static external build; then we additionally link `Clipper2` (and
-/// `tbb` under the `parallel` feature), since a static archive carries no
-/// transitive deps.
+/// `libmanifold` records its own `tbb`/`stdc++` dependencies as `NEEDED`, so
+/// we don't re-link them. Set `MANIFOLD_CSG_LIB_KIND=static` for a static
+/// external build; then we additionally link `tbb` under the `parallel`
+/// feature, since a static archive carries no transitive deps. (The pinned
+/// manifold no longer uses Clipper2, so there is nothing else to link.)
 ///
 /// Caller must restrict this to host targets - the wasm/emscripten lanes
 /// have their own build paths and are bypassed before this is consulted.
@@ -170,16 +170,9 @@ fn try_external_lib(target_env: &str, target_os: &str, target_vendor: &str) -> b
         lib_path.is_dir(),
         "MANIFOLD_CSG_LIB_DIR={lib_dir:?} is not a directory"
     );
-    // For static we also emit `-lClipper2` below, so verify it too - else a
-    // dir with the manifold archives but no Clipper2 passes this check and
-    // then dies with exactly the opaque linker error we're guarding against.
-    // (The from-source path checks Clipper2 for the same reason.) `tbb` is
-    // handled separately below: its presence is best-effort, not required.
-    let mut required = vec!["manifoldc", "manifold"];
-    if kind == "static" {
-        required.push("Clipper2");
-    }
-    for name in required {
+    // `tbb` is handled separately below: its presence is best-effort, not
+    // required.
+    for name in ["manifoldc", "manifold"] {
         assert!(
             external_lib_present(lib_path, name, &kind, target_env, target_os, target_vendor),
             "MANIFOLD_CSG_LIB_DIR={lib_dir:?} has no {kind} '{name}' library (looked for \
@@ -194,7 +187,6 @@ fn try_external_lib(target_env: &str, target_os: &str, target_vendor: &str) -> b
     if kind == "static" {
         // Static archives carry no transitive deps - link them ourselves.
         // Mirrors the static link set from `super::build`.
-        println!("cargo:rustc-link-lib=static=Clipper2");
         if env::var("CARGO_FEATURE_PARALLEL").is_ok() {
             // TBB's static archive is named differently across platforms
             // (libtbb.a, tbb12.lib, tbb12_static.lib). Probe the same flat
