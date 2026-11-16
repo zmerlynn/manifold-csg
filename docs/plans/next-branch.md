@@ -80,7 +80,7 @@ Delete `docs/plans/next-branch.md`. Add `docs/next-branch.md` describing how `ne
 | Lane | On `next` |
 |---|---|
 | Linux, Linux (no TBB), macOS, Windows, MSRV, Format, Docs, Deny | required |
-| Wasm32 (unknown-unknown) | not required at first. wasm-cxx-shim v0.5.0's helper builds Clipper2 alongside manifold, so it might break on master until the shim catches up. Making it required again is an exit criterion. |
+| Wasm32 (unknown-unknown) | runs on every PR and push, but not required until it is caught up (port step 5). Expect it red until then. Adding it to the `next` ruleset is a settings change at that point. |
 | Emscripten (wasm32) | required if it builds, otherwise treated like wasm-uu |
 | nix-offline | skipped while the pin is a SHA |
 | Semver | skipped |
@@ -93,7 +93,13 @@ Each step is one PR into `next` and leaves the branch building:
 2. **Safe crate memory model.** Replace each alloc-then-construct pair with a direct call plus a null check, in a shared helper. This is the large mechanical step, so do it one module at a time if that reviews better. The FFI safety rules in CLAUDE.md about pairing `manifold_alloc_*` with deletes become rules about null-checking returned pointers. Update them.
 3. **Safe API breaks.** Tolerance becomes relative precision and the removed smoothing calls go. Expose winding number, `manifold_version` and the fill-rule cross-section constructors. Start `MIGRATION_0.4_TO_0.5.md` here and extend it in every later step.
 4. **Test drift.** Update expected numbers that changed because of upstream kernel changes, and note each one in the CHANGELOG's unreleased section. Those changes compile cleanly but change output.
-5. **wasm-uu.** Get the lane building again, after a shim release if needed, and make it required on `next`.
+5. **wasm-uu catch-up.** This can run alongside steps 2-4 once step 1 lands, because it is mostly C++ build work. Some of it is ours and some is in `wasm-cxx-shim`:
+   - Ours: `wasm32-uu/CMakeLists.txt` makes its default target depend on the `Clipper2` target, and `build/wasm.rs` links `libClipper2.a`. Both go, like the host link list in setup step 6.
+   - Shim: `WasmCxxShimManifold.cmake` sets `CLIPPER2_*` cache options and `-DCLIPPER2_MAX_DECIMAL_PRECISION=8`, which are harmless when nothing reads them. Its header comment promises a `Clipper2` target, so that needs a fix. `MANIFOLD_NO_IOSTREAM`, which the helper relies on, still exists on master.
+   - Shim: the unknown part is whether master's manifold compiles against the shim's libc++/libc surface. Only a build will tell. Run the shim's own `manifold` CI job with `MANIFOLD_GIT_TAG` set to our `next` pin, and fill gaps there.
+   - Shim release: cut one (v0.6.0) whose tested pin is our `next` pin or later. The shim's `main` is one commit past v0.5.0 (a v3.5.2 pin bump), which goes out with it. Then bump `WASM_CXX_SHIM_TAG` on `next` and make the lane required in the `next` ruleset.
+
+   `main` requires the wasm-uu lane, so the final `next` -> `main` PR can't merge until this is done. Nothing extra has to enforce it.
 6. Docs: `API_COVERAGE.md`, CLAUDE.md, and the README dependency snippet.
 
 ## Exit (moves to the maintenance doc)
