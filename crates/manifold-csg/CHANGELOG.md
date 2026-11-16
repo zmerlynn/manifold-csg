@@ -9,7 +9,8 @@ but change output, so the compiler will not catch them for you.
 
 ## Unreleased (0.5.0, on the `next` branch)
 
-Tracks upstream manifold master on its way to 4.0. Not published yet.
+Tracks upstream manifold master on its way to 4.0. Not published yet. See the
+[migration guide](https://github.com/zmerlynn/manifold-csg/blob/main/MIGRATION_0.4.2_TO_0.5.0.md).
 
 - `RayHit` has a new `crossing` field (`+1` entering the solid, `-1`
   leaving) and is now `#[non_exhaustive]`, so code that built a `RayHit`

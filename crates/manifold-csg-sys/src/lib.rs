@@ -280,13 +280,7 @@ pub type ManifoldSdf = Option<unsafe extern "C" fn(f64, f64, f64, *mut std::ffi:
 // ── C API declarations ──────────────────────────────────────────────────
 
 unsafe extern "C" {
-    // ── Memory sizes ───────────────────────────────────────────────────
-
-    // ── Allocation ─────────────────────────────────────────────────────
-
-    // ── Destruction (destruct only, does not free) ─────────────────────
-
-    // ── Deletion (destruct + free) ─────────────────────────────────────
+    // ── Deletion ───────────────────────────────────────────────────────
 
     pub fn manifold_delete_manifold(m: *mut ManifoldManifold);
     pub fn manifold_delete_manifold_vec(ms: *mut ManifoldManifoldVec);

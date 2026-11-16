@@ -2959,7 +2959,7 @@ fn smooth_by_normals_treats_channels_past_num_prop_as_missing() {
     assert!(!smoothed.is_empty());
 }
 
-// ── manifold 4.0 additions ──────────────────────────────────────────
+// ── upstream master (pre-4.0) additions ──────────────────────────────────────────
 
 #[test]
 fn winding_number_inside_and_outside() {
@@ -2971,7 +2971,7 @@ fn winding_number_inside_and_outside() {
 
 #[test]
 fn primitives_share_original_id_zero() {
-    // Since manifold 4.0, primitives start with original ID 0, so their
+    // On upstream master (pre-4.0), primitives start with original ID 0, so their
     // faces can merge across inputs. as_original(-1) asks for a unique ID.
     let cube = Manifold::cube(2.0, 2.0, 2.0, true);
     assert_eq!(cube.original_id(), 0);

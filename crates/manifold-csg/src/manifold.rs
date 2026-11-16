@@ -873,7 +873,7 @@ impl Manifold {
 
     /// Combine multiple manifolds into one.
     ///
-    /// Deprecated upstream: since manifold 4.0 this is a union
+    /// Deprecated upstream: on upstream master (pre-4.0) this is a union
     /// ([`batch_union`](Self::batch_union)), not a purely topological combine,
     /// so overlapping inputs merge instead of overlapping.
     #[must_use]

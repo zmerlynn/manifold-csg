@@ -368,7 +368,7 @@ if it doesn't, a function was bound without being documented here.
 
 A row counts as **Wrapped** when its status cell links a safe method,
 **Internal** when the cell starts with `Internal`, and **Bound, unused**
-otherwise (`Not used`, `Not needed (alloc size)`, `Not wrapped`).
+otherwise (`Not used`, `Not wrapped`).
 
 | Category | Wrapped | Internal | Bound, unused |
 |---|---|---|---|

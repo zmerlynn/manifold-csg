@@ -267,6 +267,7 @@ Notes:
   - [0.1.8 → 0.2.0](https://github.com/zmerlynn/manifold-csg/blob/main/MIGRATION_0.1.8_TO_0.2.0.md) — `ExecutionContext` attachment API reshape.
   - [0.2.0 → 0.3.0](https://github.com/zmerlynn/manifold-csg/blob/main/MIGRATION_0.2.0_TO_0.3.0.md) — more idiomatic `Result` status/mesh APIs and upstream-aligned defaults.
   - [0.3.4 → 0.4.0](https://github.com/zmerlynn/manifold-csg/blob/main/MIGRATION_0.3.4_TO_0.4.0.md) — optional `nalgebra` dependency moves to 0.35; no API change.
+  - [0.4.2 → 0.5.0](https://github.com/zmerlynn/manifold-csg/blob/main/MIGRATION_0.4.2_TO_0.5.0.md) — upstream manifold 4.0: removed smoothing and tolerance APIs, `as_original(id)`, fill-rule and `compose` changes. In progress on the `next` branch.
 
   These guides live at the repo root, so they are not part of the published crate tarball; the links above resolve on GitHub. A condensed [CHANGELOG.md](https://github.com/zmerlynn/manifold-csg/blob/main/crates/manifold-csg/CHANGELOG.md) ships inside the crate and flags behavioral (non-compile-breaking) changes.
 
