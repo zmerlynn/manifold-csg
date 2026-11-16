@@ -40,7 +40,7 @@ Nothing should be publishable from `next` by accident. A `-dev` version doesn't 
 |---|---|
 | Format, Docs, Deny, MSRV | required from the start |
 | Linux, Linux (no TBB), macOS, Windows, Emscripten (wasm32), API coverage | required since the C API port (#71-#74) finished. Before that the test binaries referenced removed symbols and could not link. |
-| Wasm32 (unknown-unknown) | runs, but not required until the wasm-uu catch-up (port step 3) is done. Expect it red until then. Making it required is a ruleset change at that point. |
+| Wasm32 (unknown-unknown) | required since the wasm-uu catch-up (#77, wasm-cxx-shim v0.6.0). |
 | Nix (offline / prebuilt manifold) | skips itself off `main` while the pin isn't a release tag, because `flake.nix` fetches `pinnedSrc` by tag. It runs again once `next` pins a 4.0 tag. On `main` a SHA pin still fails it. |
 | Semver | skips itself whenever the workspace version is a pre-release, as it is on `next`. Every port PR is breaking on purpose, and it compares against 0.4.x on crates.io. The publish guard keeps pre-release versions off `main`, so it always runs there. |
 | API coverage | runs. It fetches `manifoldc.h` at the pinned ref, so a SHA works. |
@@ -84,12 +84,9 @@ Each step is one or more PRs into `next`, and each leaves the branch building.
 2. **Test drift.** None so far beyond the two behavior changes above. Re-check after each pin move.
    - Update expected numbers that change because of upstream kernel changes (boolean tie-breaking, degenerate removal).
    - Note each one in the CHANGELOG's unreleased section and the migration guide. They compile cleanly but change output.
-3. **wasm-uu catch-up.** Mostly C++ build work.
-   - **Ours:** `wasm32-uu/CMakeLists.txt` makes its default target depend on `Clipper2`, and `build/wasm.rs` links `libClipper2.a`. Both go.
-   - **Shim:** `WasmCxxShimManifold.cmake` sets `CLIPPER2_*` options and `-DCLIPPER2_MAX_DECIMAL_PRECISION=8`. Those are harmless when nothing reads them, but its header comment promises a `Clipper2` target, so that needs a fix.
-   - **Shim:** whether master's manifold compiles against the shim's libc++/libc surface. The first `next` CI run already found one gap: upstream's new `src/boolean2_diagnostics.h` uses a `timing_detail::Clock` that does not compile against the shim. Run the shim's own `manifold` CI job with `MANIFOLD_GIT_TAG` set to our `next` pin, and fill gaps there.
-   - **Shim release:** cut one (v0.6.0) whose tested pin is our `next` pin or later. Bump `WASM_CXX_SHIM_TAG` on `next`, and add the lane to the `next` ruleset's required checks.
-   - `main` requires this lane, so the final merge can't land without this step.
+3. **wasm-uu catch-up (done, #77).** wasm-cxx-shim v0.6.0 tests the `next` pin itself. Building manifold master against the shim needed `frexp`/`fmod` in its libm, a fake advancing `steady_clock::now()`, `__throw_system_error` and an adapted `std::pmr` pool in the reference `libcxx-extras.cpp`, and a `<mutex>` stub that reuses libc++'s own lock types; both repos dropped Clipper2 from the wasm build. Codex adversarial reviews of the shim change and of `main...next` found real issues, fixed in the shim PR and in #76.
+   - The fake clock exists only because upstream's `src/boolean2_diagnostics.h` names `std::chrono::steady_clock` in every build. elalish/manifold#1963 gates that timing behind `MANIFOLD_DEBUG || MANIFOLD_TIMING`. Once it lands and the pin moves past it, drop the fake clock and turn `_LIBCPP_HAS_MONOTONIC_CLOCK` back off, in the shim's reference files and our `wasm32-uu/` copies.
+   - The vendored `wasm32-uu/` files are copies of the shim's `test/manifold-link/` references; re-copy them on every `WASM_CXX_SHIM_TAG` bump (see CLAUDE.md "Pin / shim follow-ups").
 4. **Docs.** `API_COVERAGE.md` and the CLAUDE.md FFI rules were updated with the C API port. The README dependency snippet is left for the exit.
 
 ## Exit
