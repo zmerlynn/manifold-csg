@@ -1,0 +1,16 @@
+# Used by scripts/check-abi.py: render the sys crate's extern "C" functions
+# and #[repr(C)] types as C. Types get an RS_ prefix so this rendering can
+# sit next to manifoldc.h's own names; check-abi.py strips it when comparing.
+# check-abi.py adds an `include` list of every type the crate declares,
+# because cbindgen otherwise drops types no function mentions.
+language = "C"
+usize_is_size_t = true
+no_includes = true
+sys_includes = ["stddef.h", "stdint.h"]
+
+[export]
+item_types = ["functions", "structs", "enums", "typedefs", "opaque"]
+prefix = "RS_"
+
+[enum]
+prefix_with_name = true
