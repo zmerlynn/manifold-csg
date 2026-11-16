@@ -2,6 +2,8 @@
 
 use manifold_csg_sys::*;
 
+use crate::owned;
+
 /// A 3D axis-aligned bounding box.
 ///
 /// Wraps the manifold3d `Box` type, providing spatial queries (containment,
@@ -31,7 +33,7 @@ impl Clone for BoundingBox {
 impl Drop for BoundingBox {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            // SAFETY: self.ptr was allocated by manifold_alloc_box.
+            // SAFETY: self.ptr came from a manifold_* constructor and is freed only here.
             unsafe { manifold_delete_box(self.ptr) };
             self.ptr = std::ptr::null_mut();
         }
@@ -51,12 +53,8 @@ impl BoundingBox {
     /// Create a bounding box from min and max corners.
     #[must_use]
     pub fn new(min: [f64; 3], max: [f64; 3]) -> Self {
-        // SAFETY: manifold_alloc_box returns a valid handle.
-        let ptr = unsafe { manifold_alloc_box() };
-        // SAFETY: ptr is valid from alloc.
-        unsafe {
-            manifold_box(ptr, min[0], min[1], min[2], max[0], max[1], max[2]);
-        }
+        // SAFETY: manifold_box takes plain values and returns a new handle.
+        let ptr = owned(unsafe { manifold_box(min[0], min[1], min[2], max[0], max[1], max[2]) });
         Self { ptr }
     }
 
@@ -150,10 +148,8 @@ impl BoundingBox {
     /// Return the union (smallest box containing both) of two bounding boxes.
     #[must_use]
     pub fn union(&self, other: &BoundingBox) -> BoundingBox {
-        // SAFETY: manifold_alloc_box returns a valid handle.
-        let ptr = unsafe { manifold_alloc_box() };
-        // SAFETY: all three pointers are valid.
-        unsafe { manifold_box_union(ptr, self.ptr, other.ptr) };
+        // SAFETY: both pointers are valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_box_union(self.ptr, other.ptr) });
         BoundingBox { ptr }
     }
 
@@ -161,35 +157,28 @@ impl BoundingBox {
     /// [`Manifold::transform`](crate::Manifold::transform)).
     #[must_use]
     pub fn transform(&self, m: &[f64; 12]) -> BoundingBox {
-        // SAFETY: manifold_alloc_box returns a valid handle.
-        let ptr = unsafe { manifold_alloc_box() };
-        // SAFETY: all pointers are valid.
-        unsafe {
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe {
             manifold_box_transform(
-                ptr, self.ptr, m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10],
-                m[11],
-            );
-        }
+                self.ptr, m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11],
+            )
+        });
         BoundingBox { ptr }
     }
 
     /// Translate the box by `[x, y, z]`.
     #[must_use]
     pub fn translate(&self, v: [f64; 3]) -> BoundingBox {
-        // SAFETY: manifold_alloc_box returns a valid handle.
-        let ptr = unsafe { manifold_alloc_box() };
-        // SAFETY: all pointers are valid.
-        unsafe { manifold_box_translate(ptr, self.ptr, v[0], v[1], v[2]) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_box_translate(self.ptr, v[0], v[1], v[2]) });
         BoundingBox { ptr }
     }
 
     /// Scale the box by `[x, y, z]` factors.
     #[must_use]
     pub fn mul(&self, v: [f64; 3]) -> BoundingBox {
-        // SAFETY: manifold_alloc_box returns a valid handle.
-        let ptr = unsafe { manifold_alloc_box() };
-        // SAFETY: all pointers are valid.
-        unsafe { manifold_box_mul(ptr, self.ptr, v[0], v[1], v[2]) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_box_mul(self.ptr, v[0], v[1], v[2]) });
         BoundingBox { ptr }
     }
 }

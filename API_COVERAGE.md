@@ -113,16 +113,15 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 
 ## Ray Casting
 
-`manifold_ray_cast` fills a `RayHitVec`; the safe wrapper owns that vector,
-copies each hit out into a [`RayHit`](crates/manifold-csg/src/ray.rs), and frees
-it, so the vector accessors are internal.
+`manifold_ray_cast` returns a new `RayHitVec`. The safe wrapper owns that
+vector, copies each hit out into a [`RayHit`](crates/manifold-csg/src/ray.rs),
+and frees it, so the vector accessors are internal.
 
 | C API function | Safe wrapper |
 |---|---|
 | `manifold_ray_cast` | [`Manifold::ray_cast`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_ray_hit_vec_length` | Internal (result copy-out) |
 | `manifold_ray_hit_vec_get` | Internal (result copy-out) |
-| `manifold_ray_hit_vec_size` | Internal (allocation sizing) |
 
 ## CrossSection - Construction & Booleans
 
@@ -244,7 +243,6 @@ it, so the vector accessors are internal.
 | `manifold_triangulate` | [`triangulate_polygons`](crates/manifold-csg/src/triangulation.rs) |
 | `manifold_triangulation_num_tri` | Internal |
 | `manifold_triangulation_tri_verts` | Internal |
-| `manifold_triangulation_size` | Not used |
 
 ## Quality Globals
 
@@ -279,7 +277,6 @@ Fully wrapped via the `BoundingBox` type in `crates/manifold-csg/src/bounding_bo
 | `manifold_box_transform` | [`BoundingBox::transform`](crates/manifold-csg/src/bounding_box.rs) |
 | `manifold_box_translate` | [`BoundingBox::translate`](crates/manifold-csg/src/bounding_box.rs) |
 | `manifold_box_mul` | [`BoundingBox::mul`](crates/manifold-csg/src/bounding_box.rs) |
-| `manifold_box_size` | Not needed (alloc size) |
 
 ## Rect2D Operations (`Rect`)
 
@@ -303,7 +300,6 @@ Fully wrapped via the `Rect` type in `crates/manifold-csg/src/rect.rs`.
 | `manifold_rect_transform` | [`Rect::transform`](crates/manifold-csg/src/rect.rs) |
 | `manifold_rect_translate` | [`Rect::translate`](crates/manifold-csg/src/rect.rs) |
 | `manifold_rect_mul` | [`Rect::mul`](crates/manifold-csg/src/rect.rs) |
-| `manifold_rect_size` | Not needed (alloc size) |
 
 ## Polygon Helpers (Internal)
 
@@ -359,7 +355,6 @@ Used internally by batch operations, decompose, etc.
 | `manifold_execution_context_of_meshgl64` | [`Manifold::from_meshgl64_with_context`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_execution_context_smooth` | Not wrapped (no f32 `smooth` in safe API; see `manifold_smooth`) |
 | `manifold_execution_context_smooth64` | [`Manifold::smooth_f64_with_context`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_execution_context_size` | Not needed (alloc size) |
 
 ## Allocation & Deallocation (Internal)
 
@@ -369,9 +364,9 @@ and `Drop` implementations.
 
 | Function group | Count |
 |---|---|
-| `manifold_alloc_*` | 13 |
+| `manifold_alloc_*` | 8 |
 | `manifold_delete_*` | 13 |
-| `manifold_destruct_*` | 13 |
+| `manifold_destruct_*` | 8 |
 
 ---
 
@@ -392,21 +387,21 @@ otherwise (`Not used`, `Not needed (alloc size)`, `Not wrapped`).
 | Manifold transforms | 17 | 0 | 0 |
 | Manifold queries | 17 | 0 | 2 |
 | Manifold hull/decompose/mesh | 12 | 0 | 0 |
-| Ray casting | 1 | 3 | 0 |
+| Ray casting | 1 | 2 | 0 |
 | CrossSection construction & booleans | 17 | 0 | 0 |
 | CrossSection transforms & queries | 14 | 0 | 1 |
 | MeshGL/MeshGL64 | 44 | 20 | 2 |
-| Triangulation | 1 | 2 | 1 |
+| Triangulation | 1 | 2 | 0 |
 | Quality globals | 6 | 0 | 0 |
-| Box3D (BoundingBox) | 16 | 0 | 1 |
-| Rect2D (Rect) | 16 | 0 | 1 |
+| Box3D (BoundingBox) | 16 | 0 | 0 |
+| Rect2D (Rect) | 16 | 0 | 0 |
 | Polygon helpers | 0 | 5 | 5 |
 | Vector containers | 0 | 10 | 6 |
-| ExecutionContext (cancel/progress + factories) | 9 | 0 | 2 |
-| Alloc/delete/destruct | 0 | 39 | 0 |
-| **Total** | **194** | **79** | **21** |
+| ExecutionContext (cancel/progress + factories) | 9 | 0 | 1 |
+| Alloc/delete/destruct | 0 | 29 | 0 |
+| **Total** | **194** | **68** | **17** |
 
-190 + 79 + 21 = 290, matching the sys crate's 290 declarations.
+194 + 68 + 17 = 279, matching the sys crate's 279 declarations.
 
 "Bound, unused" means the function is declared in `manifold-csg-sys` but the
 safe crate never calls it: `*_size` queries the crate does not need because it

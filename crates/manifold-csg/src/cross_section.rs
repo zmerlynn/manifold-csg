@@ -4,6 +4,7 @@
 //! hull, and transforms. Cross-sections can be extruded to 3D via
 //! [`Manifold::extrude`](crate::Manifold::extrude).
 
+use crate::owned;
 use manifold_csg_sys::*;
 use std::ops;
 use std::sync::Mutex;
@@ -519,10 +520,8 @@ impl CrossSection {
     /// Axis-aligned bounding rectangle.
     #[must_use]
     pub fn bounds(&self) -> Rect {
-        // SAFETY: manifold_alloc_rect returns a valid handle.
-        let rect_ptr = unsafe { manifold_alloc_rect() };
-        // SAFETY: rect_ptr and self.ptr are valid.
-        unsafe { manifold_cross_section_bounds(rect_ptr, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let rect_ptr = owned(unsafe { manifold_cross_section_bounds(self.ptr) });
         Rect::from_ptr(rect_ptr)
     }
 

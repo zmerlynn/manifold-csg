@@ -1,5 +1,6 @@
 //! Constrained Delaunay triangulation of 2D polygons.
 
+use crate::owned;
 use manifold_csg_sys::*;
 
 use crate::cross_section::PolygonsFfi;
@@ -29,19 +30,19 @@ pub fn triangulate_polygons(polygons: &[Vec<[f64; 2]>], epsilon: f64) -> Option<
     let indices = {
         let polys = PolygonsFfi::new(polygons);
 
-        // SAFETY: manifold_alloc_triangulation returns a valid handle.
-        let tri_ptr = unsafe { manifold_alloc_triangulation() };
-        // SAFETY: tri_ptr is valid, polys.ptr() is valid from construction.
-        unsafe { manifold_triangulate(tri_ptr, polys.ptr(), epsilon) };
+        // SAFETY: polys.ptr() is valid from construction, and the call returns a new handle.
+        let tri_ptr = owned(unsafe { manifold_triangulate(polys.ptr(), epsilon) });
 
         // SAFETY: tri_ptr is valid. Read-only size query.
         let n_tris = unsafe { manifold_triangulation_num_tri(tri_ptr) };
 
         let indices = if n_tris > 0 {
-            let mut buf = vec![0i32; n_tris * 3];
-            // SAFETY: buf has capacity for n_tris * 3, tri_ptr is valid.
-            unsafe { manifold_triangulation_tri_verts(buf.as_mut_ptr(), tri_ptr) };
-            Some(buf)
+            // SAFETY: tri_ptr is valid. The result points at its n_tris * 3
+            // indices and stays valid until tri_ptr is deleted below, after
+            // the copy.
+            let verts = unsafe { manifold_triangulation_tri_verts(tri_ptr) };
+            // SAFETY: as above, verts addresses n_tris * 3 initialized ints.
+            Some(unsafe { std::slice::from_raw_parts(verts, n_tris * 3) }.to_vec())
         } else {
             None
         };

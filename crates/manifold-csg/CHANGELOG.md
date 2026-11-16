@@ -7,6 +7,15 @@ migration guides live at the repo root and are linked below.
 Watch especially for **behavioral** changes marked below: these compile cleanly
 but change output, so the compiler will not catch them for you.
 
+## Unreleased (0.5.0, on the `next` branch)
+
+Tracks upstream manifold master on its way to 4.0. Not published yet.
+
+- `RayHit` has a new `crossing` field (`+1` entering the solid, `-1`
+  leaving) and is now `#[non_exhaustive]`, so code that built a `RayHit`
+  with a struct literal no longer compiles. Results only ever come from
+  `Manifold::ray_cast`.
+
 ## 0.4.2
 
 No source or API changes required. Carried by `manifold-csg-sys` 3.5.106,

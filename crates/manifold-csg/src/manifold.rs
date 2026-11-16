@@ -19,6 +19,7 @@
 //! assert!(result.volume() < cube.volume());
 //! ```
 
+use crate::owned;
 use manifold_csg_sys::*;
 use std::ops;
 use std::sync::Mutex;
@@ -891,10 +892,8 @@ impl Manifold {
         if self.is_empty() {
             return None;
         }
-        // SAFETY: manifold_alloc_box returns a valid handle.
-        let ptr = unsafe { manifold_alloc_box() };
-        // SAFETY: self.ptr is valid (invariant), ptr is a fresh allocation.
-        unsafe { manifold_bounding_box(ptr, self.ptr) };
+        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_bounding_box(self.ptr) });
         Some(BoundingBox { ptr })
     }
 
@@ -1400,28 +1399,26 @@ impl Manifold {
     #[must_use]
     pub fn ray_cast(&self, origin: [f64; 3], end: [f64; 3]) -> Vec<crate::RayHit> {
         /// Owns the hit vector so it is freed on every path out, including an
-        /// unwind from the collect below. Keeps the alloc/delete pairing
-        /// intact without threading a manual free through each exit.
+        /// unwind from the collect below, without threading a manual free
+        /// through each exit.
         struct HitVec(*mut ManifoldRayHitVec);
 
         impl Drop for HitVec {
             fn drop(&mut self) {
                 if !self.0.is_null() {
-                    // SAFETY: self.0 came from manifold_alloc_ray_hit_vec and
-                    // is freed exactly once, here.
+                    // SAFETY: self.0 came from manifold_ray_cast and is
+                    // freed exactly once, here.
                     unsafe { manifold_delete_ray_hit_vec(self.0) };
                 }
             }
         }
 
-        // SAFETY: manifold_alloc_ray_hit_vec returns a valid handle.
-        let hits = HitVec(unsafe { manifold_alloc_ray_hit_vec() });
-        // SAFETY: hits.0 and self.ptr are valid.
-        unsafe {
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let hits = HitVec(owned(unsafe {
             manifold_ray_cast(
-                hits.0, self.ptr, origin[0], origin[1], origin[2], end[0], end[1], end[2],
+                self.ptr, origin[0], origin[1], origin[2], end[0], end[1], end[2],
             )
-        };
+        }));
         // SAFETY: hits.0 is valid.
         let len = unsafe { manifold_ray_hit_vec_length(hits.0) };
         (0..len)
@@ -1433,6 +1430,7 @@ impl Manifold {
                     distance: hit.distance,
                     position: [hit.position.x, hit.position.y, hit.position.z],
                     normal: [hit.normal.x, hit.normal.y, hit.normal.z],
+                    crossing: hit.crossing,
                 }
             })
             .collect()
@@ -1777,20 +1775,17 @@ impl Manifold {
             panic: Mutex::new(None),
         };
         let ctx_ptr = &ctx as *const Context<'_, F> as *mut std::ffi::c_void;
-        // SAFETY: manifold_alloc_box returns a valid handle.
-        let box_ptr = unsafe { manifold_alloc_box() };
-        // SAFETY: box_ptr is valid from alloc.
-        unsafe {
+        // SAFETY: manifold_box takes plain values and returns a new handle.
+        let box_ptr = owned(unsafe {
             manifold_box(
-                box_ptr,
                 bounds.0[0],
                 bounds.0[1],
                 bounds.0[2],
                 bounds.1[0],
                 bounds.1[1],
                 bounds.1[2],
-            );
-        }
+            )
+        });
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         if ec.is_null() {
@@ -1934,20 +1929,17 @@ impl Manifold {
             panic: Mutex::new(None),
         };
         let ctx_ptr = &mut ctx as *mut Context<'_, F> as *mut std::ffi::c_void;
-        // SAFETY: manifold_alloc_box returns a valid handle.
-        let box_ptr = unsafe { manifold_alloc_box() };
-        // SAFETY: box_ptr is valid from alloc.
-        unsafe {
+        // SAFETY: manifold_box takes plain values and returns a new handle.
+        let box_ptr = owned(unsafe {
             manifold_box(
-                box_ptr,
                 bounds.0[0],
                 bounds.0[1],
                 bounds.0[2],
                 bounds.1[0],
                 bounds.1[1],
                 bounds.1[2],
-            );
-        }
+            )
+        });
         // SAFETY: manifold_alloc_manifold returns a valid handle.
         let ptr = unsafe { manifold_alloc_manifold() };
         if ec.is_null() {

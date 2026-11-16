@@ -175,6 +175,7 @@ pub struct ManifoldRayHit {
     pub distance: f64,
     pub position: ManifoldVec3,
     pub normal: ManifoldVec3,
+    pub crossing: c_int,
 }
 
 /// Options for constructing a `MeshGL` with additional metadata.
@@ -299,11 +300,6 @@ unsafe extern "C" {
     pub fn manifold_manifold_pair_size() -> usize;
     pub fn manifold_meshgl_size() -> usize;
     pub fn manifold_meshgl64_size() -> usize;
-    pub fn manifold_box_size() -> usize;
-    pub fn manifold_rect_size() -> usize;
-    pub fn manifold_triangulation_size() -> usize;
-    pub fn manifold_ray_hit_vec_size() -> usize;
-    pub fn manifold_execution_context_size() -> usize;
 
     // ── Allocation ─────────────────────────────────────────────────────
 
@@ -315,11 +311,6 @@ unsafe extern "C" {
     pub fn manifold_alloc_polygons() -> *mut ManifoldPolygons;
     pub fn manifold_alloc_meshgl() -> *mut ManifoldMeshGL;
     pub fn manifold_alloc_meshgl64() -> *mut ManifoldMeshGL64;
-    pub fn manifold_alloc_box() -> *mut ManifoldBox;
-    pub fn manifold_alloc_rect() -> *mut ManifoldRect;
-    pub fn manifold_alloc_triangulation() -> *mut ManifoldTriangulation;
-    pub fn manifold_alloc_ray_hit_vec() -> *mut ManifoldRayHitVec;
-    pub fn manifold_alloc_execution_context() -> *mut ManifoldExecutionContext;
 
     // ── Destruction (destruct only, does not free) ─────────────────────
 
@@ -331,11 +322,6 @@ unsafe extern "C" {
     pub fn manifold_destruct_polygons(p: *mut ManifoldPolygons);
     pub fn manifold_destruct_meshgl(m: *mut ManifoldMeshGL);
     pub fn manifold_destruct_meshgl64(m: *mut ManifoldMeshGL64);
-    pub fn manifold_destruct_box(b: *mut ManifoldBox);
-    pub fn manifold_destruct_rect(b: *mut ManifoldRect);
-    pub fn manifold_destruct_triangulation(m: *mut ManifoldTriangulation);
-    pub fn manifold_destruct_ray_hit_vec(v: *mut ManifoldRayHitVec);
-    pub fn manifold_destruct_execution_context(ctx: *mut ManifoldExecutionContext);
 
     // ── Deletion (destruct + free) ─────────────────────────────────────
 
@@ -1120,7 +1106,6 @@ unsafe extern "C" {
 
     /// Cast a ray from `origin` to `end` against a manifold, returning all hits.
     pub fn manifold_ray_cast(
-        mem: *mut ManifoldRayHitVec,
         m: *const ManifoldManifold,
         origin_x: f64,
         origin_y: f64,
@@ -1138,22 +1123,21 @@ unsafe extern "C" {
 
     // ── Execution context (cancel + progress) ───────────────────────────
 
-    /// Construct an `ExecutionContext` in pre-allocated memory. Attach
-    /// to a manifold via [`manifold_with_context`]; subsequent eager
-    /// operations on the result observe the context.
-    pub fn manifold_execution_context(
-        mem: *mut ManifoldExecutionContext,
-    ) -> *mut ManifoldExecutionContext;
+    /// Create a new `ExecutionContext`. Free it with
+    /// [`manifold_delete_execution_context`]. Attach it to a manifold via
+    /// [`manifold_with_context`]. Subsequent eager operations on the result
+    /// observe the context.
+    pub fn manifold_execution_context() -> *mut ManifoldExecutionContext;
 
     /// Request cancellation of any boolean evaluation observing this context.
     /// Sticky: once cancelled, the context stays cancelled.
     pub fn manifold_execution_context_cancel(ctx: *mut ManifoldExecutionContext);
 
     /// Returns nonzero if the context has been cancelled.
-    pub fn manifold_execution_context_cancelled(ctx: *mut ManifoldExecutionContext) -> c_int;
+    pub fn manifold_execution_context_cancelled(ctx: *const ManifoldExecutionContext) -> c_int;
 
     /// Progress in [0.0, 1.0] for an in-flight evaluation observing this context.
-    pub fn manifold_execution_context_progress(ctx: *mut ManifoldExecutionContext) -> f64;
+    pub fn manifold_execution_context_progress(ctx: *const ManifoldExecutionContext) -> f64;
 
     // -- Execution-context static factories ------------------------------
     //
@@ -1223,20 +1207,9 @@ unsafe extern "C" {
 
     // ── Bounding box ────────────────────────────────────────────────────
 
-    pub fn manifold_bounding_box(
-        mem: *mut ManifoldBox,
-        m: *const ManifoldManifold,
-    ) -> *mut ManifoldBox;
+    pub fn manifold_bounding_box(m: *const ManifoldManifold) -> *mut ManifoldBox;
 
-    pub fn manifold_box(
-        mem: *mut ManifoldBox,
-        x1: f64,
-        y1: f64,
-        z1: f64,
-        x2: f64,
-        y2: f64,
-        z2: f64,
-    ) -> *mut ManifoldBox;
+    pub fn manifold_box(x1: f64, y1: f64, z1: f64, x2: f64, y2: f64, z2: f64) -> *mut ManifoldBox;
 
     pub fn manifold_box_min(b: *const ManifoldBox) -> ManifoldVec3;
     pub fn manifold_box_max(b: *const ManifoldBox) -> ManifoldVec3;
@@ -1250,14 +1223,9 @@ unsafe extern "C" {
 
     pub fn manifold_box_include_pt(b: *mut ManifoldBox, x: f64, y: f64, z: f64);
 
-    pub fn manifold_box_union(
-        mem: *mut ManifoldBox,
-        a: *const ManifoldBox,
-        b: *const ManifoldBox,
-    ) -> *mut ManifoldBox;
+    pub fn manifold_box_union(a: *const ManifoldBox, b: *const ManifoldBox) -> *mut ManifoldBox;
 
     pub fn manifold_box_transform(
-        mem: *mut ManifoldBox,
         b: *const ManifoldBox,
         x1: f64,
         y1: f64,
@@ -1274,20 +1242,13 @@ unsafe extern "C" {
     ) -> *mut ManifoldBox;
 
     pub fn manifold_box_translate(
-        mem: *mut ManifoldBox,
         b: *const ManifoldBox,
         x: f64,
         y: f64,
         z: f64,
     ) -> *mut ManifoldBox;
 
-    pub fn manifold_box_mul(
-        mem: *mut ManifoldBox,
-        b: *const ManifoldBox,
-        x: f64,
-        y: f64,
-        z: f64,
-    ) -> *mut ManifoldBox;
+    pub fn manifold_box_mul(b: *const ManifoldBox, x: f64, y: f64, z: f64) -> *mut ManifoldBox;
 
     pub fn manifold_box_does_overlap_pt(b: *const ManifoldBox, x: f64, y: f64, z: f64) -> c_int;
 
@@ -1514,10 +1475,7 @@ unsafe extern "C" {
     pub fn manifold_cross_section_num_contour(cs: *const ManifoldCrossSection) -> usize;
     pub fn manifold_cross_section_is_empty(cs: *const ManifoldCrossSection) -> c_int;
 
-    pub fn manifold_cross_section_bounds(
-        mem: *mut ManifoldRect,
-        cs: *const ManifoldCrossSection,
-    ) -> *mut ManifoldRect;
+    pub fn manifold_cross_section_bounds(cs: *const ManifoldCrossSection) -> *mut ManifoldRect;
 
     // ── CrossSection extraction ─────────────────────────────────────────
 
@@ -1528,13 +1486,7 @@ unsafe extern "C" {
 
     // ── Rectangle ───────────────────────────────────────────────────────
 
-    pub fn manifold_rect(
-        mem: *mut ManifoldRect,
-        x1: f64,
-        y1: f64,
-        x2: f64,
-        y2: f64,
-    ) -> *mut ManifoldRect;
+    pub fn manifold_rect(x1: f64, y1: f64, x2: f64, y2: f64) -> *mut ManifoldRect;
 
     pub fn manifold_rect_min(r: *const ManifoldRect) -> ManifoldVec2;
     pub fn manifold_rect_max(r: *const ManifoldRect) -> ManifoldVec2;
@@ -1548,14 +1500,10 @@ unsafe extern "C" {
 
     pub fn manifold_rect_include_pt(r: *mut ManifoldRect, x: f64, y: f64);
 
-    pub fn manifold_rect_union(
-        mem: *mut ManifoldRect,
-        a: *const ManifoldRect,
-        b: *const ManifoldRect,
-    ) -> *mut ManifoldRect;
+    pub fn manifold_rect_union(a: *const ManifoldRect, b: *const ManifoldRect)
+    -> *mut ManifoldRect;
 
     pub fn manifold_rect_transform(
-        mem: *mut ManifoldRect,
         r: *const ManifoldRect,
         x1: f64,
         y1: f64,
@@ -1565,19 +1513,9 @@ unsafe extern "C" {
         y3: f64,
     ) -> *mut ManifoldRect;
 
-    pub fn manifold_rect_translate(
-        mem: *mut ManifoldRect,
-        r: *const ManifoldRect,
-        x: f64,
-        y: f64,
-    ) -> *mut ManifoldRect;
+    pub fn manifold_rect_translate(r: *const ManifoldRect, x: f64, y: f64) -> *mut ManifoldRect;
 
-    pub fn manifold_rect_mul(
-        mem: *mut ManifoldRect,
-        r: *const ManifoldRect,
-        x: f64,
-        y: f64,
-    ) -> *mut ManifoldRect;
+    pub fn manifold_rect_mul(r: *const ManifoldRect, x: f64, y: f64) -> *mut ManifoldRect;
 
     pub fn manifold_rect_does_overlap_rect(a: *const ManifoldRect, r: *const ManifoldRect)
     -> c_int;
@@ -1589,19 +1527,15 @@ unsafe extern "C" {
 
     /// Triangulate a polygon set, returning triangle indices.
     pub fn manifold_triangulate(
-        mem: *mut ManifoldTriangulation,
         ps: *const ManifoldPolygons,
         epsilon: f64,
     ) -> *mut ManifoldTriangulation;
 
     pub fn manifold_triangulation_num_tri(m: *const ManifoldTriangulation) -> usize;
 
-    /// Copy triangle vertex indices into caller-provided buffer.
-    /// Each triangle is 3 consecutive i32 values.
-    pub fn manifold_triangulation_tri_verts(
-        mem: *mut i32,
-        m: *const ManifoldTriangulation,
-    ) -> *mut i32;
+    /// Triangle vertex indices, 3 consecutive values per triangle. The buffer
+    /// is borrowed from `m` and is only valid for the lifetime of `m`.
+    pub fn manifold_triangulation_tri_verts(m: *const ManifoldTriangulation) -> *const c_int;
 
     // ── Static quality globals ──────────────────────────────────────────
 
