@@ -171,15 +171,14 @@ impl Manifold {
         meshgl: &MeshGL64,
         ec: *mut ManifoldExecutionContext,
     ) -> Result<Self, CsgError> {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let manifold = unsafe { manifold_alloc_manifold() };
-        if ec.is_null() {
-            // SAFETY: manifold and meshgl are valid handles.
-            unsafe { manifold_of_meshgl64(manifold, meshgl.ptr) };
+        let manifold = if ec.is_null() {
+            // SAFETY: meshgl.ptr is valid (invariant), and the call returns a new handle.
+            owned(unsafe { manifold_of_meshgl64(meshgl.ptr) })
         } else {
-            // SAFETY: manifold/meshgl valid; ec is a valid context borrowed for the call.
-            unsafe { manifold_execution_context_of_meshgl64(manifold, ec, meshgl.ptr) };
-        }
+            // SAFETY: meshgl.ptr is valid, ec is a valid context borrowed for the
+            // call, and the call returns a new handle.
+            owned(unsafe { manifold_execution_context_of_meshgl64(ec, meshgl.ptr) })
+        };
 
         // SAFETY: manifold is valid. Read-only status query.
         let status = unsafe { manifold_status(manifold) };
@@ -240,15 +239,14 @@ impl Manifold {
         meshgl: &MeshGL,
         ec: *mut ManifoldExecutionContext,
     ) -> Result<Self, CsgError> {
-        // SAFETY: manifold_alloc_manifold returns a valid handle.
-        let manifold = unsafe { manifold_alloc_manifold() };
-        if ec.is_null() {
-            // SAFETY: manifold and meshgl are valid handles.
-            unsafe { manifold_of_meshgl(manifold, meshgl.ptr) };
+        let manifold = if ec.is_null() {
+            // SAFETY: meshgl.ptr is valid (invariant), and the call returns a new handle.
+            owned(unsafe { manifold_of_meshgl(meshgl.ptr) })
         } else {
-            // SAFETY: manifold/meshgl valid; ec is a valid context borrowed for the call.
-            unsafe { manifold_execution_context_of_meshgl(manifold, ec, meshgl.ptr) };
-        }
+            // SAFETY: meshgl.ptr is valid, ec is a valid context borrowed for the
+            // call, and the call returns a new handle.
+            owned(unsafe { manifold_execution_context_of_meshgl(ec, meshgl.ptr) })
+        };
 
         // SAFETY: manifold is valid. Read-only status query.
         let status = unsafe { manifold_status(manifold) };
@@ -423,10 +421,8 @@ impl Manifold {
     /// IDs, merge vectors, and tangents when present.
     #[must_use]
     pub fn to_meshgl64(&self) -> MeshGL64 {
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: self.ptr and meshgl are valid handles.
-        unsafe { manifold_get_meshgl64(meshgl, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let meshgl = owned(unsafe { manifold_get_meshgl64(self.ptr) });
 
         MeshGL64 { ptr: meshgl }
     }
@@ -438,10 +434,8 @@ impl Manifold {
     /// `normal_idx` semantics.
     #[must_use]
     pub fn to_meshgl64_with_normals(&self, normal_idx: i32) -> MeshGL64 {
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: self.ptr and meshgl are valid handles.
-        unsafe { manifold_get_meshgl64_w_normals(meshgl, self.ptr, normal_idx) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let meshgl = owned(unsafe { manifold_get_meshgl64_w_normals(self.ptr, normal_idx) });
 
         MeshGL64 { ptr: meshgl }
     }
@@ -504,10 +498,8 @@ impl Manifold {
     /// downstream consumer (GPU buffer, f32 file format) requires f32.
     #[must_use]
     pub fn to_meshgl(&self) -> MeshGL {
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: self.ptr and meshgl are valid handles.
-        unsafe { manifold_get_meshgl(meshgl, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let meshgl = owned(unsafe { manifold_get_meshgl(self.ptr) });
 
         MeshGL { ptr: meshgl }
     }
@@ -524,10 +516,8 @@ impl Manifold {
     /// downstream consumer (GPU buffer, f32 file format) requires f32.
     #[must_use]
     pub fn to_meshgl_with_normals(&self, normal_idx: i32) -> MeshGL {
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let meshgl = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: self.ptr and meshgl are valid handles.
-        unsafe { manifold_get_meshgl_w_normals(meshgl, self.ptr, normal_idx) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let meshgl = owned(unsafe { manifold_get_meshgl_w_normals(self.ptr, normal_idx) });
 
         MeshGL { ptr: meshgl }
     }

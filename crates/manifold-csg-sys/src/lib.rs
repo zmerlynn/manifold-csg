@@ -298,8 +298,6 @@ unsafe extern "C" {
     pub fn manifold_simple_polygon_size() -> usize;
     pub fn manifold_polygons_size() -> usize;
     pub fn manifold_manifold_pair_size() -> usize;
-    pub fn manifold_meshgl_size() -> usize;
-    pub fn manifold_meshgl64_size() -> usize;
 
     // ── Allocation ─────────────────────────────────────────────────────
 
@@ -309,8 +307,6 @@ unsafe extern "C" {
     pub fn manifold_alloc_cross_section_vec() -> *mut ManifoldCrossSectionVec;
     pub fn manifold_alloc_simple_polygon() -> *mut ManifoldSimplePolygon;
     pub fn manifold_alloc_polygons() -> *mut ManifoldPolygons;
-    pub fn manifold_alloc_meshgl() -> *mut ManifoldMeshGL;
-    pub fn manifold_alloc_meshgl64() -> *mut ManifoldMeshGL64;
 
     // ── Destruction (destruct only, does not free) ─────────────────────
 
@@ -320,8 +316,6 @@ unsafe extern "C" {
     pub fn manifold_destruct_cross_section_vec(csv: *mut ManifoldCrossSectionVec);
     pub fn manifold_destruct_simple_polygon(p: *mut ManifoldSimplePolygon);
     pub fn manifold_destruct_polygons(p: *mut ManifoldPolygons);
-    pub fn manifold_destruct_meshgl(m: *mut ManifoldMeshGL);
-    pub fn manifold_destruct_meshgl64(m: *mut ManifoldMeshGL64);
 
     // ── Deletion (destruct + free) ─────────────────────────────────────
 
@@ -390,7 +384,6 @@ unsafe extern "C" {
     /// `vert_props`: flat f32 array [x,y,z,...] with `n_props` values per vertex.
     /// `tri_verts`: flat u32 array, 3 indices per triangle.
     pub fn manifold_meshgl(
-        mem: *mut ManifoldMeshGL,
         vert_props: *const f32,
         n_verts: usize,
         n_props: usize,
@@ -400,7 +393,6 @@ unsafe extern "C" {
 
     /// Create a `MeshGL` with halfedge tangents.
     pub fn manifold_meshgl_w_tangents(
-        mem: *mut ManifoldMeshGL,
         vert_props: *const f32,
         n_verts: usize,
         n_props: usize,
@@ -411,7 +403,6 @@ unsafe extern "C" {
 
     /// Create a `MeshGL` with full options (run indices, merge, tangents).
     pub fn manifold_meshgl_w_options(
-        mem: *mut ManifoldMeshGL,
         vert_props: *const f32,
         n_verts: usize,
         n_props: usize,
@@ -421,35 +412,22 @@ unsafe extern "C" {
     ) -> *mut ManifoldMeshGL;
 
     /// Create a Manifold from a `MeshGL`.
-    pub fn manifold_of_meshgl(
-        mem: *mut ManifoldManifold,
-        mesh: *const ManifoldMeshGL,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_of_meshgl(mesh: *const ManifoldMeshGL) -> *mut ManifoldManifold;
 
     /// Extract `MeshGL` from a Manifold.
-    pub fn manifold_get_meshgl(
-        mem: *mut ManifoldMeshGL,
-        m: *const ManifoldManifold,
-    ) -> *mut ManifoldMeshGL;
+    pub fn manifold_get_meshgl(m: *const ManifoldManifold) -> *mut ManifoldMeshGL;
 
     /// Extract `MeshGL` from a Manifold with normals at the given property index.
     pub fn manifold_get_meshgl_w_normals(
-        mem: *mut ManifoldMeshGL,
         m: *const ManifoldManifold,
         normal_idx: i32,
     ) -> *mut ManifoldMeshGL;
 
     /// Copy a `MeshGL`.
-    pub fn manifold_meshgl_copy(
-        mem: *mut ManifoldMeshGL,
-        m: *const ManifoldMeshGL,
-    ) -> *mut ManifoldMeshGL;
+    pub fn manifold_meshgl_copy(m: *const ManifoldMeshGL) -> *mut ManifoldMeshGL;
 
     /// Merge coincident vertices in a `MeshGL`, returning a new merged mesh.
-    pub fn manifold_meshgl_merge(
-        mem: *mut ManifoldMeshGL,
-        m: *const ManifoldMeshGL,
-    ) -> *mut ManifoldMeshGL;
+    pub fn manifold_meshgl_merge(m: *const ManifoldMeshGL) -> *mut ManifoldMeshGL;
 
     // ── MeshGL data access ──────────────────────────────────────────────
 
@@ -465,32 +443,50 @@ unsafe extern "C" {
     pub fn manifold_meshgl_face_id_length(m: *const ManifoldMeshGL) -> usize;
     pub fn manifold_meshgl_tangent_length(m: *const ManifoldMeshGL) -> usize;
 
-    /// Copy vertex properties into caller-provided buffer.
-    pub fn manifold_meshgl_vert_properties(mem: *mut f32, m: *const ManifoldMeshGL) -> *mut f32;
+    /// Pointer to the mesh's vertex properties, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_vert_properties(m: *const ManifoldMeshGL) -> *const f32;
 
-    /// Copy triangle indices into caller-provided buffer.
-    pub fn manifold_meshgl_tri_verts(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
+    /// Pointer to the mesh's triangle indices, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_tri_verts(m: *const ManifoldMeshGL) -> *const u32;
 
-    /// Copy merge-from vertex indices into caller-provided buffer.
-    pub fn manifold_meshgl_merge_from_vert(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
+    /// Pointer to the mesh's merge-from vertex indices, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_merge_from_vert(m: *const ManifoldMeshGL) -> *const u32;
 
-    /// Copy merge-to vertex indices into caller-provided buffer.
-    pub fn manifold_meshgl_merge_to_vert(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
+    /// Pointer to the mesh's merge-to vertex indices, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_merge_to_vert(m: *const ManifoldMeshGL) -> *const u32;
 
-    /// Copy run indices into caller-provided buffer.
-    pub fn manifold_meshgl_run_index(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
+    /// Pointer to the mesh's run indices, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_run_index(m: *const ManifoldMeshGL) -> *const u32;
 
-    /// Copy run original IDs into caller-provided buffer.
-    pub fn manifold_meshgl_run_original_id(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
+    /// Pointer to the mesh's run original IDs, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_run_original_id(m: *const ManifoldMeshGL) -> *const u32;
 
-    /// Copy run transforms into caller-provided buffer.
-    pub fn manifold_meshgl_run_transform(mem: *mut f32, m: *const ManifoldMeshGL) -> *mut f32;
+    /// Pointer to the mesh's run transforms, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_run_transform(m: *const ManifoldMeshGL) -> *const f32;
 
-    /// Copy face IDs into caller-provided buffer.
-    pub fn manifold_meshgl_face_id(mem: *mut u32, m: *const ManifoldMeshGL) -> *mut u32;
+    /// Pointer to the mesh's face IDs, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_face_id(m: *const ManifoldMeshGL) -> *const u32;
 
-    /// Copy halfedge tangents into caller-provided buffer.
-    pub fn manifold_meshgl_halfedge_tangent(mem: *mut f32, m: *const ManifoldMeshGL) -> *mut f32;
+    /// Pointer to the mesh's halfedge tangents, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_halfedge_tangent(m: *const ManifoldMeshGL) -> *const f32;
 
     /// Get the tolerance of a MeshGL.
     pub fn manifold_meshgl_tolerance(m: *const ManifoldMeshGL) -> f32;
@@ -498,8 +494,10 @@ unsafe extern "C" {
     /// Get the number of run flags.
     pub fn manifold_meshgl_run_flags_length(m: *const ManifoldMeshGL) -> usize;
 
-    /// Copy run flags into caller-provided buffer.
-    pub fn manifold_meshgl_run_flags(mem: *mut u8, m: *const ManifoldMeshGL) -> *mut u8;
+    /// Pointer to the mesh's run flags, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl_run_flags(m: *const ManifoldMeshGL) -> *const u8;
 
     /// Get the number of triangle runs.
     pub fn manifold_meshgl_num_run(m: *const ManifoldMeshGL) -> usize;
@@ -516,7 +514,6 @@ unsafe extern "C" {
 
     /// Create a `MeshGL64` from f64 vertex properties and u64 triangle indices.
     pub fn manifold_meshgl64(
-        mem: *mut ManifoldMeshGL64,
         vert_props: *const f64,
         n_verts: usize,
         n_props: usize,
@@ -526,7 +523,6 @@ unsafe extern "C" {
 
     /// Create a `MeshGL64` with halfedge tangents.
     pub fn manifold_meshgl64_w_tangents(
-        mem: *mut ManifoldMeshGL64,
         vert_props: *const f64,
         n_verts: usize,
         n_props: usize,
@@ -537,7 +533,6 @@ unsafe extern "C" {
 
     /// Create a `MeshGL64` with full options (run indices, merge, tangents).
     pub fn manifold_meshgl64_w_options(
-        mem: *mut ManifoldMeshGL64,
         vert_props: *const f64,
         n_verts: usize,
         n_props: usize,
@@ -547,35 +542,22 @@ unsafe extern "C" {
     ) -> *mut ManifoldMeshGL64;
 
     /// Create a Manifold from a `MeshGL64`.
-    pub fn manifold_of_meshgl64(
-        mem: *mut ManifoldManifold,
-        mesh: *const ManifoldMeshGL64,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_of_meshgl64(mesh: *const ManifoldMeshGL64) -> *mut ManifoldManifold;
 
     /// Extract `MeshGL64` from a Manifold.
-    pub fn manifold_get_meshgl64(
-        mem: *mut ManifoldMeshGL64,
-        m: *const ManifoldManifold,
-    ) -> *mut ManifoldMeshGL64;
+    pub fn manifold_get_meshgl64(m: *const ManifoldManifold) -> *mut ManifoldMeshGL64;
 
     /// Extract `MeshGL64` from a Manifold with normals at the given property index.
     pub fn manifold_get_meshgl64_w_normals(
-        mem: *mut ManifoldMeshGL64,
         m: *const ManifoldManifold,
         normal_idx: i32,
     ) -> *mut ManifoldMeshGL64;
 
     /// Copy a `MeshGL64`.
-    pub fn manifold_meshgl64_copy(
-        mem: *mut ManifoldMeshGL64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut ManifoldMeshGL64;
+    pub fn manifold_meshgl64_copy(m: *const ManifoldMeshGL64) -> *mut ManifoldMeshGL64;
 
     /// Merge coincident vertices in a `MeshGL64`, returning a new merged mesh.
-    pub fn manifold_meshgl64_merge(
-        mem: *mut ManifoldMeshGL64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut ManifoldMeshGL64;
+    pub fn manifold_meshgl64_merge(m: *const ManifoldMeshGL64) -> *mut ManifoldMeshGL64;
 
     // ── MeshGL64 data access ────────────────────────────────────────────
 
@@ -591,38 +573,50 @@ unsafe extern "C" {
     pub fn manifold_meshgl64_face_id_length(m: *const ManifoldMeshGL64) -> usize;
     pub fn manifold_meshgl64_tangent_length(m: *const ManifoldMeshGL64) -> usize;
 
-    /// Copy f64 vertex properties into caller-provided buffer.
-    pub fn manifold_meshgl64_vert_properties(mem: *mut f64, m: *const ManifoldMeshGL64)
-    -> *mut f64;
+    /// Pointer to the mesh's f64 vertex properties, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_vert_properties(m: *const ManifoldMeshGL64) -> *const f64;
 
-    /// Copy u64 triangle indices into caller-provided buffer.
-    pub fn manifold_meshgl64_tri_verts(mem: *mut u64, m: *const ManifoldMeshGL64) -> *mut u64;
+    /// Pointer to the mesh's u64 triangle indices, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_tri_verts(m: *const ManifoldMeshGL64) -> *const u64;
 
-    /// Copy merge-from vertex indices into caller-provided buffer.
-    pub fn manifold_meshgl64_merge_from_vert(mem: *mut u64, m: *const ManifoldMeshGL64)
-    -> *mut u64;
+    /// Pointer to the mesh's merge-from vertex indices, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_merge_from_vert(m: *const ManifoldMeshGL64) -> *const u64;
 
-    /// Copy merge-to vertex indices into caller-provided buffer.
-    pub fn manifold_meshgl64_merge_to_vert(mem: *mut u64, m: *const ManifoldMeshGL64) -> *mut u64;
+    /// Pointer to the mesh's merge-to vertex indices, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_merge_to_vert(m: *const ManifoldMeshGL64) -> *const u64;
 
-    /// Copy run indices into caller-provided buffer.
-    pub fn manifold_meshgl64_run_index(mem: *mut u64, m: *const ManifoldMeshGL64) -> *mut u64;
+    /// Pointer to the mesh's run indices, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_run_index(m: *const ManifoldMeshGL64) -> *const u64;
 
-    /// Copy run original IDs into caller-provided buffer.
-    pub fn manifold_meshgl64_run_original_id(mem: *mut u32, m: *const ManifoldMeshGL64)
-    -> *mut u32;
+    /// Pointer to the mesh's run original IDs, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_run_original_id(m: *const ManifoldMeshGL64) -> *const u32;
 
-    /// Copy run transforms into caller-provided buffer.
-    pub fn manifold_meshgl64_run_transform(mem: *mut f64, m: *const ManifoldMeshGL64) -> *mut f64;
+    /// Pointer to the mesh's run transforms, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_run_transform(m: *const ManifoldMeshGL64) -> *const f64;
 
-    /// Copy face IDs into caller-provided buffer.
-    pub fn manifold_meshgl64_face_id(mem: *mut u64, m: *const ManifoldMeshGL64) -> *mut u64;
+    /// Pointer to the mesh's face IDs, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_face_id(m: *const ManifoldMeshGL64) -> *const u64;
 
-    /// Copy halfedge tangents into caller-provided buffer.
-    pub fn manifold_meshgl64_halfedge_tangent(
-        mem: *mut f64,
-        m: *const ManifoldMeshGL64,
-    ) -> *mut f64;
+    /// Pointer to the mesh's halfedge tangents, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_halfedge_tangent(m: *const ManifoldMeshGL64) -> *const f64;
 
     /// Get the tolerance of a MeshGL64.
     pub fn manifold_meshgl64_tolerance(m: *const ManifoldMeshGL64) -> f64;
@@ -630,8 +624,10 @@ unsafe extern "C" {
     /// Get the number of run flags.
     pub fn manifold_meshgl64_run_flags_length(m: *const ManifoldMeshGL64) -> usize;
 
-    /// Copy run flags into caller-provided buffer.
-    pub fn manifold_meshgl64_run_flags(mem: *mut u8, m: *const ManifoldMeshGL64) -> *mut u8;
+    /// Pointer to the mesh's run flags, borrowed from `m` and valid only
+    /// while `m` is alive and unmodified. The length comes from the matching
+    /// `_length` function.
+    pub fn manifold_meshgl64_run_flags(m: *const ManifoldMeshGL64) -> *const u8;
 
     /// Get the number of triangle runs.
     pub fn manifold_meshgl64_num_run(m: *const ManifoldMeshGL64) -> usize;
@@ -1173,14 +1169,12 @@ unsafe extern "C" {
 
     /// ctx-aware [`manifold_of_meshgl`].
     pub fn manifold_execution_context_of_meshgl(
-        mem: *mut ManifoldManifold,
         ec: *mut ManifoldExecutionContext,
         mesh: *const ManifoldMeshGL,
     ) -> *mut ManifoldManifold;
 
     /// ctx-aware [`manifold_of_meshgl64`].
     pub fn manifold_execution_context_of_meshgl64(
-        mem: *mut ManifoldManifold,
         ec: *mut ManifoldExecutionContext,
         mesh: *const ManifoldMeshGL64,
     ) -> *mut ManifoldManifold;
@@ -1567,10 +1561,7 @@ unsafe extern "C" {
     /// The `obj_file` parameter is the content of the obj file (not the filename),
     /// and should be null-terminated.
     #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
-    pub fn manifold_meshgl64_read_obj(
-        mem: *mut ManifoldMeshGL64,
-        obj_file: *const std::ffi::c_char,
-    ) -> *mut ManifoldMeshGL64;
+    pub fn manifold_meshgl64_read_obj(obj_file: *const std::ffi::c_char) -> *mut ManifoldMeshGL64;
 
     /// Export a manifold to a Wavefront obj string via callback.
     ///

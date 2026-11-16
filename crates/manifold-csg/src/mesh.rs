@@ -6,6 +6,8 @@
 
 use manifold_csg_sys::*;
 
+use crate::owned;
+
 use crate::types::CsgError;
 
 /// Optional metadata for constructing a [`MeshGL`].
@@ -125,7 +127,7 @@ unsafe impl Sync for MeshGL {}
 impl Drop for MeshGL {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            // SAFETY: self.ptr was allocated by manifold_alloc_meshgl.
+            // SAFETY: self.ptr came from a manifold_* constructor and is freed only here.
             unsafe { manifold_delete_meshgl(self.ptr) };
             self.ptr = std::ptr::null_mut();
         }
@@ -149,19 +151,17 @@ impl MeshGL {
         let n_verts = vert_props.len() / n_props;
         let n_tris = tri_indices.len() / 3;
 
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: ptr is valid, slices are valid with correct lengths.
-        unsafe {
+        // SAFETY: validate_mesh_shape checked the slice lengths against n_verts,
+        // n_props and n_tris, the slices outlive the call, and it returns a new handle.
+        let ptr = owned(unsafe {
             manifold_meshgl(
-                ptr,
                 vert_props.as_ptr(),
                 n_verts,
                 n_props,
                 tri_indices.as_ptr(),
                 n_tris,
-            );
-        }
+            )
+        });
         Ok(Self { ptr })
     }
 
@@ -185,20 +185,18 @@ impl MeshGL {
         let n_tris = tri_indices.len() / 3;
         validate_tangent_len(halfedge_tangent.len(), n_tris)?;
 
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: ptr valid, all slices valid with correct lengths.
-        unsafe {
+        // SAFETY: the slice lengths were validated against n_verts, n_props and
+        // n_tris, the slices outlive the call, and it returns a new handle.
+        let ptr = owned(unsafe {
             manifold_meshgl_w_tangents(
-                ptr,
                 vert_props.as_ptr(),
                 n_verts,
                 n_props,
                 tri_indices.as_ptr(),
                 n_tris,
                 halfedge_tangent.as_ptr(),
-            );
-        }
+            )
+        });
         Ok(Self { ptr })
     }
 
@@ -233,20 +231,18 @@ impl MeshGL {
             halfedge_tangents: slice_ptr(halfedge_tangents),
         };
 
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: ptr is valid. All slices outlive the call and were validated.
-        unsafe {
+        // SAFETY: the slices and the option arrays sys_options points at were
+        // validated and outlive the call, which returns a new handle.
+        let ptr = owned(unsafe {
             manifold_meshgl_w_options(
-                ptr,
                 vert_props.as_ptr(),
                 n_verts,
                 n_props,
                 tri_indices.as_ptr(),
                 n_tris,
                 &sys_options,
-            );
-        }
+            )
+        });
         Ok(Self { ptr })
     }
 
@@ -276,10 +272,12 @@ impl MeshGL {
     pub fn vert_properties(&self) -> Vec<f32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_vert_properties_length(self.ptr) };
-        let mut buf = vec![0.0f32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_vert_properties(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_vert_properties(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy triangle indices out as a flat u32 array.
@@ -287,10 +285,12 @@ impl MeshGL {
     pub fn tri_verts(&self) -> Vec<u32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_tri_length(self.ptr) };
-        let mut buf = vec![0u32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_tri_verts(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_tri_verts(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Merge coincident vertices, returning a new mesh.
@@ -299,10 +299,8 @@ impl MeshGL {
     /// the same position. Returns a new mesh (the original is unchanged).
     #[must_use]
     pub fn merge(&self) -> Self {
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_meshgl_merge(ptr, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_meshgl_merge(self.ptr) });
         Self { ptr }
     }
 
@@ -311,10 +309,12 @@ impl MeshGL {
     pub fn merge_from_vert(&self) -> Vec<u32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_merge_length(self.ptr) };
-        let mut buf = vec![0u32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_merge_from_vert(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_merge_from_vert(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy merge-to vertex indices out as a flat u32 array.
@@ -322,10 +322,12 @@ impl MeshGL {
     pub fn merge_to_vert(&self) -> Vec<u32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_merge_length(self.ptr) };
-        let mut buf = vec![0u32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_merge_to_vert(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_merge_to_vert(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy run indices out as a flat u32 array.
@@ -333,10 +335,12 @@ impl MeshGL {
     pub fn run_index(&self) -> Vec<u32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_run_index_length(self.ptr) };
-        let mut buf = vec![0u32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_run_index(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_run_index(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy run original IDs out as a flat u32 array.
@@ -344,10 +348,12 @@ impl MeshGL {
     pub fn run_original_id(&self) -> Vec<u32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_run_original_id_length(self.ptr) };
-        let mut buf = vec![0u32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_run_original_id(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_run_original_id(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy run transforms out as a flat f32 array (4x3 matrices, 12 floats each).
@@ -355,10 +361,12 @@ impl MeshGL {
     pub fn run_transform(&self) -> Vec<f32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_run_transform_length(self.ptr) };
-        let mut buf = vec![0.0f32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_run_transform(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_run_transform(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy face IDs out as a flat u32 array.
@@ -366,10 +374,12 @@ impl MeshGL {
     pub fn face_id(&self) -> Vec<u32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_face_id_length(self.ptr) };
-        let mut buf = vec![0u32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_face_id(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_face_id(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy halfedge tangents out as a flat f32 array (4 floats per halfedge).
@@ -377,10 +387,12 @@ impl MeshGL {
     pub fn halfedge_tangent(&self) -> Vec<f32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_tangent_length(self.ptr) };
-        let mut buf = vec![0.0f32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_halfedge_tangent(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_halfedge_tangent(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Tolerance used for merging and vertex welding.
@@ -407,10 +419,12 @@ impl MeshGL {
     pub fn run_flags(&self) -> Vec<u8> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl_run_flags_length(self.ptr) };
-        let mut buf = vec![0u8; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl_run_flags(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl_run_flags(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Whether triangle run `run` is on the backside compared to the original
@@ -442,10 +456,8 @@ impl MeshGL {
 
 impl Clone for MeshGL {
     fn clone(&self) -> Self {
-        // SAFETY: manifold_alloc_meshgl returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_meshgl_copy(ptr, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_meshgl_copy(self.ptr) });
         Self { ptr }
     }
 }
@@ -471,7 +483,7 @@ unsafe impl Sync for MeshGL64 {}
 impl Drop for MeshGL64 {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            // SAFETY: self.ptr was allocated by manifold_alloc_meshgl64.
+            // SAFETY: self.ptr came from a manifold_* constructor and is freed only here.
             unsafe { manifold_delete_meshgl64(self.ptr) };
             self.ptr = std::ptr::null_mut();
         }
@@ -494,19 +506,17 @@ impl MeshGL64 {
         let n_verts = vert_props.len() / n_props;
         let n_tris = tri_indices.len() / 3;
 
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: ptr is valid, slices are valid with correct lengths.
-        unsafe {
+        // SAFETY: validate_mesh_shape checked the slice lengths against n_verts,
+        // n_props and n_tris, the slices outlive the call, and it returns a new handle.
+        let ptr = owned(unsafe {
             manifold_meshgl64(
-                ptr,
                 vert_props.as_ptr(),
                 n_verts,
                 n_props,
                 tri_indices.as_ptr(),
                 n_tris,
-            );
-        }
+            )
+        });
         Ok(Self { ptr })
     }
 
@@ -529,20 +539,18 @@ impl MeshGL64 {
         let n_tris = tri_indices.len() / 3;
         validate_tangent_len(halfedge_tangent.len(), n_tris)?;
 
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: ptr valid, all slices valid with correct lengths.
-        unsafe {
+        // SAFETY: the slice lengths were validated against n_verts, n_props and
+        // n_tris, the slices outlive the call, and it returns a new handle.
+        let ptr = owned(unsafe {
             manifold_meshgl64_w_tangents(
-                ptr,
                 vert_props.as_ptr(),
                 n_verts,
                 n_props,
                 tri_indices.as_ptr(),
                 n_tris,
                 halfedge_tangent.as_ptr(),
-            );
-        }
+            )
+        });
         Ok(Self { ptr })
     }
 
@@ -577,20 +585,18 @@ impl MeshGL64 {
             halfedge_tangents: slice_ptr(halfedge_tangents),
         };
 
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: ptr is valid. All slices outlive the call and were validated.
-        unsafe {
+        // SAFETY: the slices and the option arrays sys_options points at were
+        // validated and outlive the call, which returns a new handle.
+        let ptr = owned(unsafe {
             manifold_meshgl64_w_options(
-                ptr,
                 vert_props.as_ptr(),
                 n_verts,
                 n_props,
                 tri_indices.as_ptr(),
                 n_tris,
                 &sys_options,
-            );
-        }
+            )
+        });
         Ok(Self { ptr })
     }
 
@@ -620,10 +626,12 @@ impl MeshGL64 {
     pub fn vert_properties(&self) -> Vec<f64> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_vert_properties_length(self.ptr) };
-        let mut buf = vec![0.0f64; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_vert_properties(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_vert_properties(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy triangle indices out as a flat u64 array.
@@ -631,10 +639,12 @@ impl MeshGL64 {
     pub fn tri_verts(&self) -> Vec<u64> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_tri_length(self.ptr) };
-        let mut buf = vec![0u64; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_tri_verts(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_tri_verts(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Merge coincident vertices, returning a new mesh.
@@ -643,10 +653,8 @@ impl MeshGL64 {
     /// the same position. Returns a new mesh (the original is unchanged).
     #[must_use]
     pub fn merge(&self) -> Self {
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_meshgl64_merge(ptr, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_meshgl64_merge(self.ptr) });
         Self { ptr }
     }
 
@@ -655,10 +663,12 @@ impl MeshGL64 {
     pub fn merge_from_vert(&self) -> Vec<u64> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_merge_length(self.ptr) };
-        let mut buf = vec![0u64; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_merge_from_vert(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_merge_from_vert(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy merge-to vertex indices out as a flat u64 array.
@@ -666,10 +676,12 @@ impl MeshGL64 {
     pub fn merge_to_vert(&self) -> Vec<u64> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_merge_length(self.ptr) };
-        let mut buf = vec![0u64; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_merge_to_vert(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_merge_to_vert(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy run indices out as a flat u64 array.
@@ -677,10 +689,12 @@ impl MeshGL64 {
     pub fn run_index(&self) -> Vec<u64> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_run_index_length(self.ptr) };
-        let mut buf = vec![0u64; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_run_index(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_run_index(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy run original IDs out as a flat u32 array.
@@ -688,10 +702,12 @@ impl MeshGL64 {
     pub fn run_original_id(&self) -> Vec<u32> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_run_original_id_length(self.ptr) };
-        let mut buf = vec![0u32; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_run_original_id(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_run_original_id(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy run transforms out as a flat f64 array (4x3 matrices, 12 doubles each).
@@ -699,10 +715,12 @@ impl MeshGL64 {
     pub fn run_transform(&self) -> Vec<f64> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_run_transform_length(self.ptr) };
-        let mut buf = vec![0.0f64; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_run_transform(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_run_transform(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy face IDs out as a flat u64 array.
@@ -710,10 +728,12 @@ impl MeshGL64 {
     pub fn face_id(&self) -> Vec<u64> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_face_id_length(self.ptr) };
-        let mut buf = vec![0u64; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_face_id(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_face_id(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Copy halfedge tangents out as a flat f64 array (4 doubles per halfedge).
@@ -721,10 +741,12 @@ impl MeshGL64 {
     pub fn halfedge_tangent(&self) -> Vec<f64> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_tangent_length(self.ptr) };
-        let mut buf = vec![0.0f64; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_halfedge_tangent(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_halfedge_tangent(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Tolerance used for merging and vertex welding.
@@ -751,10 +773,12 @@ impl MeshGL64 {
     pub fn run_flags(&self) -> Vec<u8> {
         // SAFETY: self.ptr is valid (invariant).
         let len = unsafe { manifold_meshgl64_run_flags_length(self.ptr) };
-        let mut buf = vec![0u8; len];
-        // SAFETY: buf has capacity len, self.ptr is valid.
-        unsafe { manifold_meshgl64_run_flags(buf.as_mut_ptr(), self.ptr) };
-        buf
+        // SAFETY: self.ptr is valid (invariant). The result points at len
+        // elements of the mesh's own storage.
+        let data = unsafe { manifold_meshgl64_run_flags(self.ptr) };
+        // SAFETY: data addresses len initialized elements owned by self,
+        // which outlives the copy.
+        unsafe { crate::copy_out(data, len) }
     }
 
     /// Whether triangle run `run` is on the backside compared to the original
@@ -792,10 +816,9 @@ impl MeshGL64 {
         let c_str = std::ffi::CString::new(obj_content).map_err(|_| {
             crate::types::CsgError::InvalidInput("OBJ content contains null byte".into())
         })?;
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: ptr valid from alloc, c_str.as_ptr() is a valid null-terminated string.
-        unsafe { manifold_meshgl64_read_obj(ptr, c_str.as_ptr()) };
+        // SAFETY: c_str is a valid null-terminated string that outlives the call,
+        // which returns a new handle.
+        let ptr = owned(unsafe { manifold_meshgl64_read_obj(c_str.as_ptr()) });
         Ok(Self { ptr })
     }
 
@@ -827,10 +850,8 @@ impl MeshGL64 {
 
 impl Clone for MeshGL64 {
     fn clone(&self) -> Self {
-        // SAFETY: manifold_alloc_meshgl64 returns a valid handle.
-        let ptr = unsafe { manifold_alloc_meshgl64() };
-        // SAFETY: ptr and self.ptr are valid.
-        unsafe { manifold_meshgl64_copy(ptr, self.ptr) };
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_meshgl64_copy(self.ptr) });
         Self { ptr }
     }
 }

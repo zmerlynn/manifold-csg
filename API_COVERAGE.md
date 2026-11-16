@@ -231,8 +231,6 @@ and frees it, so the vector accessors are internal.
 | `manifold_meshgl64_face_id` | [`MeshGL64::face_id`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl_face_id_length` | Internal |
 | `manifold_meshgl64_face_id_length` | Internal |
-| `manifold_meshgl_size` | Not needed (alloc size) |
-| `manifold_meshgl64_size` | Not needed (alloc size) |
 | `manifold_meshgl64_read_obj` | [`MeshGL64::from_obj`](crates/manifold-csg/src/mesh.rs) |
 | `manifold_meshgl64_write_obj` | [`MeshGL64::to_obj`](crates/manifold-csg/src/mesh.rs) |
 
@@ -364,9 +362,9 @@ and `Drop` implementations.
 
 | Function group | Count |
 |---|---|
-| `manifold_alloc_*` | 8 |
+| `manifold_alloc_*` | 6 |
 | `manifold_delete_*` | 13 |
-| `manifold_destruct_*` | 8 |
+| `manifold_destruct_*` | 6 |
 
 ---
 
@@ -390,7 +388,7 @@ otherwise (`Not used`, `Not needed (alloc size)`, `Not wrapped`).
 | Ray casting | 1 | 2 | 0 |
 | CrossSection construction & booleans | 17 | 0 | 0 |
 | CrossSection transforms & queries | 14 | 0 | 1 |
-| MeshGL/MeshGL64 | 44 | 20 | 2 |
+| MeshGL/MeshGL64 | 44 | 20 | 0 |
 | Triangulation | 1 | 2 | 0 |
 | Quality globals | 6 | 0 | 0 |
 | Box3D (BoundingBox) | 16 | 0 | 0 |
@@ -398,10 +396,10 @@ otherwise (`Not used`, `Not needed (alloc size)`, `Not wrapped`).
 | Polygon helpers | 0 | 5 | 5 |
 | Vector containers | 0 | 10 | 6 |
 | ExecutionContext (cancel/progress + factories) | 9 | 0 | 1 |
-| Alloc/delete/destruct | 0 | 29 | 0 |
-| **Total** | **194** | **68** | **17** |
+| Alloc/delete/destruct | 0 | 25 | 0 |
+| **Total** | **194** | **64** | **15** |
 
-194 + 68 + 17 = 279, matching the sys crate's 279 declarations.
+194 + 64 + 15 = 273, matching the sys crate's 273 declarations.
 
 "Bound, unused" means the function is declared in `manifold-csg-sys` but the
 safe crate never calls it: `*_size` queries the crate does not need because it
