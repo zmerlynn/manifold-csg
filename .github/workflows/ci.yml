@@ -37,21 +37,22 @@ jobs:
       # for four releases). The second check fetches the pinned manifoldc.h, so
       # this job needs network; MANIFOLD_CSG_HEADER overrides it with a local file.
       - run: python3 scripts/check-api-coverage.py
-      # The name check above cannot see a same-name change (a retyped or
-      # reordered parameter, a new struct field), which would compile on our
-      # side and break at runtime. check-abi.py makes a C compiler compare our
-      # declarations and #[repr(C)] layouts with the pinned header. main's
-      # 3.5.x declarations are deliberately ABI-compatible but not identical
-      # (typed `mem` buffers, *const tightening), so PRs into main check types
-      # only; next and branches stacked on it check functions too.
+      # The name check above cannot see a same-name change (a retyped
+      # parameter, a changed callback, a new struct field), which would compile
+      # on our side and break at runtime. check-abi.py compares canonical C
+      # types from clang ASTs of the header and of cbindgen's rendering of our
+      # declarations, on four target data models. main's 3.5.x declarations
+      # deliberately type the `mem` buffers and add *const, which those two
+      # flags accept; next matches its header and runs without them.
       - uses: taiki-e/install-action@v2
         with:
-          tool: cbindgen
+          tool: cbindgen@0.29.4
       - name: ABI check
         run: |
+          clang --version | head -1
           branch="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
           if [ "$branch" = main ]; then
-            python3 scripts/check-abi.py --types-only
+            python3 scripts/check-abi.py --allow-typed-mem --allow-added-const
           else
             python3 scripts/check-abi.py
           fi

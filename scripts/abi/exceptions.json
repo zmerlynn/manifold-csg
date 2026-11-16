@@ -1,0 +1,12 @@
+{
+  "_comment": "Deliberate differences scripts/check-abi.py accepts. Keep this short, and give each entry a reason in CLAUDE.md or the sys crate's docs.",
+  "enum_names": {
+    "ManifoldError": {
+      "VertexOutOfBounds": "MANIFOLD_VERTEX_INDEX_OUT_OF_BOUNDS"
+    }
+  },
+  "added_const_fields": {
+    "ManifoldMeshGLOptions": "input-only pointers, tightened to *const in manifold-csg-sys 3.5.101 (see CLAUDE.md, Versioning)",
+    "ManifoldMeshGL64Options": "input-only pointers, tightened to *const in manifold-csg-sys 3.5.101 (see CLAUDE.md, Versioning)"
+  }
+}
