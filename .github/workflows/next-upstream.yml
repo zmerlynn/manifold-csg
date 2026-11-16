@@ -1,0 +1,104 @@
+name: Next vs upstream master
+
+# Builds next against upstream manifold master's current HEAD, to find
+# upstream breaks between our own pin moves. It does not move the pin: that
+# stays a hand-made PR into next. A red run is the notification (GitHub
+# emails it), and the step summary lists the upstream commits between next's
+# pin and master, so it arrives with the likely cause. See
+# docs/next-branch.md.
+#
+# Lives on main because GitHub runs schedules only from the default branch.
+
+on:
+  schedule:
+    # Mondays 15:30 UTC.
+    - cron: "30 15 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: next-upstream
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: next at upstream master
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Find next
+        id: next
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/branches/next" --silent 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::There is no next branch. Delete this workflow if the port is done."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.next.outputs.exists == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: next
+          persist-credentials: false
+
+      - if: steps.next.outputs.exists == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Point MANIFOLD_VERSION at upstream master
+        if: steps.next.outputs.exists == 'true'
+        run: |
+          set -euo pipefail
+          pinned=$(python3 scripts/pins.py manifold)
+          head=$(gh api repos/elalish/manifold/commits/master --jq .sha)
+          {
+            echo "## next at upstream master"
+            echo
+            echo "next pins \`$pinned\`. Upstream master is \`$head\`."
+            echo
+            if [ "$pinned" = "$head" ]; then
+              echo "The pin is master's HEAD."
+            else
+              # ahead_by counts master commits the pin lacks. The list is
+              # capped at 250 by the API, oldest first.
+              gh api "repos/elalish/manifold/compare/$pinned...$head" \
+                --jq '"Master is \(.ahead_by) commit(s) past the pin:\n", (.commits[] | "- \(.sha[0:8]) \(.commit.message | split("\n")[0])")'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Swap the quoted value on the one line pins.py just accepted.
+          python3 - "$pinned" "$head" <<'EOF'
+          import sys
+          from pathlib import Path
+          old, new = sys.argv[1], sys.argv[2]
+          path = Path("crates/manifold-csg-sys/build.rs")
+          line = f'pub(crate) const MANIFOLD_VERSION: &str = "{old}";'
+          text = path.read_text()
+          assert text.count(line) == 1, line
+          path.write_text(text.replace(line, line.replace(f'"{old}"', f'"{new}"')))
+          EOF
+          test "$(python3 scripts/pins.py manifold)" = "$head"
+          echo "MANIFOLD_VERSION is now $head"
+
+      # The sys build is what catches cmake and C++ changes, and the coverage
+      # check names any C function upstream added or removed since the pin.
+      # Each step runs even if an earlier one failed, so a red run shows
+      # every failing step, not only the first.
+      - name: Build the sys crate
+        if: steps.next.outputs.exists == 'true'
+        run: cargo build -p manifold-csg-sys
+
+      - name: C API coverage at master
+        if: ${{ !cancelled() && steps.next.outputs.exists == 'true' }}
+        run: python3 scripts/check-api-coverage.py
+
+      - name: Test
+        if: ${{ !cancelled() && steps.next.outputs.exists == 'true' }}
+        run: cargo test --features nalgebra

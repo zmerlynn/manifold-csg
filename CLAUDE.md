@@ -120,6 +120,14 @@ GitHub disables scheduled workflows in a public repo after 60 days without repos
 - A SHA pin fails the job, the same way it fails `flake.nix` evaluation (see "Upstream watch").
 - Like upstream-watch, GitHub disables the schedule after 60 days without repository activity.
 
+## next branch
+
+`next` carries the port to upstream manifold 4.0, pinned to an upstream master SHA, while `main` keeps shipping 3.5.x. [`docs/next-branch.md`](docs/next-branch.md) covers how it's maintained: the ruleset, which CI lanes run there, the publish guard, the two weekly workflows (`next-sync.yml` opens a main -> next PR that must be merged with a merge commit, and `next-upstream.yml` builds `next` against upstream master), the port order and the exit. Things to know when working on either branch:
+
+- Nothing publishes from `next`. Every published crate there has `publish = false`, and `scripts/check-publish-guard.py` (Format job) requires it on `next` and forbids it, along with pre-release versions, on `main`.
+- Semver skips itself when the workspace version is a pre-release, and nix-offline skips itself off `main` while the pin isn't a release tag. Both key on the tree, not the branch name, so PRs stacked on `next` skip them too.
+- A fix that belongs on 3.5.x goes to `main`, and the weekly sync carries it to `next`. Don't cherry-pick it into `next` as well.
+
 ## Pin / shim follow-ups
 
 Things to revisit whenever the manifold pin moves OR `wasm-cxx-shim` cuts a new release:

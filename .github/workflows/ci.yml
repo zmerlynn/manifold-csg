@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # next carries the manifold 4.0 port, see docs/next-branch.md.
+    branches: [main, next]
   pull_request:
 
 env:
@@ -19,6 +20,10 @@ jobs:
         with:
           components: rustfmt
       - run: cargo fmt --all --check
+      # Requires publish = false on next and forbids it (and pre-release
+      # versions) on main. In this job because Format is required on both.
+      - name: Publish guard
+        run: python3 scripts/check-publish-guard.py
 
   api-coverage:
     name: API coverage
@@ -81,11 +86,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@v2
+      # next (and any branch stacked on it) carries a pre-release version
+      # and breaks the API on purpose, while this compares against the
+      # 0.4.x line on crates.io. Gate on the version rather than the branch
+      # name so stacked PRs skip too. main can't carry a pre-release
+      # version (the publish guard forbids it), so it always runs.
+      - name: Gate
+        id: gate
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')
+          if [[ "$version" == *-* ]]; then
+            echo "::notice::Skipping semver checks: $version is a pre-release (next branch)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.gate.outputs.run == 'true'
+        uses: dtolnay/rust-toolchain@stable
+      - if: steps.gate.outputs.run == 'true'
+        uses: taiki-e/install-action@v2
         with:
           tool: cargo-semver-checks
-      - uses: actions/cache@v6
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -94,6 +117,7 @@ jobs:
           key: ${{ runner.os }}-cargo-semver-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-${{ hashFiles('**/Cargo.lock', 'crates/manifold-csg-sys/build.rs', 'crates/manifold-csg-sys/build/**', 'crates/manifold-csg/build.rs') }}
           restore-keys: ${{ runner.os }}-cargo-semver-${{ hashFiles('crates/manifold-csg-sys/cache-version') }}-
       - name: Check semver
+        if: steps.gate.outputs.run == 'true'
         run: cargo semver-checks -p manifold-csg
 
   deny:
@@ -170,7 +194,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: cachix/install-nix-action@v31
+      # next pins an upstream master SHA until upstream tags 4.0, and
+      # flake.nix fetches pinnedSrc by tag, so the flake can't evaluate
+      # there. Skip off main (next and branches stacked on it) while the
+      # pin isn't a release tag. On main a SHA pin should still fail below.
+      - name: Gate
+        id: gate
+        run: |
+          branch="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
+          if [ "$branch" != main ] && ! python3 scripts/pins.py manifold --tag >/dev/null 2>&1; then
+            echo "::notice::Skipping nix-offline off main: MANIFOLD_VERSION is not a release tag"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.gate.outputs.run == 'true'
+        uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
@@ -179,7 +219,8 @@ jobs:
       # on it: a nixpkgs bump changes rustc and must invalidate target/. No
       # cmake/clone artifacts here (the offline hatch skips both), so this is
       # purely the rust compile cache, same as the other compiling jobs.
-      - uses: actions/cache@v6
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -194,6 +235,7 @@ jobs:
       # cannot drift apart unnoticed. Before the tests, so a disagreement
       # fails here with a clear message rather than as a link error.
       - name: Flake and pins.py agree on MANIFOLD_VERSION
+        if: steps.gate.outputs.run == 'true'
         run: |
           system=$(nix eval --impure --raw --expr builtins.currentSystem)
           linked=$(nix eval --raw ".#devShells.$system.default.buildInputs" --apply 'b: (builtins.head b).version')
@@ -207,6 +249,7 @@ jobs:
       # in the Nix sandbox; see flake.nix), so build.rs skips the clone AND
       # cmake. This is the only lane that covers the from-source bypass.
       - name: Build + test against prebuilt manifold
+        if: steps.gate.outputs.run == 'true'
         run: nix develop --command bash -c "cargo test --features nalgebra"
 
   emscripten:
