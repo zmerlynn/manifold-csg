@@ -20,6 +20,23 @@ Tracks upstream manifold master on its way to 4.0. Not published yet.
   `NonZero` and `Positive` work as before.
 - `CrossSection::compose` is gone, because upstream dropped it. For
   disjoint pieces, `CrossSection::batch_union` gives the same result.
+- `Manifold::as_original` takes an `id`. Pass `-1` for the old behavior
+  (a new unique ID), or `0` to match all default manifolds.
+- Gone, because upstream removed them: `Manifold::smooth_f32`,
+  `smooth_f64`, `smooth_f64_with_context` and `smooth_out` (use
+  `smooth_by_normals`, or supply tangents through `MeshGL`), and
+  `Manifold::set_tolerance` / `get_tolerance` (see
+  `set_relative_precision` below).
+- New: `Manifold::winding_number`, `set_relative_precision` /
+  `get_relative_precision` (process-global, default `1e-12`), and
+  `manifold_version`.
+- **Behavioral:** primitives (`cube`, `sphere`, ...) now start with
+  original ID 0 instead of a unique one, so after a boolean their faces
+  share a run and can merge. Call `as_original(-1)` on an input to keep
+  it in its own run.
+- **Behavioral:** `Manifold::compose` is now a union, the same as
+  `batch_union`, so overlapping inputs merge. It is deprecated, as it is
+  upstream.
 
 ## 0.4.2
 

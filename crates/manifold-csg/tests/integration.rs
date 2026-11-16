@@ -941,6 +941,7 @@ fn epsilon_positive() {
 
 // ── Compose test ────────────────────────────────────────────────────
 
+#[allow(deprecated)]
 #[test]
 fn compose_preserves_total_volume() {
     let a = Manifold::cube(5.0, 5.0, 5.0, true).translate(-10.0, 0.0, 0.0);
@@ -992,16 +993,6 @@ fn cross_section_batch_union() {
 }
 
 // ── Smooth out test ─────────────────────────────────────────────────
-
-#[test]
-fn smooth_out_preserves_topology() {
-    let cube = Manifold::cube(10.0, 10.0, 10.0, true);
-    let smoothed = cube.smooth_out(60.0, 0.5);
-    // After smooth_out, volume should be similar (smoothing rounds edges).
-    assert!(!smoothed.is_empty());
-    // Smoothed cube will have less volume than original due to rounding.
-    assert!(smoothed.volume() > 500.0);
-}
 
 // ── Min gap test ────────────────────────────────────────────────────
 
@@ -1644,7 +1635,7 @@ fn cross_section_decompose_two_disjoint() {
 #[test]
 fn as_original_assigns_unique_id() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
-    let orig = cube.as_original();
+    let orig = cube.as_original(-1);
     let id = orig.original_id();
     // as_original should assign a non-negative ID.
     assert!(id >= 0, "expected non-negative id, got {id}");
@@ -1653,7 +1644,7 @@ fn as_original_assigns_unique_id() {
 #[test]
 fn as_original_preserves_geometry() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
-    let orig = cube.as_original();
+    let orig = cube.as_original(-1);
     assert_relative_eq!(orig.volume(), cube.volume(), epsilon = 0.01);
     assert_eq!(orig.num_vert(), cube.num_vert());
 }
@@ -2098,6 +2089,7 @@ fn split_by_plane_both_halves_usable() {
     assert_relative_eq!(neg.volume(), neg_vol, epsilon = 0.01);
 }
 
+#[allow(deprecated)]
 #[test]
 fn decompose_parts_are_independent() {
     let a = Manifold::cube(5.0, 5.0, 5.0, false);
@@ -2308,7 +2300,7 @@ fn meshgl64_accessors_return_consistent_lengths() {
 
 #[test]
 fn meshgl_run_accessors_consistent() {
-    let cube = Manifold::cube(5.0, 5.0, 5.0, false).as_original();
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false).as_original(-1);
     let (verts, n_props, indices) = cube.to_mesh_f32();
     let mesh = MeshGL::new(&verts, n_props, &indices).expect("valid MeshGL");
     let ri = mesh.run_index();
@@ -2322,7 +2314,7 @@ fn meshgl_run_accessors_consistent() {
 
 #[test]
 fn meshgl64_run_accessors_consistent() {
-    let cube = Manifold::cube(5.0, 5.0, 5.0, false).as_original();
+    let cube = Manifold::cube(5.0, 5.0, 5.0, false).as_original(-1);
     let (verts, n_props, indices) = cube.to_mesh_f64();
     let mesh = MeshGL64::new(&verts, n_props, &indices).expect("valid MeshGL64");
     let ri = mesh.run_index();
@@ -2333,36 +2325,6 @@ fn meshgl64_run_accessors_consistent() {
 }
 
 // ── Smooth constructors ────────────────────────────────────────────────
-
-#[test]
-fn smooth_f64_no_smoothness() {
-    // With empty smoothness arrays, smooth should behave like from_mesh_f64.
-    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
-    let (verts, n_props, indices) = cube.to_mesh_f64();
-    let result = Manifold::smooth_f64(&verts, n_props, &indices, &[], &[]);
-    assert!(result.is_ok());
-    let m = result.unwrap();
-    assert!(!m.is_empty());
-    assert_relative_eq!(m.volume(), 1000.0, epsilon = 1.0);
-}
-
-#[test]
-fn smooth_f32_no_smoothness() {
-    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
-    let (verts, n_props, indices) = cube.to_mesh_f32();
-    let result = Manifold::smooth_f32(&verts, n_props, &indices, &[], &[]);
-    assert!(result.is_ok());
-    let m = result.unwrap();
-    assert!(!m.is_empty());
-}
-
-#[test]
-fn smooth_mismatched_arrays_returns_error() {
-    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
-    let (verts, n_props, indices) = cube.to_mesh_f64();
-    let result = Manifold::smooth_f64(&verts, n_props, &indices, &[0, 1], &[0.5]);
-    assert!(result.is_err());
-}
 
 // -- ExecutionContext static factories (v3.5.1) -------------------------
 
@@ -2441,28 +2403,6 @@ fn from_meshgl_with_context_roundtrips() {
     let rebuilt =
         Manifold::from_meshgl_with_context(&ctx, &mesh).expect("MeshGL should produce a manifold");
     assert_relative_eq!(rebuilt.volume(), cube.volume(), epsilon = 0.01);
-}
-
-#[test]
-fn smooth_f64_with_context_smooths() {
-    let cube = Manifold::cube(10.0, 10.0, 10.0, false);
-    let (verts, n_props, indices) = cube.to_mesh_f64();
-    let ctx = manifold_csg::ExecutionContext::new();
-    let result = Manifold::smooth_f64_with_context(&ctx, &verts, n_props, &indices, &[], &[]);
-    assert!(result.is_ok());
-    let m = result.unwrap();
-    assert!(!m.is_empty());
-    assert_relative_eq!(m.volume(), 1000.0, epsilon = 1.0);
-}
-
-#[test]
-fn smooth_f64_with_context_mismatched_arrays_returns_error() {
-    let cube = Manifold::cube(5.0, 5.0, 5.0, false);
-    let (verts, n_props, indices) = cube.to_mesh_f64();
-    let ctx = manifold_csg::ExecutionContext::new();
-    let result =
-        Manifold::smooth_f64_with_context(&ctx, &verts, n_props, &indices, &[0, 1], &[0.5]);
-    assert!(result.is_err());
 }
 
 // ── CrossSection gaps ──────────────────────────────────────────────────
@@ -2882,8 +2822,11 @@ fn meshgl64_run_metadata_defaults_for_a_primitive() {
 
 #[test]
 fn difference_marks_the_subtracted_run_as_backside() {
-    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
-    let m = cube.difference(&Manifold::sphere(0.8, 16)).to_meshgl64();
+    // Unique original IDs keep the two inputs in separate runs. With the
+    // default ID 0 they merge into one.
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true).as_original(-1);
+    let sphere = Manifold::sphere(0.8, 16).as_original(-1);
+    let m = cube.difference(&sphere).to_meshgl64();
 
     assert_eq!(m.num_run(), 2, "the cube and the subtracted sphere");
     assert!(!m.backside(0), "the cube's own run keeps its orientation");
@@ -2951,17 +2894,6 @@ fn cross_section_batch_boolean_intersects_offset_squares() {
 // ── Tolerance and property vertices ─────────────────────────────────────
 
 #[test]
-fn set_tolerance_round_trips_through_get_tolerance() {
-    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
-    let before = cube.get_tolerance();
-    assert!(before > 0.0 && before < 0.25);
-
-    let loosened = cube.set_tolerance(0.25);
-    assert_relative_eq!(loosened.get_tolerance(), 0.25);
-    assert_relative_eq!(cube.get_tolerance(), before, epsilon = f64::EPSILON);
-}
-
-#[test]
 fn num_prop_vert_counts_property_vertices() {
     let cube = Manifold::cube(2.0, 2.0, 2.0, true);
     assert_eq!(cube.num_prop_vert(), cube.num_vert());
@@ -3025,4 +2957,47 @@ fn smooth_by_normals_treats_channels_past_num_prop_as_missing() {
     let smoothed = cube.smooth_by_normals(3);
     assert!(smoothed.status().is_ok());
     assert!(!smoothed.is_empty());
+}
+
+// ── manifold 4.0 additions ──────────────────────────────────────────
+
+#[test]
+fn winding_number_inside_and_outside() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, true);
+    assert_eq!(cube.winding_number([0.0, 0.0, 0.0]), 1);
+    assert_eq!(cube.winding_number([20.0, 0.0, 0.0]), 0);
+    assert_eq!(cube.winding_number([4.9, 4.9, 4.9]), 1);
+}
+
+#[test]
+fn primitives_share_original_id_zero() {
+    // Since manifold 4.0, primitives start with original ID 0, so their
+    // faces can merge across inputs. as_original(-1) asks for a unique ID.
+    let cube = Manifold::cube(2.0, 2.0, 2.0, true);
+    assert_eq!(cube.original_id(), 0);
+    assert_eq!(Manifold::sphere(0.8, 16).original_id(), 0);
+}
+
+#[test]
+fn as_original_takes_an_id() {
+    let cube = Manifold::cube(10.0, 10.0, 10.0, true);
+    let fresh = cube.as_original(-1);
+    assert!(fresh.original_id() > 0);
+    let shared = cube.as_original(0);
+    assert_eq!(shared.original_id(), 0);
+}
+
+#[test]
+fn relative_precision_clamps_to_double() {
+    // Setting below the floor clamps to the 1e-12 default, so this leaves the
+    // global where every other test expects it.
+    manifold_csg::set_relative_precision(0.0);
+    assert_eq!(manifold_csg::get_relative_precision(), 1e-12);
+}
+
+#[test]
+fn manifold_version_is_plausible() {
+    let [major, minor, patch] = manifold_csg::manifold_version();
+    assert!(major >= 3, "{major}.{minor}.{patch}");
+    assert!(minor >= 0 && patch >= 0);
 }

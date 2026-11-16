@@ -16,6 +16,7 @@
 
 #![allow(non_camel_case_types)]
 
+use std::ffi::{c_char, c_void};
 use std::os::raw::c_int;
 
 // ── Opaque handle types ─────────────────────────────────────────────────
@@ -281,19 +282,9 @@ pub type ManifoldSdf = Option<unsafe extern "C" fn(f64, f64, f64, *mut std::ffi:
 unsafe extern "C" {
     // ── Memory sizes ───────────────────────────────────────────────────
 
-    pub fn manifold_manifold_size() -> usize;
-    pub fn manifold_manifold_vec_size() -> usize;
-    pub fn manifold_manifold_pair_size() -> usize;
-
     // ── Allocation ─────────────────────────────────────────────────────
 
-    pub fn manifold_alloc_manifold() -> *mut ManifoldManifold;
-    pub fn manifold_alloc_manifold_vec() -> *mut ManifoldManifoldVec;
-
     // ── Destruction (destruct only, does not free) ─────────────────────
-
-    pub fn manifold_destruct_manifold(m: *mut ManifoldManifold);
-    pub fn manifold_destruct_manifold_vec(ms: *mut ManifoldManifoldVec);
 
     // ── Deletion (destruct + free) ─────────────────────────────────────
 
@@ -623,13 +614,12 @@ unsafe extern "C" {
     /// automatically depending on the size of the job and whether Manifold has
     /// been compiled with a PAR backend.
     pub fn manifold_level_set(
-        mem: *mut ManifoldManifold,
         sdf: ManifoldSdf,
-        bounds: *mut ManifoldBox,
+        bounds: *const ManifoldBox,
         edge_length: f64,
         level: f64,
         tolerance: f64,
-        ctx: *mut std::ffi::c_void,
+        ctx: *mut c_void,
     ) -> *mut ManifoldManifold;
 
     /// Create a manifold from a signed distance function (sequential execution).
@@ -637,30 +627,25 @@ unsafe extern "C" {
     /// Use this if you are calling from a language runtime that has a lock
     /// preventing parallel execution of closures.
     pub fn manifold_level_set_seq(
-        mem: *mut ManifoldManifold,
         sdf: ManifoldSdf,
-        bounds: *mut ManifoldBox,
+        bounds: *const ManifoldBox,
         edge_length: f64,
         level: f64,
         tolerance: f64,
-        ctx: *mut std::ffi::c_void,
+        ctx: *mut c_void,
     ) -> *mut ManifoldManifold;
 
     // ── Manifold vectors ───────────────────────────────────────────────
 
-    pub fn manifold_manifold_empty_vec(mem: *mut ManifoldManifoldVec) -> *mut ManifoldManifoldVec;
+    pub fn manifold_manifold_empty_vec() -> *mut ManifoldManifoldVec;
 
-    pub fn manifold_manifold_vec(
-        mem: *mut ManifoldManifoldVec,
-        sz: usize,
-    ) -> *mut ManifoldManifoldVec;
+    pub fn manifold_manifold_vec(sz: usize) -> *mut ManifoldManifoldVec;
 
     pub fn manifold_manifold_vec_reserve(ms: *mut ManifoldManifoldVec, sz: usize);
 
     pub fn manifold_manifold_vec_length(ms: *const ManifoldManifoldVec) -> usize;
 
     pub fn manifold_manifold_vec_get(
-        mem: *mut ManifoldManifold,
         ms: *const ManifoldManifoldVec,
         idx: usize,
     ) -> *mut ManifoldManifold;
@@ -668,16 +653,18 @@ unsafe extern "C" {
     pub fn manifold_manifold_vec_set(
         ms: *mut ManifoldManifoldVec,
         idx: usize,
-        m: *mut ManifoldManifold,
+        m: *const ManifoldManifold,
     );
 
-    pub fn manifold_manifold_vec_push_back(ms: *mut ManifoldManifoldVec, m: *mut ManifoldManifold);
+    pub fn manifold_manifold_vec_push_back(
+        ms: *mut ManifoldManifoldVec,
+        m: *const ManifoldManifold,
+    );
 
     // ── Manifold boolean operations ────────────────────────────────────
 
     /// Generic boolean operation between two manifolds.
     pub fn manifold_boolean(
-        mem: *mut ManifoldManifold,
         a: *const ManifoldManifold,
         b: *const ManifoldManifold,
         op: ManifoldOpType,
@@ -685,47 +672,39 @@ unsafe extern "C" {
 
     /// Batch boolean: apply `op` across all manifolds in the vector.
     pub fn manifold_batch_boolean(
-        mem: *mut ManifoldManifold,
-        ms: *mut ManifoldManifoldVec,
+        ms: *const ManifoldManifoldVec,
         op: ManifoldOpType,
     ) -> *mut ManifoldManifold;
 
     pub fn manifold_union(
-        mem: *mut ManifoldManifold,
         a: *const ManifoldManifold,
         b: *const ManifoldManifold,
     ) -> *mut ManifoldManifold;
 
     pub fn manifold_difference(
-        mem: *mut ManifoldManifold,
         a: *const ManifoldManifold,
         b: *const ManifoldManifold,
     ) -> *mut ManifoldManifold;
 
     pub fn manifold_intersection(
-        mem: *mut ManifoldManifold,
         a: *const ManifoldManifold,
         b: *const ManifoldManifold,
     ) -> *mut ManifoldManifold;
 
     /// Split manifold `a` by manifold `b` into two parts.
     pub fn manifold_split(
-        mem_first: *mut ManifoldManifold,
-        mem_second: *mut ManifoldManifold,
         a: *const ManifoldManifold,
         b: *const ManifoldManifold,
     ) -> ManifoldManifoldPair;
 
     /// Minkowski sum of two manifolds.
     pub fn manifold_minkowski_sum(
-        mem: *mut ManifoldManifold,
         a: *const ManifoldManifold,
         b: *const ManifoldManifold,
     ) -> *mut ManifoldManifold;
 
     /// Minkowski difference of two manifolds.
     pub fn manifold_minkowski_difference(
-        mem: *mut ManifoldManifold,
         a: *const ManifoldManifold,
         b: *const ManifoldManifold,
     ) -> *mut ManifoldManifold;
@@ -737,8 +716,6 @@ unsafe extern "C" {
     /// The plane is `nx*x + ny*y + nz*z = offset`.
     /// Returns a pair: `first` is on the positive side, `second` on negative.
     pub fn manifold_split_by_plane(
-        mem_first: *mut ManifoldManifold,
-        mem_second: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         normal_x: f64,
         normal_y: f64,
@@ -748,7 +725,6 @@ unsafe extern "C" {
 
     /// Trim to the positive side of a plane.
     pub fn manifold_trim_by_plane(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         normal_x: f64,
         normal_y: f64,
@@ -767,28 +743,17 @@ unsafe extern "C" {
     // ── Convex hulls ────────────────────────────────────────────────────
 
     /// Compute the convex hull of a manifold.
-    pub fn manifold_hull(
-        mem: *mut ManifoldManifold,
-        m: *const ManifoldManifold,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_hull(m: *const ManifoldManifold) -> *mut ManifoldManifold;
 
     /// Compute the convex hull of a set of manifolds.
-    pub fn manifold_batch_hull(
-        mem: *mut ManifoldManifold,
-        ms: *mut ManifoldManifoldVec,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_batch_hull(ms: *const ManifoldManifoldVec) -> *mut ManifoldManifold;
 
     /// Compute the convex hull of a set of 3D points.
-    pub fn manifold_hull_pts(
-        mem: *mut ManifoldManifold,
-        ps: *const ManifoldVec3,
-        length: usize,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_hull_pts(ps: *const ManifoldVec3, length: usize) -> *mut ManifoldManifold;
 
     // ── Transforms ──────────────────────────────────────────────────────
 
     pub fn manifold_translate(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         x: f64,
         y: f64,
@@ -797,7 +762,6 @@ unsafe extern "C" {
 
     /// Rotate by Euler angles (degrees), applied in z-y'-x" order.
     pub fn manifold_rotate(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         x: f64,
         y: f64,
@@ -805,7 +769,6 @@ unsafe extern "C" {
     ) -> *mut ManifoldManifold;
 
     pub fn manifold_scale(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         x: f64,
         y: f64,
@@ -821,7 +784,6 @@ unsafe extern "C" {
     ///                      col4 = (x4, y4, z4) -- translation
     /// ```
     pub fn manifold_transform(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         x1: f64,
         y1: f64,
@@ -839,7 +801,6 @@ unsafe extern "C" {
 
     /// Mirror a manifold across the plane defined by normal (nx, ny, nz).
     pub fn manifold_mirror(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         nx: f64,
         ny: f64,
@@ -848,7 +809,6 @@ unsafe extern "C" {
 
     /// Warp a manifold by applying a function to each vertex.
     pub fn manifold_warp(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         fun: Option<unsafe extern "C" fn(f64, f64, f64, *mut std::ffi::c_void) -> ManifoldVec3>,
         ctx: *mut std::ffi::c_void,
@@ -857,77 +817,41 @@ unsafe extern "C" {
     /// Smooth a manifold by converting sharp edges to smooth curves using
     /// vertex normals at the given property index.
     pub fn manifold_smooth_by_normals(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         normal_idx: c_int,
     ) -> *mut ManifoldManifold;
 
-    /// Smooth out sharp edges of a manifold.
-    pub fn manifold_smooth_out(
-        mem: *mut ManifoldManifold,
-        m: *const ManifoldManifold,
-        min_sharp_angle: f64,
-        min_smoothness: f64,
-    ) -> *mut ManifoldManifold;
-
     /// Increase the density of the mesh by splitting every edge into
     /// `refine` pieces.
-    pub fn manifold_refine(
-        mem: *mut ManifoldManifold,
-        m: *const ManifoldManifold,
-        refine: c_int,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_refine(m: *const ManifoldManifold, refine: c_int) -> *mut ManifoldManifold;
 
     /// Refine the mesh so that no edge is longer than `length`.
     pub fn manifold_refine_to_length(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         length: f64,
     ) -> *mut ManifoldManifold;
 
     /// Refine the mesh to a given tolerance.
     pub fn manifold_refine_to_tolerance(
-        mem: *mut ManifoldManifold,
-        m: *const ManifoldManifold,
-        tolerance: f64,
-    ) -> *mut ManifoldManifold;
-
-    /// Set the tolerance of the manifold, returning a new manifold.
-    pub fn manifold_set_tolerance(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         tolerance: f64,
     ) -> *mut ManifoldManifold;
 
     /// Simplify the mesh, removing vertices until the error exceeds `tolerance`.
-    pub fn manifold_simplify(
-        mem: *mut ManifoldManifold,
-        m: *const ManifoldManifold,
-        tolerance: f64,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_simplify(m: *const ManifoldManifold, tolerance: f64) -> *mut ManifoldManifold;
 
     // ── Shapes / Constructors ───────────────────────────────────────────
 
-    pub fn manifold_empty(mem: *mut ManifoldManifold) -> *mut ManifoldManifold;
+    pub fn manifold_empty() -> *mut ManifoldManifold;
 
-    pub fn manifold_copy(
-        mem: *mut ManifoldManifold,
-        m: *const ManifoldManifold,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_copy(m: *const ManifoldManifold) -> *mut ManifoldManifold;
 
     /// Construct a regular tetrahedron.
-    pub fn manifold_tetrahedron(mem: *mut ManifoldManifold) -> *mut ManifoldManifold;
+    pub fn manifold_tetrahedron() -> *mut ManifoldManifold;
 
-    pub fn manifold_cube(
-        mem: *mut ManifoldManifold,
-        x: f64,
-        y: f64,
-        z: f64,
-        center: c_int,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_cube(x: f64, y: f64, z: f64, center: c_int) -> *mut ManifoldManifold;
 
     pub fn manifold_cylinder(
-        mem: *mut ManifoldManifold,
         height: f64,
         radius_low: f64,
         radius_high: f64,
@@ -935,35 +859,12 @@ unsafe extern "C" {
         center: c_int,
     ) -> *mut ManifoldManifold;
 
-    pub fn manifold_sphere(
-        mem: *mut ManifoldManifold,
-        radius: f64,
-        circular_segments: c_int,
-    ) -> *mut ManifoldManifold;
-
-    /// Create a smooth manifold from a `MeshGL` with per-halfedge smoothness.
-    pub fn manifold_smooth(
-        mem: *mut ManifoldManifold,
-        mesh: *const ManifoldMeshGL,
-        half_edges: *const usize,
-        smoothness: *const f64,
-        n_idxs: usize,
-    ) -> *mut ManifoldManifold;
-
-    /// Create a smooth manifold from a `MeshGL64` with per-halfedge smoothness.
-    pub fn manifold_smooth64(
-        mem: *mut ManifoldManifold,
-        mesh: *const ManifoldMeshGL64,
-        half_edges: *const usize,
-        smoothness: *const f64,
-        n_idxs: usize,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_sphere(radius: f64, circular_segments: c_int) -> *mut ManifoldManifold;
 
     /// Extrude a 2D polygon set into a 3D manifold along the Z axis.
     ///
     /// The resulting solid spans `z in [0, height]`.
     pub fn manifold_extrude(
-        mem: *mut ManifoldManifold,
         cs: *const ManifoldPolygons,
         height: f64,
         slices: c_int,
@@ -974,30 +875,20 @@ unsafe extern "C" {
 
     /// Revolve a 2D polygon set around the Y axis to create a 3D manifold.
     pub fn manifold_revolve(
-        mem: *mut ManifoldManifold,
         cs: *const ManifoldPolygons,
         circular_segments: c_int,
         revolve_degrees: f64,
     ) -> *mut ManifoldManifold;
 
     /// Compose multiple manifolds into a single compound manifold.
-    pub fn manifold_compose(
-        mem: *mut ManifoldManifold,
-        ms: *mut ManifoldManifoldVec,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_compose(ms: *const ManifoldManifoldVec) -> *mut ManifoldManifold;
 
     /// Decompose a manifold into its connected components.
-    pub fn manifold_decompose(
-        mem: *mut ManifoldManifoldVec,
-        m: *const ManifoldManifold,
-    ) -> *mut ManifoldManifoldVec;
+    pub fn manifold_decompose(m: *const ManifoldManifold) -> *mut ManifoldManifoldVec;
 
     /// Mark this manifold as the original, assigning it a unique ID for
     /// tracking through boolean operations.
-    pub fn manifold_as_original(
-        mem: *mut ManifoldManifold,
-        m: *const ManifoldManifold,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_as_original(m: *const ManifoldManifold, id: c_int) -> *mut ManifoldManifold;
 
     // ── Manifold info / queries ─────────────────────────────────────────
 
@@ -1008,9 +899,8 @@ unsafe extern "C" {
     /// Deferred ops (booleans, transforms, batch) ignore any attached
     /// context and produce results with no attached context.
     pub fn manifold_with_context(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
-        ctx: *mut ManifoldExecutionContext,
+        ctx: *const ManifoldExecutionContext,
     ) -> *mut ManifoldManifold;
     pub fn manifold_num_vert(m: *const ManifoldManifold) -> usize;
     pub fn manifold_num_edge(m: *const ManifoldManifold) -> usize;
@@ -1019,10 +909,14 @@ unsafe extern "C" {
     pub fn manifold_volume(m: *const ManifoldManifold) -> f64;
     pub fn manifold_surface_area(m: *const ManifoldManifold) -> f64;
     pub fn manifold_epsilon(m: *const ManifoldManifold) -> f64;
-    pub fn manifold_get_tolerance(m: *const ManifoldManifold) -> f64;
     pub fn manifold_num_prop_vert(m: *const ManifoldManifold) -> usize;
     pub fn manifold_genus(m: *const ManifoldManifold) -> c_int;
     pub fn manifold_original_id(m: *const ManifoldManifold) -> c_int;
+
+    /// Winding number of the point `(x, y, z)` with respect to `m`: the
+    /// number of times the surface wraps around it. 0 is outside, 1 inside a
+    /// single solid.
+    pub fn manifold_winding_number(m: *const ManifoldManifold, x: f64, y: f64, z: f64) -> c_int;
 
     /// Get the number of circular segments for a given radius.
     pub fn manifold_get_circular_segments(radius: f64) -> c_int;
@@ -1034,7 +928,6 @@ unsafe extern "C" {
     ///
     /// The callback receives: `(new_prop, position, old_prop, ctx)`.
     pub fn manifold_set_properties(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         num_prop: c_int,
         fun: Option<
@@ -1045,7 +938,6 @@ unsafe extern "C" {
 
     /// Calculate Gaussian and mean curvature and store at the given property indices.
     pub fn manifold_calculate_curvature(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         gaussian_idx: c_int,
         mean_idx: c_int,
@@ -1060,7 +952,6 @@ unsafe extern "C" {
 
     /// Calculate vertex normals and store at the given property index.
     pub fn manifold_calculate_normals(
-        mem: *mut ManifoldManifold,
         m: *const ManifoldManifold,
         normal_idx: c_int,
         min_sharp_angle: f64,
@@ -1113,26 +1004,24 @@ unsafe extern "C" {
 
     /// ctx-aware [`manifold_level_set`]. `sdf_context` is the SDF callback's user-data.
     pub fn manifold_execution_context_level_set(
-        mem: *mut ManifoldManifold,
         ec: *mut ManifoldExecutionContext,
         sdf: ManifoldSdf,
-        bounds: *mut ManifoldBox,
+        bounds: *const ManifoldBox,
         edge_length: f64,
         level: f64,
         tolerance: f64,
-        sdf_context: *mut std::ffi::c_void,
+        sdf_context: *mut c_void,
     ) -> *mut ManifoldManifold;
 
     /// ctx-aware [`manifold_level_set_seq`] (sequential execution).
     pub fn manifold_execution_context_level_set_seq(
-        mem: *mut ManifoldManifold,
         ec: *mut ManifoldExecutionContext,
         sdf: ManifoldSdf,
-        bounds: *mut ManifoldBox,
+        bounds: *const ManifoldBox,
         edge_length: f64,
         level: f64,
         tolerance: f64,
-        sdf_context: *mut std::ffi::c_void,
+        sdf_context: *mut c_void,
     ) -> *mut ManifoldManifold;
 
     /// ctx-aware [`manifold_of_meshgl`].
@@ -1145,26 +1034,6 @@ unsafe extern "C" {
     pub fn manifold_execution_context_of_meshgl64(
         ec: *mut ManifoldExecutionContext,
         mesh: *const ManifoldMeshGL64,
-    ) -> *mut ManifoldManifold;
-
-    /// ctx-aware [`manifold_smooth`] (f32 mesh).
-    pub fn manifold_execution_context_smooth(
-        mem: *mut ManifoldManifold,
-        ec: *mut ManifoldExecutionContext,
-        mesh: *const ManifoldMeshGL,
-        half_edges: *const usize,
-        smoothness: *const f64,
-        n_edges: usize,
-    ) -> *mut ManifoldManifold;
-
-    /// ctx-aware [`manifold_smooth64`] (f64 mesh).
-    pub fn manifold_execution_context_smooth64(
-        mem: *mut ManifoldManifold,
-        ec: *mut ManifoldExecutionContext,
-        mesh: *const ManifoldMeshGL64,
-        half_edges: *const usize,
-        smoothness: *const f64,
-        n_edges: usize,
     ) -> *mut ManifoldManifold;
 
     // ── Bounding box ────────────────────────────────────────────────────
@@ -1489,6 +1358,19 @@ unsafe extern "C" {
     pub fn manifold_set_circular_segments(number: c_int);
     pub fn manifold_reset_to_circular_defaults();
 
+    /// Set the global relative precision used to decide when geometry is
+    /// coplanar or collinear. Replaces the per-manifold tolerance upstream
+    /// removed.
+    pub fn manifold_set_relative_precision(precision: f64);
+    /// The global relative precision.
+    pub fn manifold_get_relative_precision() -> f64;
+
+    // ── Version ─────────────────────────────────────────────────────────
+
+    /// Write the linked manifold's version as `[major, minor, patch]`.
+    /// `version` must point at 3 writable ints.
+    pub fn manifold_version(version: *mut c_int);
+
     // ── OBJ I/O ─────────────────────────────────────────────────────────
     //
     // These four functions live in manifold's iostream-using path, gated by
@@ -1502,17 +1384,14 @@ unsafe extern "C" {
     /// The `obj_file` parameter is the content of the obj file (not the filename),
     /// and should be null-terminated.
     #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
-    pub fn manifold_read_obj(
-        mem: *mut ManifoldManifold,
-        obj_file: *const std::ffi::c_char,
-    ) -> *mut ManifoldManifold;
+    pub fn manifold_read_obj(obj_file: *const c_char) -> *mut ManifoldManifold;
 
     /// Import a MeshGL64 from a Wavefront obj file.
     ///
     /// The `obj_file` parameter is the content of the obj file (not the filename),
     /// and should be null-terminated.
     #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
-    pub fn manifold_meshgl64_read_obj(obj_file: *const std::ffi::c_char) -> *mut ManifoldMeshGL64;
+    pub fn manifold_meshgl64_read_obj(obj_file: *const c_char) -> *mut ManifoldMeshGL64;
 
     /// Export a manifold to a Wavefront obj string via callback.
     ///
