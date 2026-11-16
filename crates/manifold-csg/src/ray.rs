@@ -7,7 +7,11 @@
 ///
 /// See the [upstream ray casting docs](https://elalish.github.io/manifold/docs/html/structmanifold_1_1_ray_hit.html)
 /// for details on the fields.
+///
+/// Non-exhaustive: upstream adds fields (`crossing` arrived in manifold 4.0),
+/// and results only come from [`Manifold::ray_cast`](crate::Manifold::ray_cast).
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct RayHit {
     /// Index of the face that was hit.
     pub face_id: u64,

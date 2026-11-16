@@ -520,7 +520,7 @@ impl CrossSection {
     /// Axis-aligned bounding rectangle.
     #[must_use]
     pub fn bounds(&self) -> Rect {
-        // SAFETY: rect_ptr and self.ptr are valid.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let rect_ptr = owned(unsafe { manifold_cross_section_bounds(self.ptr) });
         Rect::from_ptr(rect_ptr)
     }

@@ -300,11 +300,6 @@ unsafe extern "C" {
     pub fn manifold_manifold_pair_size() -> usize;
     pub fn manifold_meshgl_size() -> usize;
     pub fn manifold_meshgl64_size() -> usize;
-    pub fn manifold_box_size() -> usize;
-    pub fn manifold_rect_size() -> usize;
-    pub fn manifold_triangulation_size() -> usize;
-    pub fn manifold_ray_hit_vec_size() -> usize;
-    pub fn manifold_execution_context_size() -> usize;
 
     // ── Allocation ─────────────────────────────────────────────────────
 
@@ -316,11 +311,6 @@ unsafe extern "C" {
     pub fn manifold_alloc_polygons() -> *mut ManifoldPolygons;
     pub fn manifold_alloc_meshgl() -> *mut ManifoldMeshGL;
     pub fn manifold_alloc_meshgl64() -> *mut ManifoldMeshGL64;
-    pub fn manifold_alloc_box() -> *mut ManifoldBox;
-    pub fn manifold_alloc_rect() -> *mut ManifoldRect;
-    pub fn manifold_alloc_triangulation() -> *mut ManifoldTriangulation;
-    pub fn manifold_alloc_ray_hit_vec() -> *mut ManifoldRayHitVec;
-    pub fn manifold_alloc_execution_context() -> *mut ManifoldExecutionContext;
 
     // ── Destruction (destruct only, does not free) ─────────────────────
 
@@ -332,11 +322,6 @@ unsafe extern "C" {
     pub fn manifold_destruct_polygons(p: *mut ManifoldPolygons);
     pub fn manifold_destruct_meshgl(m: *mut ManifoldMeshGL);
     pub fn manifold_destruct_meshgl64(m: *mut ManifoldMeshGL64);
-    pub fn manifold_destruct_box(b: *mut ManifoldBox);
-    pub fn manifold_destruct_rect(b: *mut ManifoldRect);
-    pub fn manifold_destruct_triangulation(m: *mut ManifoldTriangulation);
-    pub fn manifold_destruct_ray_hit_vec(v: *mut ManifoldRayHitVec);
-    pub fn manifold_destruct_execution_context(ctx: *mut ManifoldExecutionContext);
 
     // ── Deletion (destruct + free) ─────────────────────────────────────
 
@@ -1138,9 +1123,10 @@ unsafe extern "C" {
 
     // ── Execution context (cancel + progress) ───────────────────────────
 
-    /// Construct an `ExecutionContext` in pre-allocated memory. Attach
-    /// to a manifold via [`manifold_with_context`]; subsequent eager
-    /// operations on the result observe the context.
+    /// Create a new `ExecutionContext`. Free it with
+    /// [`manifold_delete_execution_context`]. Attach it to a manifold via
+    /// [`manifold_with_context`]. Subsequent eager operations on the result
+    /// observe the context.
     pub fn manifold_execution_context() -> *mut ManifoldExecutionContext;
 
     /// Request cancellation of any boolean evaluation observing this context.
@@ -1547,8 +1533,8 @@ unsafe extern "C" {
 
     pub fn manifold_triangulation_num_tri(m: *const ManifoldTriangulation) -> usize;
 
-    /// Copy triangle vertex indices into caller-provided buffer.
-    /// Each triangle is 3 consecutive i32 values.
+    /// Triangle vertex indices, 3 consecutive values per triangle. The buffer
+    /// is borrowed from `m` and is only valid for the lifetime of `m`.
     pub fn manifold_triangulation_tri_verts(m: *const ManifoldTriangulation) -> *const c_int;
 
     // ── Static quality globals ──────────────────────────────────────────

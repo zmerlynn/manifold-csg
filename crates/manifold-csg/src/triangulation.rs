@@ -30,7 +30,7 @@ pub fn triangulate_polygons(polygons: &[Vec<[f64; 2]>], epsilon: f64) -> Option<
     let indices = {
         let polys = PolygonsFfi::new(polygons);
 
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: polys.ptr() is valid from construction, and the call returns a new handle.
         let tri_ptr = owned(unsafe { manifold_triangulate(polys.ptr(), epsilon) });
 
         // SAFETY: tri_ptr is valid. Read-only size query.

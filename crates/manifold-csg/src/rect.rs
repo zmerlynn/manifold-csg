@@ -52,7 +52,7 @@ impl Rect {
     /// Create a rectangle from min and max corners.
     #[must_use]
     pub fn new(min: [f64; 2], max: [f64; 2]) -> Self {
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: manifold_rect takes plain values and returns a new handle.
         let ptr = owned(unsafe { manifold_rect(min[0], min[1], max[0], max[1]) });
         Self { ptr }
     }
