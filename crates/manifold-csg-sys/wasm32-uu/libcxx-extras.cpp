@@ -8,7 +8,6 @@
 //     src/new_helpers.cpp)
 //   * std::bad_weak_ptr key functions
 //   * std::align helper
-//   * std::chrono::steady_clock::now (a fake clock; see below)
 //   * std::__throw_system_error (trap)
 //   * std::pmr default resources and unsynchronized_pool_resource
 //     (adapted from libc++'s src/memory_resource.cpp; see below)
@@ -140,32 +139,6 @@ _LIBCPP_EXPORTED_FROM_ABI size_t __hash_memory(_LIBCPP_NOESCAPE const void* key,
 }
 
 }}  // namespace std::__1
-
-// ---- std::chrono::steady_clock::now (stand-in for chrono.cpp) ----
-//
-// manifold master's Boolean2 timing diagnostics (src/boolean2_diagnostics.h)
-// name std::chrono::steady_clock unconditionally, so the __config_site
-// override turns on _LIBCPP_HAS_MONOTONIC_CLOCK to declare it (which also
-// makes high_resolution_clock, an alias for it, usable). There is no clock
-// on wasm32-unknown-unknown, and reading one would need a WASI import.
-//
-// This is a FAKE clock: each call returns the previous value plus one
-// nanosecond. That keeps the steady_clock contract (monotonic, advancing),
-// so a deadline loop still terminates, but the readings have nothing to do
-// with elapsed time. manifold only reads the clock when its timing
-// diagnostics are switched on, which they are not by default; with this
-// stand-in they report meaningless (tiny) durations, not wrong geometry.
-// Single-threaded by construction, like the rest of the shim.
-#include <chrono>
-
-namespace std { inline namespace __1 { namespace chrono {
-
-steady_clock::time_point steady_clock::now() noexcept {
-    static nanoseconds::rep ticks = 0;
-    return time_point(nanoseconds(++ticks));
-}
-
-}}}  // namespace std::__1::chrono
 
 // ---- std::__throw_system_error (stand-in for system_error.cpp) ----
 //

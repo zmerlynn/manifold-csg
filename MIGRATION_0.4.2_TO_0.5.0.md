@@ -103,7 +103,22 @@ The default is `1e-12` (double precision), and smaller values are clamped to
 it. It affects every operation started afterwards, in every thread.
 **`reset_to_circular_defaults()` puts it back to `1e-12`**, because upstream
 resets every quality global there, so set the precision after any reset.
-`MeshGL::tolerance` and `MeshGL64::tolerance` are unchanged.
+
+`MeshGL::tolerance` and `MeshGL64::tolerance` are gone too: a mesh no longer
+carries a tolerance. `merge` takes it instead:
+
+```diff
+-let merged = mesh.merge();
++let merged = mesh.merge(0.0); // 0.0 = the bounding-box baseline, as before
+```
+
+A larger value welds open-edge vertices up to that far apart.
+
+## Behavioral: `face_id` is empty unless the input had face IDs
+
+`MeshGL::face_id` / `MeshGL64::face_id` used to be filled from upstream's
+coplanar-face calculation when no input carried face IDs. Now they are empty
+in that case. Input face IDs still carry through to the output.
 
 ## CrossSection
 
@@ -147,6 +162,8 @@ If you use `manifold-csg-sys` directly, every function changed shape:
 - `ManifoldFillRule` is gone. Use the `of_*`, `even_odd_*` and `non_zero_*`
   cross-section constructors.
 - `ManifoldRayHit` has a new `crossing` field, which changes its layout.
+- `manifold_meshgl_merge` / `manifold_meshgl64_merge` take a `tolerance`, and
+  `manifold_meshgl_tolerance` / `manifold_meshgl64_tolerance` are gone.
 
 ## AI prompt
 
@@ -167,6 +184,9 @@ If you would rather hand this to an assistant, the following is enough context:
 > - `Manifold::set_tolerance(t)` is gone. Use the global
 >   `manifold_csg::set_relative_precision(t)` once, and remove
 >   `get_tolerance` calls.
+> - `MeshGL::merge()` / `MeshGL64::merge()` take a tolerance: use
+>   `merge(0.0)` for the old behavior. Remove `MeshGL::tolerance()` /
+>   `MeshGL64::tolerance()` calls.
 > - `FillRule::Negative` is gone: reverse each ring and use
 >   `FillRule::Positive`.
 > - `RayHit` is `#[non_exhaustive]` with a new `crossing` field, so replace
@@ -178,4 +198,5 @@ If you would rather hand this to an assistant, the following is enough context:
 > decimation changed), calls to `Manifold::revolve` with a zero or negative
 > angle (zero is now an error, negative revolves the other way), and any
 > `reset_to_circular_defaults()` after `set_relative_precision` (the reset
-> now clears the precision too).
+> now clears the precision too), and code that reads `face_id()` from a
+> mesh whose input had no face IDs (it is now empty).
