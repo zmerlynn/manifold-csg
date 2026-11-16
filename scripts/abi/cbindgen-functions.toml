@@ -1,0 +1,9 @@
+# Used by scripts/check-abi.py: render the sys crate's extern "C" functions
+# as C, so a C compiler can compare them with manifoldc.h. Types are not
+# emitted: the declarations resolve to the header's own definitions.
+language = "C"
+usize_is_size_t = true
+no_includes = true
+
+[export]
+item_types = ["functions"]

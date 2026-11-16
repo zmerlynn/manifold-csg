@@ -37,6 +37,24 @@ jobs:
       # for four releases). The second check fetches the pinned manifoldc.h, so
       # this job needs network; MANIFOLD_CSG_HEADER overrides it with a local file.
       - run: python3 scripts/check-api-coverage.py
+      # The name check above cannot see a same-name change (a retyped or
+      # reordered parameter, a new struct field), which would compile on our
+      # side and break at runtime. check-abi.py makes a C compiler compare our
+      # declarations and #[repr(C)] layouts with the pinned header. main's
+      # 3.5.x declarations are deliberately ABI-compatible but not identical
+      # (typed `mem` buffers, *const tightening), so PRs into main check types
+      # only; next and branches stacked on it check functions too.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen
+      - name: ABI check
+        run: |
+          branch="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
+          if [ "$branch" = main ]; then
+            python3 scripts/check-abi.py --types-only
+          else
+            python3 scripts/check-abi.py
+          fi
       # upstream-watch.yml only runs weekly, so without this a syntax error in
       # its script would ship and first surface as a red job days later.
       - run: python3 -m py_compile scripts/check-upstream.py

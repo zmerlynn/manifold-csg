@@ -99,6 +99,17 @@ jobs:
         if: ${{ !cancelled() && steps.next.outputs.exists == 'true' }}
         run: python3 scripts/check-api-coverage.py
 
+      - if: ${{ !cancelled() && steps.next.outputs.exists == 'true' }}
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen
+
+      # Same-name signature or layout changes upstream, which the coverage
+      # check cannot see. Fails on master before a pin move would.
+      - name: ABI check at master
+        if: ${{ !cancelled() && steps.next.outputs.exists == 'true' }}
+        run: python3 scripts/check-abi.py
+
       - name: Test
         if: ${{ !cancelled() && steps.next.outputs.exists == 'true' }}
         run: cargo test --features nalgebra
