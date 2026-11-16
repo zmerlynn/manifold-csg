@@ -1,0 +1,89 @@
+name: Next sync
+
+# Opens a "Merge main into next" PR when main has commits that next lacks.
+# The PR's head is main itself, so an open one always carries the latest
+# main and this workflow never pushes. Merge it with a merge commit: a squash
+# or rebase would copy main's commits instead of making them ancestors, and
+# every later sync would bring them again and conflict with itself. See
+# docs/next-branch.md.
+#
+# On a conflict GitHub marks the PR unmergeable. Resolve it on a scratch
+# branch (merge main into a branch off next), open that instead, and close
+# this one. Closing the PR by hand means "not now": it is not reopened until
+# main moves.
+#
+# Uses FLAKE_LOCK_TOKEN (see flake-lock.yml) for the same two reasons:
+# Actions may not create PRs in this repo, and a PR opened with GITHUB_TOKEN
+# triggers no workflows, so its required checks would never report. Only
+# Pull requests write is needed here.
+
+on:
+  schedule:
+    # Mondays 15:00 UTC, after upstream-watch and flake-lock.
+    - cron: "0 15 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: next-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Open a main -> next sync PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.FLAKE_LOCK_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check the token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::FLAKE_LOCK_TOKEN is not set; see the header of flake-lock.yml"
+            exit 1
+          fi
+          if ! gh api "repos/$GH_REPO" --jq .permissions.push | grep -qx true; then
+            echo "::error::FLAKE_LOCK_TOKEN cannot write to $GH_REPO (expired, or lost access?)"
+            exit 1
+          fi
+
+      - name: Open the PR if main is ahead
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/$GH_REPO/branches/next" --silent 2>/dev/null; then
+            echo "::warning::There is no next branch. Delete this workflow if the port is done."
+            exit 0
+          fi
+
+          ahead=$(gh api "repos/$GH_REPO/compare/next...main" --jq .ahead_by)
+          main_sha=$(gh api "repos/$GH_REPO/commits/main" --jq .sha)
+          echo "main is $ahead commit(s) ahead of next, at ${main_sha:0:7}"
+          if [ "$ahead" -eq 0 ]; then
+            exit 0
+          fi
+
+          # --author: --head matches the branch name only, so a fork's main
+          # would match too.
+          open=$(gh pr list --author @me --base next --head main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            echo "Sync PR #$open is already open and tracks main"
+            exit 0
+          fi
+
+          # Closed by hand (not merged) while main was at this same commit:
+          # respect that until main moves.
+          closed=$(gh pr list --author @me --base next --head main --state closed --limit 1 \
+            --json number,headRefOid,mergedAt \
+            --jq ".[] | select(.mergedAt == null and .headRefOid == \"$main_sha\") | .number")
+          if [ -n "$closed" ]; then
+            echo "Sync PR #$closed was closed at this main commit, leaving it"
+            exit 0
+          fi
+
+          body=$(printf '%s\n\n%s\n' \
+            "Brings next up to date with main ($ahead commit(s)). Merge with a merge commit, not squash or rebase. See docs/next-branch.md." \
+            "$(gh api "repos/$GH_REPO/compare/next...main" --jq '.commits[] | "- \(.sha[0:7]) \(.commit.message | split("\n")[0])"')")
+          gh pr create --base next --head main --title "Merge main into next" --body "$body"
