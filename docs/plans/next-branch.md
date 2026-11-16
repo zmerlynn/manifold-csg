@@ -36,6 +36,20 @@ Create `next` from `main`. Add a ruleset for `next` with: no deletion, no force-
 - Skip the Semver job on `next` (both PRs into it and pushes to it). Every port PR is breaking on purpose, and the job compares against 0.4.x on crates.io.
 - Skip `nix-offline` on `next` while the pin is a SHA. `flake.nix` fetches `pinnedSrc` by tag and `pins.py manifold --tag` rejects a SHA, so the lane can't evaluate. It tests the offline link path, which the port doesn't change.
 - `pages.yml` stays main-only.
+- Add the publish guard check (see "Publish guard" below), one step in an existing job.
+
+### Publish guard
+
+`cargo publish` must not work from `next` by accident. A `-dev` version suffix doesn't stop it, because crates.io accepts pre-release versions. Two layers:
+
+- **`publish = false` on every published crate on `next`**: `manifold-csg`, `manifold-csg-sys`, `manifold3d`, `manifold3d-sys` and `manifold3d-macros`. Cargo itself refuses to publish them, however `cargo publish` is run. This goes in the first PR into `next` (step 6).
+- **A branch-aware CI check** (`scripts/check-publish-guard.py`). It reads the branch from `GITHUB_BASE_REF` on PRs and `GITHUB_REF_NAME` on pushes.
+  - On `next`, every crate above must have `publish = false`. A PR that drops it goes red.
+  - On `main`, none of them may have `publish = false`, and no version may have a pre-release suffix. That catches the other direction: the final `next` -> `main` squash can't bring the guard or a `-dev` version into `main` and quietly block the release.
+
+  The check lands on `main` with the workflows. The weekly sync then brings it to `next`, and the step 6 PR has to satisfy it.
+
+The publish skill already refuses a non-`main` branch, which is a third, softer layer.
 
 ### 4. Weekly sync PR (`next-sync.yml`)
 
@@ -53,7 +67,7 @@ This finds upstream breaks between our deliberate pin moves. It does not move th
 
 ### 6. Pin and versions on `next`
 
-First PR into `next`. Pin `MANIFOLD_VERSION` to a master SHA, drop Clipper2 from the link list and the removed cmake options, and set versions to `0.5.0-dev` (workspace) and `3.99.100-dev` (sys crates), unpublished. A pre-release suffix means nobody can mistake a `next` build for a crates.io release. Pick the real sys major.minor when upstream bumps `CMakeLists.txt`.
+First PR into `next`. Pin `MANIFOLD_VERSION` to a master SHA, drop Clipper2 from the link list and the removed cmake options, set versions to `0.5.0-dev` (workspace) and `3.99.100-dev` (sys crates), and add `publish = false` to every published crate (see "Publish guard"). The pre-release suffix means nobody can mistake a `next` build for a crates.io release. `publish = false` is what actually prevents a publish. Pick the real sys major.minor when upstream bumps `CMakeLists.txt`.
 
 The sys crate should build after this. The safe crate won't until port step 3 below.
 
@@ -87,7 +101,7 @@ Each step is one PR into `next` and leaves the branch building:
 When upstream tags 4.0.0 or a pre-release:
 
 1. Pin the tag, so `nix-offline` runs on `next` again.
-2. Optionally publish `0.5.0-alpha.N` / `4.0.100-alpha.N` from `next`.
-3. Before the final merge, tag the branch tip as `next-history` so the per-step history survives. Then open the `next` -> `main` PR and squash it, since the `main` ruleset allows only squash and rebase.
+2. Optionally publish `0.5.0-alpha.N` / `4.0.100-alpha.N` from `next`. That takes a deliberate PR into `next` that drops `publish = false` and changes the guard check to allow alphas there, and it should say so in its title.
+3. Before the final merge, tag the branch tip as `next-history` so the per-step history survives. Then open the `next` -> `main` PR, which removes `publish = false` and the `-dev` suffixes, and squash it, since the `main` ruleset allows only squash and rebase. The guard check fails that PR if either is left behind.
 4. Release 0.5.0 / 4.0.100 with the migration guide.
-5. Delete the two weekly workflows, the `next` ruleset and the maintenance doc. Turn merge commits back off.
+5. Delete the two weekly workflows, the `next` half of the guard check, the `next` ruleset and the maintenance doc. Turn merge commits back off.
