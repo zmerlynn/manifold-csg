@@ -39,7 +39,7 @@ you need direct C-level control, it's there.
   intersection), transforms, convex hull, decomposition, Minkowski sum/difference,
   mesh refinement, smoothing, SDF level sets, warp deformation, and OBJ I/O
 - **2D regions** ([`CrossSection`](crates/manifold-csg/src/cross_section.rs)) —
-  primitives (square, circle, polygons), boolean operations, Clipper2-based
+  primitives (square, circle, polygons), boolean operations,
   geometric offset, convex hull, transforms, warp, and simplification
 - **Mesh data** ([`MeshGL64`](crates/manifold-csg/src/mesh.rs) /
   [`MeshGL`](crates/manifold-csg/src/mesh.rs)) — f64 and f32 mesh types for
@@ -125,7 +125,7 @@ Packaging a crate that depends on this one, with Nix:
 ```nix
 buildRustPackage {
   # ...
-  buildInputs = [ pkgs.manifold ];               # rpath; NEEDED pulls clipper2 + tbb
+  buildInputs = [ pkgs.manifold ];               # rpath; NEEDED pulls tbb (and clipper2 for 3.x)
   MANIFOLD_CSG_LIB_DIR = "${pkgs.manifold}/lib"; # skips the clone and cmake
 }
 ```

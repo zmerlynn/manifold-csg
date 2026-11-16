@@ -7,8 +7,9 @@ grows with each breaking change that lands there.
 Upstream's 4.0 work changes the C API under this crate (handles are no longer
 caller-allocated) and removes a few features outright. Most of that stays
 inside the crate. What reaches your code is listed below: a few removed
-methods, one changed signature, and two changes in behavior that compile
-cleanly, so read those even if your build passes.
+methods, one changed signature, and several changes in behavior that
+compile cleanly (marked **Behavioral**), so read those even if your build
+passes.
 
 ## Cargo.toml
 
@@ -60,6 +61,23 @@ result is the same. Use `batch_union`, which says what it does:
 +let both = Manifold::batch_union(&[a, b]);
 ```
 
+## Behavioral: `simplify` keeps different vertices
+
+`Manifold::simplify` uses upstream's new decimation. Surfaces still move by
+less than the tolerance, but the same tolerance keeps a different subset of
+vertices, usually fewer. Re-check tests that pin vertex or triangle counts
+after `simplify`.
+
+## Behavioral: `revolve` angle rules
+
+`Manifold::revolve` now:
+
+- treats a zero or non-finite `revolve_degrees` as invalid input, so
+  `status()` returns an error (it used to return an empty manifold);
+- revolves the other way for a negative angle (it used to give an empty
+  result);
+- builds a solid for small angles that used to give an empty result.
+
 ## Smoothing constructors are gone
 
 Upstream removed the mesh-plus-sharpened-edges `Smooth` constructors and
@@ -83,6 +101,8 @@ with one process-global relative precision:
 
 The default is `1e-12` (double precision), and smaller values are clamped to
 it. It affects every operation started afterwards, in every thread.
+**`reset_to_circular_defaults()` puts it back to `1e-12`**, because upstream
+resets every quality global there, so set the precision after any reset.
 `MeshGL::tolerance` and `MeshGL64::tolerance` are unchanged.
 
 ## CrossSection
@@ -153,4 +173,9 @@ If you would rather hand this to an assistant, the following is enough context:
 >   any `RayHit { .. }` literals.
 > Also check code that reads mesh runs (`num_run`, `run_original_id`,
 > `backside`) after a boolean: primitives now share original ID 0, so call
-> `.as_original(-1)` on each input that should get its own run.
+> `.as_original(-1)` on each input that should get its own run. Check
+> tests that pin vertex counts after `Manifold::simplify` (upstream's
+> decimation changed), calls to `Manifold::revolve` with a zero or negative
+> angle (zero is now an error, negative revolves the other way), and any
+> `reset_to_circular_defaults()` after `set_relative_precision` (the reset
+> now clears the precision too).

@@ -919,6 +919,21 @@ fn revolve_circle_makes_torus_like() {
     assert!(solid.volume() > 0.0);
 }
 
+#[test]
+fn revolve_angle_rules() {
+    // Upstream master: a negative angle revolves the other way (same
+    // volume), a zero angle is invalid input, and a partial sweep is a
+    // proportional share of the full one.
+    let cs = CrossSection::square(2.0, 2.0, false).translate(4.0, 0.0);
+    let full = Manifold::revolve(&cs, 64, 360.0);
+    let quarter = Manifold::revolve(&cs, 64, 90.0);
+    let back = Manifold::revolve(&cs, 64, -90.0);
+    assert!(quarter.status().is_ok() && back.status().is_ok());
+    assert_relative_eq!(quarter.volume(), back.volume(), max_relative = 1e-9);
+    assert_relative_eq!(quarter.volume(), full.volume() / 4.0, max_relative = 0.02);
+    assert!(Manifold::revolve(&cs, 64, 0.0).status().is_err());
+}
+
 // ── Query tests ─────────────────────────────────────────────────────
 
 #[test]
@@ -948,6 +963,18 @@ fn compose_preserves_total_volume() {
     let b = Manifold::cube(5.0, 5.0, 5.0, true).translate(10.0, 0.0, 0.0);
     let composed = Manifold::compose(&[a, b]);
     assert_relative_eq!(composed.volume(), 250.0, epsilon = 5.0);
+}
+
+#[allow(deprecated)]
+#[test]
+fn compose_unions_overlapping_inputs() {
+    // Upstream master made compose a union. Two 2x2x2 cubes overlapping by
+    // half are 12, not 16, and leave no doubly-wound region.
+    let a = Manifold::cube(2.0, 2.0, 2.0, false);
+    let b = Manifold::cube(2.0, 2.0, 2.0, false).translate(1.0, 0.0, 0.0);
+    let composed = Manifold::compose(&[a, b]);
+    assert_relative_eq!(composed.volume(), 12.0, epsilon = 1e-9);
+    assert_eq!(composed.winding_number([1.5, 1.0, 1.0]), 1);
 }
 
 // ── Split test ──────────────────────────────────────────────────────
@@ -2996,8 +3023,9 @@ fn relative_precision_clamps_to_double() {
 }
 
 #[test]
-fn manifold_version_is_plausible() {
-    let [major, minor, patch] = manifold_csg::manifold_version();
-    assert!(major >= 3, "{major}.{minor}.{patch}");
-    assert!(minor >= 0 && patch >= 0);
+fn manifold_version_matches_the_pin() {
+    // The pinned master commit's CMakeLists.txt still says 3.5.1. Update this
+    // when a pin move changes that, so a build linking some other manifold
+    // fails here.
+    assert_eq!(manifold_csg::manifold_version(), [3, 5, 1]);
 }

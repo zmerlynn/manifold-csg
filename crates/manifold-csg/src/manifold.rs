@@ -806,7 +806,9 @@ impl Manifold {
         Self::from_handle(unsafe { manifold_refine_to_tolerance(self.ptr, tolerance) })
     }
 
-    /// Simplify the mesh, removing vertices until the error exceeds `tolerance`.
+    /// Simplify the mesh, removing vertices while every surface moves by less
+    /// than `tolerance`. The result contains a subset of the original
+    /// vertices; exactly which ones depends on upstream's decimation.
     #[must_use]
     pub fn simplify(&self, tolerance: f64) -> Self {
         // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
@@ -833,6 +835,13 @@ impl Manifold {
     }
 
     /// Revolve a 2D cross-section around the Y axis to create a solid of revolution.
+    ///
+    /// Only the part of the cross-section on the positive-X side is used.
+    /// `revolve_degrees` must be finite and nonzero: a negative value
+    /// revolves the other way, and values beyond 360 are clamped to a full
+    /// revolution. A zero or non-finite angle, or a cross-section with
+    /// nothing at positive X, gives an invalid manifold (check
+    /// [`status`](Self::status)).
     #[must_use]
     pub fn revolve(
         cross_section: &CrossSection,
@@ -1850,6 +1859,10 @@ pub fn set_circular_segments(number: i32) {
 }
 
 /// Reset circular tessellation parameters to defaults.
+///
+/// Despite the name, upstream resets every quality global, so this also puts
+/// [`set_relative_precision`] back to its `1e-12` default. Set the precision
+/// again afterwards if you changed it.
 ///
 /// This modifies global state shared by all manifold operations in the
 /// current process.

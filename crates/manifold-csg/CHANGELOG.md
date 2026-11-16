@@ -38,6 +38,16 @@ Tracks upstream manifold master on its way to 4.0. Not published yet. See the
 - **Behavioral:** `Manifold::compose` is now a union, the same as
   `batch_union`, so overlapping inputs merge. It is deprecated, as it is
   upstream.
+- **Behavioral:** `Manifold::simplify` uses upstream's new decimation, so
+  the same tolerance keeps a different set of vertices, usually fewer.
+  Surfaces still move by less than the tolerance.
+- **Behavioral:** `Manifold::revolve` treats a zero or non-finite angle as
+  invalid input (`status()` returns an error; it used to return an empty
+  manifold), revolves the other way for a negative angle, and handles
+  small angles that used to give an empty result.
+- **Behavioral:** `reset_to_circular_defaults` also resets the new
+  relative precision to `1e-12`, because upstream resets every quality
+  global. Set the precision again afterwards if you changed it.
 
 ## 0.4.2
 
