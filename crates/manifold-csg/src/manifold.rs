@@ -421,7 +421,7 @@ impl Manifold {
     /// IDs, merge vectors, and tangents when present.
     #[must_use]
     pub fn to_meshgl64(&self) -> MeshGL64 {
-        // SAFETY: self.ptr and meshgl are valid handles.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let meshgl = owned(unsafe { manifold_get_meshgl64(self.ptr) });
 
         MeshGL64 { ptr: meshgl }
@@ -434,7 +434,7 @@ impl Manifold {
     /// `normal_idx` semantics.
     #[must_use]
     pub fn to_meshgl64_with_normals(&self, normal_idx: i32) -> MeshGL64 {
-        // SAFETY: self.ptr and meshgl are valid handles.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let meshgl = owned(unsafe { manifold_get_meshgl64_w_normals(self.ptr, normal_idx) });
 
         MeshGL64 { ptr: meshgl }
@@ -498,7 +498,7 @@ impl Manifold {
     /// downstream consumer (GPU buffer, f32 file format) requires f32.
     #[must_use]
     pub fn to_meshgl(&self) -> MeshGL {
-        // SAFETY: self.ptr and meshgl are valid handles.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let meshgl = owned(unsafe { manifold_get_meshgl(self.ptr) });
 
         MeshGL { ptr: meshgl }
@@ -516,7 +516,7 @@ impl Manifold {
     /// downstream consumer (GPU buffer, f32 file format) requires f32.
     #[must_use]
     pub fn to_meshgl_with_normals(&self, normal_idx: i32) -> MeshGL {
-        // SAFETY: self.ptr and meshgl are valid handles.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let meshgl = owned(unsafe { manifold_get_meshgl_w_normals(self.ptr, normal_idx) });
 
         MeshGL { ptr: meshgl }

@@ -151,7 +151,8 @@ impl MeshGL {
         let n_verts = vert_props.len() / n_props;
         let n_tris = tri_indices.len() / 3;
 
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: validate_mesh_shape checked the slice lengths against n_verts,
+        // n_props and n_tris, the slices outlive the call, and it returns a new handle.
         let ptr = owned(unsafe {
             manifold_meshgl(
                 vert_props.as_ptr(),
@@ -184,7 +185,8 @@ impl MeshGL {
         let n_tris = tri_indices.len() / 3;
         validate_tangent_len(halfedge_tangent.len(), n_tris)?;
 
-        // SAFETY: ptr valid, all slices valid with correct lengths.
+        // SAFETY: the slice lengths were validated against n_verts, n_props and
+        // n_tris, the slices outlive the call, and it returns a new handle.
         let ptr = owned(unsafe {
             manifold_meshgl_w_tangents(
                 vert_props.as_ptr(),
@@ -229,7 +231,8 @@ impl MeshGL {
             halfedge_tangents: slice_ptr(halfedge_tangents),
         };
 
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: the slices and the option arrays sys_options points at were
+        // validated and outlive the call, which returns a new handle.
         let ptr = owned(unsafe {
             manifold_meshgl_w_options(
                 vert_props.as_ptr(),
@@ -296,7 +299,7 @@ impl MeshGL {
     /// the same position. Returns a new mesh (the original is unchanged).
     #[must_use]
     pub fn merge(&self) -> Self {
-        // SAFETY: ptr and self.ptr are valid.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let ptr = owned(unsafe { manifold_meshgl_merge(self.ptr) });
         Self { ptr }
     }
@@ -453,7 +456,7 @@ impl MeshGL {
 
 impl Clone for MeshGL {
     fn clone(&self) -> Self {
-        // SAFETY: ptr and self.ptr are valid.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let ptr = owned(unsafe { manifold_meshgl_copy(self.ptr) });
         Self { ptr }
     }
@@ -503,7 +506,8 @@ impl MeshGL64 {
         let n_verts = vert_props.len() / n_props;
         let n_tris = tri_indices.len() / 3;
 
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: validate_mesh_shape checked the slice lengths against n_verts,
+        // n_props and n_tris, the slices outlive the call, and it returns a new handle.
         let ptr = owned(unsafe {
             manifold_meshgl64(
                 vert_props.as_ptr(),
@@ -535,7 +539,8 @@ impl MeshGL64 {
         let n_tris = tri_indices.len() / 3;
         validate_tangent_len(halfedge_tangent.len(), n_tris)?;
 
-        // SAFETY: ptr valid, all slices valid with correct lengths.
+        // SAFETY: the slice lengths were validated against n_verts, n_props and
+        // n_tris, the slices outlive the call, and it returns a new handle.
         let ptr = owned(unsafe {
             manifold_meshgl64_w_tangents(
                 vert_props.as_ptr(),
@@ -580,7 +585,8 @@ impl MeshGL64 {
             halfedge_tangents: slice_ptr(halfedge_tangents),
         };
 
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: the slices and the option arrays sys_options points at were
+        // validated and outlive the call, which returns a new handle.
         let ptr = owned(unsafe {
             manifold_meshgl64_w_options(
                 vert_props.as_ptr(),
@@ -647,7 +653,7 @@ impl MeshGL64 {
     /// the same position. Returns a new mesh (the original is unchanged).
     #[must_use]
     pub fn merge(&self) -> Self {
-        // SAFETY: ptr and self.ptr are valid.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let ptr = owned(unsafe { manifold_meshgl64_merge(self.ptr) });
         Self { ptr }
     }
@@ -810,7 +816,8 @@ impl MeshGL64 {
         let c_str = std::ffi::CString::new(obj_content).map_err(|_| {
             crate::types::CsgError::InvalidInput("OBJ content contains null byte".into())
         })?;
-        // SAFETY: the input handles are valid (invariant), and the call returns a new handle.
+        // SAFETY: c_str is a valid null-terminated string that outlives the call,
+        // which returns a new handle.
         let ptr = owned(unsafe { manifold_meshgl64_read_obj(c_str.as_ptr()) });
         Ok(Self { ptr })
     }
@@ -843,7 +850,7 @@ impl MeshGL64 {
 
 impl Clone for MeshGL64 {
     fn clone(&self) -> Self {
-        // SAFETY: ptr and self.ptr are valid.
+        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let ptr = owned(unsafe { manifold_meshgl64_copy(self.ptr) });
         Self { ptr }
     }
