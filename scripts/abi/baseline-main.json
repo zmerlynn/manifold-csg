@@ -1,0 +1,1980 @@
+{
+ "_comment": "Exact differences check-abi.py accepts for this branch's declarations. Regenerate with --write-baseline only after reviewing the diff.",
+ "accepted": [
+  [
+   "manifold_as_original:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_as_original:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_batch_boolean:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_batch_hull:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_boolean:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_boolean:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_boolean:3",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_bounding_box:1",
+   "ManifoldBox *",
+   "void *"
+  ],
+  [
+   "manifold_bounding_box:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_box:1",
+   "ManifoldBox *",
+   "void *"
+  ],
+  [
+   "manifold_box_center:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_contains_box:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_contains_box:2",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_contains_pt:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_dimensions:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_does_overlap_box:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_does_overlap_box:2",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_does_overlap_pt:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_is_finite:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_max:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_min:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_mul:1",
+   "ManifoldBox *",
+   "void *"
+  ],
+  [
+   "manifold_box_mul:2",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_scale:1",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_transform:1",
+   "ManifoldBox *",
+   "void *"
+  ],
+  [
+   "manifold_box_transform:2",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_translate:1",
+   "ManifoldBox *",
+   "void *"
+  ],
+  [
+   "manifold_box_translate:2",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_union:1",
+   "ManifoldBox *",
+   "void *"
+  ],
+  [
+   "manifold_box_union:2",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_box_union:3",
+   "const ManifoldBox *",
+   "ManifoldBox *"
+  ],
+  [
+   "manifold_calculate_curvature:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_calculate_curvature:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_calculate_normals:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_calculate_normals:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_compose:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_copy:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_copy:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_cross_section_area:1",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_batch_boolean:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_batch_hull:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_boolean:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_boolean:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_boolean:3",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_bounds:1",
+   "ManifoldRect *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_bounds:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_circle:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_compose:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_copy:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_copy:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_decompose:1",
+   "ManifoldCrossSectionVec *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_decompose:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_difference:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_difference:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_difference:3",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_empty:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_empty_vec:1",
+   "ManifoldCrossSectionVec *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_hull:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_hull:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_hull_polygons:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_hull_polygons:2",
+   "const ManifoldPolygons *",
+   "ManifoldPolygons *"
+  ],
+  [
+   "manifold_cross_section_hull_simple_polygon:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_hull_simple_polygon:2",
+   "const ManifoldSimplePolygon *",
+   "ManifoldSimplePolygon *"
+  ],
+  [
+   "manifold_cross_section_intersection:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_intersection:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_intersection:3",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_is_empty:1",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_mirror:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_mirror:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_num_contour:1",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_num_vert:1",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_of_polygons:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_of_polygons:2",
+   "const ManifoldPolygons *",
+   "ManifoldPolygons *"
+  ],
+  [
+   "manifold_cross_section_of_simple_polygon:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_of_simple_polygon:2",
+   "const ManifoldSimplePolygon *",
+   "ManifoldSimplePolygon *"
+  ],
+  [
+   "manifold_cross_section_offset:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_offset:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_rotate:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_rotate:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_scale:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_scale:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_simplify:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_simplify:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_square:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_to_polygons:1",
+   "ManifoldPolygons *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_to_polygons:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_transform:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_transform:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_translate:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_translate:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_union:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_union:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_union:3",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cross_section_vec:1",
+   "ManifoldCrossSectionVec *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_vec_get:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_vec_get:2",
+   "const ManifoldCrossSectionVec *",
+   "ManifoldCrossSectionVec *"
+  ],
+  [
+   "manifold_cross_section_vec_length:1",
+   "const ManifoldCrossSectionVec *",
+   "ManifoldCrossSectionVec *"
+  ],
+  [
+   "manifold_cross_section_warp_context:1",
+   "ManifoldCrossSection *",
+   "void *"
+  ],
+  [
+   "manifold_cross_section_warp_context:2",
+   "const ManifoldCrossSection *",
+   "ManifoldCrossSection *"
+  ],
+  [
+   "manifold_cube:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_cylinder:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_decompose:1",
+   "ManifoldManifoldVec *",
+   "void *"
+  ],
+  [
+   "manifold_decompose:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_difference:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_difference:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_difference:3",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_empty:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_epsilon:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_execution_context:1",
+   "ManifoldExecutionContext *",
+   "void *"
+  ],
+  [
+   "manifold_execution_context_level_set:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_execution_context_level_set_seq:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_execution_context_of_meshgl64:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_execution_context_of_meshgl64:3",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_execution_context_of_meshgl:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_execution_context_of_meshgl:3",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_execution_context_smooth64:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_execution_context_smooth64:3",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_execution_context_smooth64:4",
+   "const unsigned int *",
+   "unsigned int *"
+  ],
+  [
+   "manifold_execution_context_smooth64:4",
+   "const unsigned long *",
+   "unsigned long *"
+  ],
+  [
+   "manifold_execution_context_smooth64:4",
+   "const unsigned long long *",
+   "unsigned long long *"
+  ],
+  [
+   "manifold_execution_context_smooth64:5",
+   "const double *",
+   "double *"
+  ],
+  [
+   "manifold_execution_context_smooth:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_execution_context_smooth:3",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_execution_context_smooth:4",
+   "const unsigned int *",
+   "unsigned int *"
+  ],
+  [
+   "manifold_execution_context_smooth:4",
+   "const unsigned long *",
+   "unsigned long *"
+  ],
+  [
+   "manifold_execution_context_smooth:4",
+   "const unsigned long long *",
+   "unsigned long long *"
+  ],
+  [
+   "manifold_execution_context_smooth:5",
+   "const double *",
+   "double *"
+  ],
+  [
+   "manifold_extrude:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_extrude:2",
+   "const ManifoldPolygons *",
+   "ManifoldPolygons *"
+  ],
+  [
+   "manifold_genus:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_get_meshgl64:1",
+   "ManifoldMeshGL64 *",
+   "void *"
+  ],
+  [
+   "manifold_get_meshgl64:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_get_meshgl64_w_normals:1",
+   "ManifoldMeshGL64 *",
+   "void *"
+  ],
+  [
+   "manifold_get_meshgl64_w_normals:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_get_meshgl:1",
+   "ManifoldMeshGL *",
+   "void *"
+  ],
+  [
+   "manifold_get_meshgl:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_get_meshgl_w_normals:1",
+   "ManifoldMeshGL *",
+   "void *"
+  ],
+  [
+   "manifold_get_meshgl_w_normals:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_get_tolerance:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_hull:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_hull:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_hull_pts:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_hull_pts:2",
+   "const ManifoldVec3 *",
+   "ManifoldVec3 *"
+  ],
+  [
+   "manifold_intersection:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_intersection:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_intersection:3",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_is_empty:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_level_set:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_level_set_seq:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_manifold_empty_vec:1",
+   "ManifoldManifoldVec *",
+   "void *"
+  ],
+  [
+   "manifold_manifold_vec:1",
+   "ManifoldManifoldVec *",
+   "void *"
+  ],
+  [
+   "manifold_manifold_vec_get:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_manifold_vec_get:2",
+   "const ManifoldManifoldVec *",
+   "ManifoldManifoldVec *"
+  ],
+  [
+   "manifold_manifold_vec_length:1",
+   "const ManifoldManifoldVec *",
+   "ManifoldManifoldVec *"
+  ],
+  [
+   "manifold_meshgl64:1",
+   "ManifoldMeshGL64 *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64:2",
+   "const double *",
+   "double *"
+  ],
+  [
+   "manifold_meshgl64:5",
+   "const unsigned long *",
+   "unsigned long *"
+  ],
+  [
+   "manifold_meshgl64:5",
+   "const unsigned long long *",
+   "unsigned long long *"
+  ],
+  [
+   "manifold_meshgl64_backside:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_copy:1",
+   "ManifoldMeshGL64 *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_copy:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_face_id:1",
+   "unsigned long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_face_id:1",
+   "unsigned long long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_face_id:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_face_id_length:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_halfedge_tangent:1",
+   "double *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_halfedge_tangent:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_has_normals:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_merge:1",
+   "ManifoldMeshGL64 *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_merge:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_merge_from_vert:1",
+   "unsigned long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_merge_from_vert:1",
+   "unsigned long long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_merge_from_vert:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_merge_length:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_merge_to_vert:1",
+   "unsigned long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_merge_to_vert:1",
+   "unsigned long long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_merge_to_vert:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_num_prop:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_num_run:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_num_tri:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_num_vert:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_read_obj:1",
+   "ManifoldMeshGL64 *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_read_obj:2",
+   "const char *",
+   "char *"
+  ],
+  [
+   "manifold_meshgl64_run_flags:1",
+   "unsigned char *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_run_flags:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_run_flags_length:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_run_index:1",
+   "unsigned long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_run_index:1",
+   "unsigned long long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_run_index:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_run_index_length:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_run_original_id:1",
+   "unsigned int *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_run_original_id:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_run_original_id_length:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_run_transform:1",
+   "double *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_run_transform:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_run_transform_length:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_tangent_length:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_tolerance:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_tri_length:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_tri_verts:1",
+   "unsigned long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_tri_verts:1",
+   "unsigned long long *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_tri_verts:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_vert_properties:1",
+   "double *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_vert_properties:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_vert_properties_length:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl64_w_options:1",
+   "ManifoldMeshGL64 *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_w_options:2",
+   "const double *",
+   "double *"
+  ],
+  [
+   "manifold_meshgl64_w_options:5",
+   "const unsigned long *",
+   "unsigned long *"
+  ],
+  [
+   "manifold_meshgl64_w_options:5",
+   "const unsigned long long *",
+   "unsigned long long *"
+  ],
+  [
+   "manifold_meshgl64_w_options:7",
+   "const ManifoldMeshGL64Options *",
+   "ManifoldMeshGL64Options *"
+  ],
+  [
+   "manifold_meshgl64_w_tangents:1",
+   "ManifoldMeshGL64 *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl64_w_tangents:2",
+   "const double *",
+   "double *"
+  ],
+  [
+   "manifold_meshgl64_w_tangents:5",
+   "const unsigned long *",
+   "unsigned long *"
+  ],
+  [
+   "manifold_meshgl64_w_tangents:5",
+   "const unsigned long long *",
+   "unsigned long long *"
+  ],
+  [
+   "manifold_meshgl64_w_tangents:7",
+   "const double *",
+   "double *"
+  ],
+  [
+   "manifold_meshgl64_write_obj:1",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_meshgl:1",
+   "ManifoldMeshGL *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl:2",
+   "const float *",
+   "float *"
+  ],
+  [
+   "manifold_meshgl:5",
+   "const unsigned int *",
+   "unsigned int *"
+  ],
+  [
+   "manifold_meshgl_backside:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_copy:1",
+   "ManifoldMeshGL *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_copy:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_face_id:1",
+   "unsigned int *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_face_id:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_face_id_length:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_halfedge_tangent:1",
+   "float *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_halfedge_tangent:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_has_normals:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_merge:1",
+   "ManifoldMeshGL *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_merge:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_merge_from_vert:1",
+   "unsigned int *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_merge_from_vert:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_merge_length:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_merge_to_vert:1",
+   "unsigned int *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_merge_to_vert:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_num_prop:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_num_run:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_num_tri:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_num_vert:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_run_flags:1",
+   "unsigned char *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_run_flags:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_run_flags_length:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_run_index:1",
+   "unsigned int *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_run_index:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_run_index_length:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_run_original_id:1",
+   "unsigned int *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_run_original_id:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_run_original_id_length:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_run_transform:1",
+   "float *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_run_transform:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_run_transform_length:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_tangent_length:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_tolerance:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_tri_length:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_tri_verts:1",
+   "unsigned int *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_tri_verts:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_vert_properties:1",
+   "float *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_vert_properties:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_vert_properties_length:1",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_meshgl_w_options:1",
+   "ManifoldMeshGL *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_w_options:2",
+   "const float *",
+   "float *"
+  ],
+  [
+   "manifold_meshgl_w_options:5",
+   "const unsigned int *",
+   "unsigned int *"
+  ],
+  [
+   "manifold_meshgl_w_options:7",
+   "const ManifoldMeshGLOptions *",
+   "ManifoldMeshGLOptions *"
+  ],
+  [
+   "manifold_meshgl_w_tangents:1",
+   "ManifoldMeshGL *",
+   "void *"
+  ],
+  [
+   "manifold_meshgl_w_tangents:2",
+   "const float *",
+   "float *"
+  ],
+  [
+   "manifold_meshgl_w_tangents:5",
+   "const unsigned int *",
+   "unsigned int *"
+  ],
+  [
+   "manifold_meshgl_w_tangents:7",
+   "const float *",
+   "float *"
+  ],
+  [
+   "manifold_min_gap:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_min_gap:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_minkowski_difference:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_minkowski_difference:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_minkowski_difference:3",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_minkowski_sum:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_minkowski_sum:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_minkowski_sum:3",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_mirror:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_mirror:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_num_edge:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_num_prop:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_num_prop_vert:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_num_tri:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_num_vert:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_of_meshgl64:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_of_meshgl64:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_of_meshgl:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_of_meshgl:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_original_id:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_polygons:1",
+   "ManifoldPolygons *",
+   "void *"
+  ],
+  [
+   "manifold_polygons:2",
+   "ManifoldSimplePolygon * const *",
+   "ManifoldSimplePolygon * *"
+  ],
+  [
+   "manifold_polygons_get_point:1",
+   "const ManifoldPolygons *",
+   "ManifoldPolygons *"
+  ],
+  [
+   "manifold_polygons_get_simple:1",
+   "ManifoldSimplePolygon *",
+   "void *"
+  ],
+  [
+   "manifold_polygons_get_simple:2",
+   "const ManifoldPolygons *",
+   "ManifoldPolygons *"
+  ],
+  [
+   "manifold_polygons_length:1",
+   "const ManifoldPolygons *",
+   "ManifoldPolygons *"
+  ],
+  [
+   "manifold_polygons_simple_length:1",
+   "const ManifoldPolygons *",
+   "ManifoldPolygons *"
+  ],
+  [
+   "manifold_project:1",
+   "ManifoldPolygons *",
+   "void *"
+  ],
+  [
+   "manifold_project:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_ray_cast:1",
+   "ManifoldRayHitVec *",
+   "void *"
+  ],
+  [
+   "manifold_ray_cast:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_ray_hit_vec_get:1",
+   "const ManifoldRayHitVec *",
+   "ManifoldRayHitVec *"
+  ],
+  [
+   "manifold_ray_hit_vec_length:1",
+   "const ManifoldRayHitVec *",
+   "ManifoldRayHitVec *"
+  ],
+  [
+   "manifold_read_obj:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_read_obj:2",
+   "const char *",
+   "char *"
+  ],
+  [
+   "manifold_rect:1",
+   "ManifoldRect *",
+   "void *"
+  ],
+  [
+   "manifold_rect_center:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_contains_pt:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_contains_rect:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_contains_rect:2",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_dimensions:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_does_overlap_rect:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_does_overlap_rect:2",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_is_empty:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_is_finite:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_max:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_min:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_mul:1",
+   "ManifoldRect *",
+   "void *"
+  ],
+  [
+   "manifold_rect_mul:2",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_scale:1",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_transform:1",
+   "ManifoldRect *",
+   "void *"
+  ],
+  [
+   "manifold_rect_transform:2",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_translate:1",
+   "ManifoldRect *",
+   "void *"
+  ],
+  [
+   "manifold_rect_translate:2",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_union:1",
+   "ManifoldRect *",
+   "void *"
+  ],
+  [
+   "manifold_rect_union:2",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_rect_union:3",
+   "const ManifoldRect *",
+   "ManifoldRect *"
+  ],
+  [
+   "manifold_refine:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_refine:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_refine_to_length:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_refine_to_length:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_refine_to_tolerance:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_refine_to_tolerance:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_revolve:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_revolve:2",
+   "const ManifoldPolygons *",
+   "ManifoldPolygons *"
+  ],
+  [
+   "manifold_rotate:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_rotate:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_scale:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_scale:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_set_properties:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_set_properties:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_set_tolerance:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_set_tolerance:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_simple_polygon:1",
+   "ManifoldSimplePolygon *",
+   "void *"
+  ],
+  [
+   "manifold_simple_polygon:2",
+   "const ManifoldVec2 *",
+   "ManifoldVec2 *"
+  ],
+  [
+   "manifold_simple_polygon_get_point:1",
+   "const ManifoldSimplePolygon *",
+   "ManifoldSimplePolygon *"
+  ],
+  [
+   "manifold_simple_polygon_length:1",
+   "const ManifoldSimplePolygon *",
+   "ManifoldSimplePolygon *"
+  ],
+  [
+   "manifold_simplify:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_simplify:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_slice:1",
+   "ManifoldPolygons *",
+   "void *"
+  ],
+  [
+   "manifold_slice:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_smooth64:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_smooth64:2",
+   "const ManifoldMeshGL64 *",
+   "ManifoldMeshGL64 *"
+  ],
+  [
+   "manifold_smooth64:3",
+   "const unsigned int *",
+   "unsigned int *"
+  ],
+  [
+   "manifold_smooth64:3",
+   "const unsigned long *",
+   "unsigned long *"
+  ],
+  [
+   "manifold_smooth64:3",
+   "const unsigned long long *",
+   "unsigned long long *"
+  ],
+  [
+   "manifold_smooth64:4",
+   "const double *",
+   "double *"
+  ],
+  [
+   "manifold_smooth:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_smooth:2",
+   "const ManifoldMeshGL *",
+   "ManifoldMeshGL *"
+  ],
+  [
+   "manifold_smooth:3",
+   "const unsigned int *",
+   "unsigned int *"
+  ],
+  [
+   "manifold_smooth:3",
+   "const unsigned long *",
+   "unsigned long *"
+  ],
+  [
+   "manifold_smooth:3",
+   "const unsigned long long *",
+   "unsigned long long *"
+  ],
+  [
+   "manifold_smooth:4",
+   "const double *",
+   "double *"
+  ],
+  [
+   "manifold_smooth_by_normals:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_smooth_by_normals:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_smooth_out:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_smooth_out:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_sphere:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_split:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_split:2",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_split:3",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_split:4",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_split_by_plane:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_split_by_plane:2",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_split_by_plane:3",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_status:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_surface_area:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_tetrahedron:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_transform:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_transform:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_translate:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_translate:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_triangulate:1",
+   "ManifoldTriangulation *",
+   "void *"
+  ],
+  [
+   "manifold_triangulate:2",
+   "const ManifoldPolygons *",
+   "ManifoldPolygons *"
+  ],
+  [
+   "manifold_triangulation_num_tri:1",
+   "const ManifoldTriangulation *",
+   "ManifoldTriangulation *"
+  ],
+  [
+   "manifold_triangulation_tri_verts:1",
+   "int *",
+   "void *"
+  ],
+  [
+   "manifold_triangulation_tri_verts:2",
+   "const ManifoldTriangulation *",
+   "ManifoldTriangulation *"
+  ],
+  [
+   "manifold_trim_by_plane:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_trim_by_plane:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_union:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_union:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_union:3",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_volume:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_warp:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_warp:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_with_context:1",
+   "ManifoldManifold *",
+   "void *"
+  ],
+  [
+   "manifold_with_context:2",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ],
+  [
+   "manifold_write_obj:1",
+   "const ManifoldManifold *",
+   "ManifoldManifold *"
+  ]
+ ]
+}
