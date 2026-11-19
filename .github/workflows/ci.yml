@@ -27,7 +27,11 @@ jobs:
 
   api-coverage:
     name: API coverage
-    runs-on: ubuntu-latest
+    # Pinned image and clang for check-abi.py, which reads clang's JSON AST:
+    # its shape has changed between clang versions.
+    runs-on: ubuntu-24.04
+    env:
+      CLANG: clang-18
     steps:
       - uses: actions/checkout@v7
       # Catches drift in both directions: a function bound in the sys crate but
@@ -37,6 +41,43 @@ jobs:
       # for four releases). The second check fetches the pinned manifoldc.h, so
       # this job needs network; MANIFOLD_CSG_HEADER overrides it with a local file.
       - run: python3 scripts/check-api-coverage.py
+      # The name check above cannot see a same-name change (a retyped
+      # parameter, a changed callback, a new struct field), which would compile
+      # on our side and break at runtime. check-abi.py compares types from
+      # clang ASTs of the header and of cbindgen's rendering of our
+      # declarations, plus their layouts, on four target data models. main's
+      # 3.5.x declarations deliberately differ from their header in exact,
+      # listed ways (scripts/abi/baseline-main.json); next matches its header
+      # apart from scripts/abi/exceptions.json. The self-test re-proves the
+      # check still catches a few deliberate breaks.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cbindgen@0.29.4
+      - name: ABI check
+        run: |
+          $CLANG --version | head -1
+          branch="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
+          args=()
+          if [ "$branch" = main ]; then
+            args=(--baseline scripts/abi/baseline-main.json)
+          fi
+          python3 scripts/check-abi.py "${args[@]}"
+          python3 scripts/abi/selftest.py "${args[@]}"
+      # PRs into main only exercise the baseline mode above. Run this
+      # branch's checker in strict mode against next's tree too, so a change
+      # to the checker cannot break next's check unseen. next keeps its own
+      # declarations; only the checker files are overlaid.
+      - name: ABI check against next (strict mode)
+        if: (github.base_ref || github.ref_name) == 'main'
+        run: |
+          git fetch -q --depth=1 origin next:refs/remotes/origin/next
+          git worktree add -q --detach "$RUNNER_TEMP/next" origin/next
+          mkdir -p "$RUNNER_TEMP/next/scripts/abi"
+          cp scripts/check-abi.py "$RUNNER_TEMP/next/scripts/"
+          cp scripts/abi/cbindgen.toml scripts/abi/exceptions.json scripts/abi/selftest.py "$RUNNER_TEMP/next/scripts/abi/"
+          cd "$RUNNER_TEMP/next"
+          python3 scripts/check-abi.py
+          python3 scripts/abi/selftest.py
       # upstream-watch.yml only runs weekly, so without this a syntax error in
       # its script would ship and first surface as a red job days later.
       - run: python3 -m py_compile scripts/check-upstream.py

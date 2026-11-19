@@ -38,10 +38,9 @@ Nothing should be publishable from `next` by accident. A `-dev` version doesn't 
 
 | Lane | On `next` |
 |---|---|
-| Format, Docs, Deny, MSRV | required from the start. These build but don't link test binaries, so they pass while the port is partway done. |
-| Linux, Linux (no TBB), macOS, Windows | run, but not required until port step 2 is done. Until then, the test binaries reference `manifold_alloc_*` symbols that upstream removed and fail to link. The PR that finishes step 2 adds them to the `next` ruleset's required checks, which is a settings change at that point. |
-| Wasm32 (unknown-unknown) | runs, but not required until the wasm-uu catch-up (port step 5) is done. Expect it red until then. Making it required is a ruleset change at that point. |
-| Emscripten (wasm32) | not required while it's red, required once it builds |
+| Format, Docs, Deny, MSRV | required from the start |
+| Linux, Linux (no TBB), macOS, Windows, Emscripten (wasm32), API coverage | required since the C API port (#71-#74) finished. Before that the test binaries referenced removed symbols and could not link. |
+| Wasm32 (unknown-unknown) | required since the wasm-uu catch-up (#77, wasm-cxx-shim v0.6.0). |
 | Nix (offline / prebuilt manifold) | skips itself off `main` while the pin isn't a release tag, because `flake.nix` fetches `pinnedSrc` by tag. It runs again once `next` pins a 4.0 tag. On `main` a SHA pin still fails it. |
 | Semver | skips itself whenever the workspace version is a pre-release, as it is on `next`. Every port PR is breaking on purpose, and it compares against 0.4.x on crates.io. The publish guard keeps pre-release versions off `main`, so it always runs there. |
 | API coverage | runs. It fetches `manifoldc.h` at the pinned ref, so a SHA works. |
@@ -73,29 +72,22 @@ While the port is partway done, `next` doesn't pass at its own pin either, so th
 
 ## Port order
 
-Each step is one or more PRs into `next`, and each leaves the branch building:
+Each step is one or more PRs into `next`, and each leaves the branch building.
 
-1. **Sys declarations.**
-   - Remove the 48 functions, drop the `mem` parameters, change the `*mut` inputs to `*const`, and add the 8 new functions.
-   - `check-api-coverage.py` should pass after this.
-2. **Safe crate memory model.**
-   - Replace each alloc-then-construct pair with a direct call plus a null check, in a shared helper. Do it one module at a time if that reviews better.
-   - The FFI safety rules in CLAUDE.md about pairing `manifold_alloc_*` with deletes become rules about null-checking returned pointers. Update them.
-   - Tests link again once this step is done. Make Linux, Linux (no TBB), macOS and Windows required on `next` then.
-3. **Safe API breaks.**
-   - Tolerance becomes relative precision, and the removed smoothing calls go.
-   - Expose winding number, `manifold_version` and the fill-rule cross-section constructors.
-   - Start `MIGRATION_0.4_TO_0.5.md` here and extend it in every later step.
-4. **Test drift.**
-   - Update expected numbers that changed because of upstream kernel changes (boolean tie-breaking, degenerate removal).
-   - Note each one in the CHANGELOG's unreleased section. They compile cleanly but change output.
-5. **wasm-uu catch-up.** This can run alongside steps 2-4, because it is mostly C++ build work.
-   - **Ours:** `wasm32-uu/CMakeLists.txt` makes its default target depend on `Clipper2`, and `build/wasm.rs` links `libClipper2.a`. Both go.
-   - **Shim:** `WasmCxxShimManifold.cmake` sets `CLIPPER2_*` options and `-DCLIPPER2_MAX_DECIMAL_PRECISION=8`. Those are harmless when nothing reads them, but its header comment promises a `Clipper2` target, so that needs a fix.
-   - **Shim:** the unknown is whether master's manifold compiles against the shim's libc++/libc surface. Run the shim's own `manifold` CI job with `MANIFOLD_GIT_TAG` set to our `next` pin, and fill gaps there.
-   - **Shim release:** cut one (v0.6.0) whose tested pin is our `next` pin or later. Bump `WASM_CXX_SHIM_TAG` on `next`, and add the lane to the `next` ruleset's required checks.
-   - `main` requires this lane, so the final merge can't land without this step.
-6. **Docs.** Update `API_COVERAGE.md`, CLAUDE.md, and the README dependency snippet.
+1. **C API port (done, #71-#74).** The sys declarations and the safe crate's memory model could not land separately, because each signature change breaks its callers. So they went in one module at a time, each PR regenerating its sys declarations from the pinned header together with the safe callers:
+   - #71: BoundingBox, Rect, triangulation, ExecutionContext, ray casting, plus the `owned()` helper.
+   - #72: MeshGL and MeshGL64, plus `copy_out()` for borrowed data getters.
+   - #73: CrossSection and the polygon helpers. `FillRule::Negative` and `CrossSection::compose` went with upstream.
+   - #74: Manifold. The removed smoothing and tolerance APIs went, `as_original` took an `id`, and `winding_number`, relative precision and `manifold_version` arrived. Tests linked again and all passed.
+
+   The safe API breaks the plan had as a separate step landed with their modules, along with `MIGRATION_0.4.2_TO_0.5.0.md`. The tests turned up two upstream behavior changes, and both are in the CHANGELOG: primitives start with original ID 0, and `Manifold::compose` is a union.
+2. **Test drift.** None so far beyond the two behavior changes above. Re-check after each pin move.
+   - Update expected numbers that change because of upstream kernel changes (boolean tie-breaking, degenerate removal).
+   - Note each one in the CHANGELOG's unreleased section and the migration guide. They compile cleanly but change output.
+3. **wasm-uu catch-up (done, #77).** wasm-cxx-shim v0.6.0 tests the `next` pin itself. Building manifold master against the shim needed `frexp`/`fmod` in its libm, a fake advancing `steady_clock::now()`, `__throw_system_error` and an adapted `std::pmr` pool in the reference `libcxx-extras.cpp`, and a `<mutex>` stub that reuses libc++'s own lock types; both repos dropped Clipper2 from the wasm build. Codex adversarial reviews of the shim change and of `main...next` found real issues, fixed in the shim PR and in #76.
+   - The fake clock exists only because upstream's `src/boolean2_diagnostics.h` names `std::chrono::steady_clock` in every build. elalish/manifold#1963 gates that timing behind `MANIFOLD_DEBUG || MANIFOLD_TIMING`. Once it lands and the pin moves past it, drop the fake clock and turn `_LIBCPP_HAS_MONOTONIC_CLOCK` back off, in the shim's reference files and our `wasm32-uu/` copies.
+   - The vendored `wasm32-uu/` files are copies of the shim's `test/manifold-link/` references; re-copy them on every `WASM_CXX_SHIM_TAG` bump (see CLAUDE.md "Pin / shim follow-ups").
+4. **Docs.** `API_COVERAGE.md` and the CLAUDE.md FFI rules were updated with the C API port. The README dependency snippet is left for the exit.
 
 ## Exit
 
