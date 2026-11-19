@@ -106,16 +106,10 @@ jobs:
           tool: cbindgen@0.29.4
 
       # Same-name signature or layout changes upstream, which the coverage
-      # check cannot see. Fails on master before a pin move would. The script
-      # lives on main and reaches next with the weekly sync, so skip (loudly)
-      # until it is there.
+      # check cannot see. Fails on master before a pin move would.
       - name: ABI check at master
         if: ${{ !cancelled() && steps.next.outputs.exists == 'true' }}
         run: |
-          if [ ! -f scripts/check-abi.py ]; then
-            echo "::warning::next has no scripts/check-abi.py yet (it arrives with the next main -> next sync); skipping"
-            exit 0
-          fi
           CLANG=clang-18 python3 scripts/check-abi.py
           # And that the checker still catches deliberate breaks against
           # master's header.
