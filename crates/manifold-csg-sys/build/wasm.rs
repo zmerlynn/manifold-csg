@@ -28,10 +28,9 @@ use std::{
 // build.rs instead of a cmake file).
 
 const WASM_CXX_SHIM_GIT: &str = "https://github.com/zmerlynn/wasm-cxx-shim.git";
-// v0.7.0's tested pin is manifold master 74493803 (pre-4.0), the same commit
-// `next` pins, so the wasm-uu lane builds exactly the shim's tested pin.
-// Build.rs still passes `-DMANIFOLD_GIT_TAG=<our pin>` (below), so a pin move
-// on our side is what the lane builds, tested by the shim or not.
+// v0.7.0's tested pin is manifold master 74493803 (pre-4.0). `next` pins a
+// later master commit, and build.rs passes `-DMANIFOLD_GIT_TAG=<our pin>`
+// (below), so the wasm-uu lane builds our pin, tested by the shim or not.
 //
 // The shim's helper ships no carry-patches for default-pin builds (it passes
 // GIT_TAG straight to FetchContent, and patches only arrive via the caller's

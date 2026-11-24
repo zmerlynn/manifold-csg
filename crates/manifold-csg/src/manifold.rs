@@ -27,6 +27,7 @@ use std::sync::Mutex;
 use crate::bounding_box::BoundingBox;
 use crate::cross_section::{CrossSection, FillRule};
 use crate::mesh::{MeshGL, MeshGL64};
+use crate::quality::CircularQuality;
 use crate::types::{CsgError, OpType, PanicPayload, store_panic, take_stored_panic};
 
 /// A safe wrapper around a manifold3d Manifold object.
@@ -255,19 +256,6 @@ impl Manifold {
         MeshGL64 { ptr: meshgl }
     }
 
-    /// Extract mesh data as f64 with normals baked into vertex properties.
-    ///
-    /// Returns the full [`MeshGL64`] container. See
-    /// [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) for the
-    /// `normal_idx` semantics.
-    #[must_use]
-    pub fn to_meshgl64_with_normals(&self, normal_idx: i32) -> MeshGL64 {
-        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
-        let meshgl = owned(unsafe { manifold_get_meshgl64_w_normals(self.ptr, normal_idx) });
-
-        MeshGL64 { ptr: meshgl }
-    }
-
     /// Extract mesh data as f64 vertex properties and u64 triangle indices.
     ///
     /// Returns `(vert_props, n_props, tri_indices)`.
@@ -286,35 +274,6 @@ impl Manifold {
         (vp_buf, n_props, tri_buf)
     }
 
-    /// Extract mesh data as f64 with normals baked into vertex properties.
-    ///
-    /// The normals are stored starting at property index `normal_idx` (3
-    /// consecutive f64 values per vertex: nx, ny, nz). If the mesh doesn't
-    /// already have properties at that index, they are added.
-    ///
-    /// Returns `(vert_props, n_props, tri_indices)`.
-    #[must_use]
-    pub fn to_mesh_f64_with_normals(&self, normal_idx: i32) -> (Vec<f64>, usize, Vec<u64>) {
-        let meshgl = self.to_meshgl64_with_normals(normal_idx);
-        let n_props = meshgl.num_prop();
-        (meshgl.vert_properties(), n_props, meshgl.tri_verts())
-    }
-
-    /// Extract mesh data as f32 with normals baked into vertex properties.
-    ///
-    /// **Lossy.** The kernel holds geometry in f64; this narrows every
-    /// coordinate to f32 on the way out. Prefer
-    /// [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) unless a
-    /// downstream consumer (GPU buffer, f32 file format) requires f32.
-    ///
-    /// See [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) for details.
-    #[must_use]
-    pub fn to_mesh_f32_with_normals(&self, normal_idx: i32) -> (Vec<f32>, usize, Vec<u32>) {
-        let meshgl = self.to_meshgl_with_normals(normal_idx);
-        let n_props = meshgl.num_prop();
-        (meshgl.vert_properties(), n_props, meshgl.tri_verts())
-    }
-
     /// Extract mesh data as f32 vertex properties and u32 triangle indices.
     ///
     /// Returns the full [`MeshGL`] container, including run metadata, face IDs,
@@ -328,24 +287,6 @@ impl Manifold {
     pub fn to_meshgl(&self) -> MeshGL {
         // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
         let meshgl = owned(unsafe { manifold_get_meshgl(self.ptr) });
-
-        MeshGL { ptr: meshgl }
-    }
-
-    /// Extract mesh data as f32 with normals baked into vertex properties.
-    ///
-    /// Returns the full [`MeshGL`] container. See
-    /// [`to_mesh_f64_with_normals`](Self::to_mesh_f64_with_normals) for the
-    /// `normal_idx` semantics.
-    ///
-    /// **Lossy.** The kernel holds geometry in f64; this narrows every
-    /// coordinate to f32 on the way out. Prefer
-    /// [`to_meshgl64_with_normals`](Self::to_meshgl64_with_normals) unless a
-    /// downstream consumer (GPU buffer, f32 file format) requires f32.
-    #[must_use]
-    pub fn to_meshgl_with_normals(&self, normal_idx: i32) -> MeshGL {
-        // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
-        let meshgl = owned(unsafe { manifold_get_meshgl_w_normals(self.ptr, normal_idx) });
 
         MeshGL { ptr: meshgl }
     }
@@ -389,37 +330,33 @@ impl Manifold {
     ///
     /// If `center` is true, centered at the origin. Otherwise the base
     /// is at z=0 and spans `[0, height]`.
+    ///
+    /// `quality` is a [`CircularQuality`] or a plain segment count (`0` for
+    /// the default quality).
     #[must_use]
     pub fn cylinder(
         height: f64,
         radius_low: f64,
         radius_high: f64,
-        circular_segments: i32,
+        quality: impl Into<CircularQuality>,
         center: bool,
     ) -> Self {
-        let ptr = with_quality_lock_if_auto_segments(circular_segments, || {
-            // SAFETY: takes plain values and returns a new handle.
-            owned(unsafe {
-                manifold_cylinder(
-                    height,
-                    radius_low,
-                    radius_high,
-                    circular_segments,
-                    i32::from(center),
-                )
-            })
-        });
-        Self { ptr }
+        let q = quality.into().to_sys();
+        // SAFETY: &q is valid for the call, and the call returns a new handle.
+        Self::from_handle(unsafe {
+            manifold_cylinder(height, radius_low, radius_high, &q, i32::from(center))
+        })
     }
 
     /// Sphere centred at the origin.
+    ///
+    /// `quality` is a [`CircularQuality`] or a plain segment count (`0` for
+    /// the default quality).
     #[must_use]
-    pub fn sphere(radius: f64, circular_segments: i32) -> Self {
-        let ptr = with_quality_lock_if_auto_segments(circular_segments, || {
-            // SAFETY: takes plain values and returns a new handle.
-            owned(unsafe { manifold_sphere(radius, circular_segments) })
-        });
-        Self { ptr }
+    pub fn sphere(radius: f64, quality: impl Into<CircularQuality>) -> Self {
+        let q = quality.into().to_sys();
+        // SAFETY: &q is valid for the call, and the call returns a new handle.
+        Self::from_handle(unsafe { manifold_sphere(radius, &q) })
     }
 
     /// Empty manifold (identity for union).
@@ -817,12 +754,17 @@ impl Manifold {
 
     // ── Smoothing ───────────────────────────────────────────────────
 
-    /// Smooth the manifold by converting sharp edges to smooth curves,
-    /// using vertex normals at the given property index.
+    /// Smooth the manifold by converting sharp edges to smooth curves, using
+    /// the vertex normals in MeshGL property channels 3-5 (see
+    /// [`calculate_normals`](Self::calculate_normals)).
+    ///
+    /// Zero-length normals count as missing and defer to their neighbors, and
+    /// fewer than three properties count as missing normals. Where normals
+    /// disagree at a vertex, the edge stays sharp.
     #[must_use]
-    pub fn smooth_by_normals(&self, normal_idx: i32) -> Self {
+    pub fn smooth_by_normals(&self) -> Self {
         // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
-        Self::from_handle(unsafe { manifold_smooth_by_normals(self.ptr, normal_idx) })
+        Self::from_handle(unsafe { manifold_smooth_by_normals(self.ptr) })
     }
 
     // ── Additional constructors ─────────────────────────────────────
@@ -842,18 +784,23 @@ impl Manifold {
     /// revolution. A zero or non-finite angle, or a cross-section with
     /// nothing at positive X, gives an invalid manifold (check
     /// [`status`](Self::status)).
+    ///
+    /// `quality` is a [`CircularQuality`] or a plain segment count (`0` for
+    /// the default quality). The count is for a full circle, and a partial
+    /// revolve uses the matching fraction of it, rounded up. Use
+    /// [`CircularQuality::for_divisions`] to ask for a number of divisions
+    /// across the arc.
     #[must_use]
     pub fn revolve(
         cross_section: &CrossSection,
-        circular_segments: i32,
+        quality: impl Into<CircularQuality>,
         revolve_degrees: f64,
     ) -> Self {
+        let q = quality.into().to_sys();
         // SAFETY: cross_section.ptr is valid for the call, and the call returns a new handle.
         let poly_ptr = owned(unsafe { manifold_cross_section_to_polygons(cross_section.ptr) });
-        let ptr = with_quality_lock_if_auto_segments(circular_segments, || {
-            // SAFETY: poly_ptr is valid for the call, and the call returns a new handle.
-            owned(unsafe { manifold_revolve(poly_ptr, circular_segments, revolve_degrees) })
-        });
+        // SAFETY: poly_ptr and &q are valid for the call, and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_revolve(poly_ptr, &q, revolve_degrees) });
         // SAFETY: poly_ptr is valid and no longer needed.
         unsafe { manifold_delete_polygons(poly_ptr) };
         Self { ptr }
@@ -877,29 +824,6 @@ impl Manifold {
         });
         // SAFETY: poly_ptr is valid and no longer needed.
         unsafe { manifold_delete_polygons(poly_ptr) };
-        Self { ptr }
-    }
-
-    /// Combine multiple manifolds into one.
-    ///
-    /// Deprecated upstream: on upstream master (pre-4.0) this is a union
-    /// ([`batch_union`](Self::batch_union)), not a purely topological combine,
-    /// so overlapping inputs merge instead of overlapping.
-    #[must_use]
-    #[deprecated(note = "upstream made compose a union; use batch_union")]
-    pub fn compose(manifolds: &[Self]) -> Self {
-        // SAFETY: takes no arguments and returns a new handle.
-        let vec_ptr = owned(unsafe { manifold_manifold_empty_vec() });
-        for m in manifolds {
-            // SAFETY: vec_ptr and m.ptr are valid. push_back copies the
-            // manifold into the vector, so m keeps its own handle.
-            unsafe { manifold_manifold_vec_push_back(vec_ptr, m.ptr) };
-        }
-        // SAFETY: vec_ptr is valid until it is deleted below, and the call
-        // returns a new handle.
-        let ptr = owned(unsafe { manifold_compose(vec_ptr) });
-        // SAFETY: vec_ptr is valid and no longer needed.
-        unsafe { manifold_delete_manifold_vec(vec_ptr) };
         Self { ptr }
     }
 
@@ -949,7 +873,8 @@ impl Manifold {
         unsafe { manifold_num_edge(self.ptr) }
     }
 
-    /// Number of properties per vertex.
+    /// Number of properties per vertex, not counting position. A mesh from
+    /// [`to_meshgl64`](Self::to_meshgl64) has this many plus 3.
     #[must_use]
     pub fn num_prop(&self) -> usize {
         // SAFETY: self.ptr is valid (invariant).
@@ -1095,8 +1020,8 @@ impl Manifold {
     /// Cast a ray against this manifold, returning all intersection hits.
     ///
     /// The ray goes from `origin` to `end`. Returns a list of [`RayHit`](crate::RayHit)
-    /// results, each containing the face ID, distance, hit position, and
-    /// surface normal.
+    /// results, each containing the original and face IDs, the parametric
+    /// distance, the hit position and the surface normal.
     #[must_use]
     pub fn ray_cast(&self, origin: [f64; 3], end: [f64; 3]) -> Vec<crate::RayHit> {
         /// Owns the hit vector so it is freed on every path out, including an
@@ -1127,6 +1052,7 @@ impl Manifold {
                 // SAFETY: hits.0 is valid and i is in range (i < len).
                 let hit = unsafe { manifold_ray_hit_vec_get(hits.0, i) };
                 crate::RayHit {
+                    original_id: hit.original_id,
                     face_id: hit.face_id,
                     distance: hit.distance,
                     position: [hit.position.x, hit.position.y, hit.position.z],
@@ -1137,15 +1063,23 @@ impl Manifold {
             .collect()
     }
 
-    /// Calculate normals and store them as vertex properties at `normal_idx`.
+    /// Calculate vertex normals and store them in MeshGL property channels
+    /// 3-5: the first three properties after position, so
+    /// [`num_prop`](Self::num_prop), which does not count position, is at
+    /// least 3.
     ///
-    /// Edges sharper than `min_sharp_angle` (degrees) get sharp normals.
+    /// Edges sharper than `min_sharp_angle` (degrees) stay sharp, with
+    /// different normals on each side. Upstream's default is `52.5`. The
+    /// normals follow later transforms and booleans, and
+    /// [`to_meshgl64`](Self::to_meshgl64) / [`to_meshgl`](Self::to_meshgl)
+    /// return them in world space, flagged per run (see
+    /// [`MeshGL64::has_normals`](crate::MeshGL64::has_normals)). Normals
+    /// written with [`set_properties`](Self::set_properties) are not tracked
+    /// this way.
     #[must_use]
-    pub fn calculate_normals(&self, normal_idx: i32, min_sharp_angle: f64) -> Self {
+    pub fn calculate_normals(&self, min_sharp_angle: f64) -> Self {
         // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
-        Self::from_handle(unsafe {
-            manifold_calculate_normals(self.ptr, normal_idx, min_sharp_angle)
-        })
+        Self::from_handle(unsafe { manifold_calculate_normals(self.ptr, min_sharp_angle) })
     }
 
     /// Calculate Gaussian and mean curvature and store as vertex properties.
@@ -1804,82 +1738,6 @@ impl Manifold {
             .collect();
         (vertices, faces)
     }
-}
-
-// ── Quality globals ─────────────────────────────────────────────────────
-
-/// Guard for global quality parameters. The C API's global state is not
-/// thread-safe, so we serialize access from the Rust side.
-static QUALITY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-pub(crate) fn with_quality_lock<T>(f: impl FnOnce() -> T) -> T {
-    let _guard = QUALITY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    f()
-}
-
-pub(crate) fn with_quality_lock_if_auto_segments<T>(segments: i32, f: impl FnOnce() -> T) -> T {
-    if segments <= 0 {
-        with_quality_lock(f)
-    } else {
-        f()
-    }
-}
-
-/// Set the minimum circular angle (degrees) for tessellation.
-///
-/// This modifies global state shared by all manifold operations in the
-/// current process.
-pub fn set_min_circular_angle(degrees: f64) {
-    with_quality_lock(|| {
-        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
-        unsafe { manifold_set_min_circular_angle(degrees) };
-    });
-}
-
-/// Set the minimum circular edge length for tessellation.
-///
-/// This modifies global state shared by all manifold operations in the
-/// current process.
-pub fn set_min_circular_edge_length(length: f64) {
-    with_quality_lock(|| {
-        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
-        unsafe { manifold_set_min_circular_edge_length(length) };
-    });
-}
-
-/// Set the number of circular segments for tessellation.
-///
-/// This modifies global state shared by all manifold operations in the
-/// current process.
-pub fn set_circular_segments(number: i32) {
-    with_quality_lock(|| {
-        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
-        unsafe { manifold_set_circular_segments(number) };
-    });
-}
-
-/// Reset circular tessellation parameters to defaults.
-///
-/// Despite the name, upstream resets every quality global, so this also puts
-/// [`set_relative_precision`] back to its `1e-12` default. Set the precision
-/// again afterwards if you changed it.
-///
-/// This modifies global state shared by all manifold operations in the
-/// current process.
-pub fn reset_to_circular_defaults() {
-    with_quality_lock(|| {
-        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
-        unsafe { manifold_reset_to_circular_defaults() };
-    });
-}
-
-/// Get the number of circular segments for a given radius.
-#[must_use]
-pub fn get_circular_segments(radius: f64) -> i32 {
-    with_quality_lock(|| {
-        // SAFETY: Serialized by QUALITY_LOCK. No pointer invariants.
-        unsafe { manifold_get_circular_segments(radius) }
-    })
 }
 
 /// Reserve a block of `n` original IDs for use with manifold tracking.

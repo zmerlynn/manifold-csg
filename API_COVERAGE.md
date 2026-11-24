@@ -27,7 +27,6 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_of_meshgl64` | [`Manifold::from_meshgl64`](crates/manifold-csg/src/manifold.rs), [`from_mesh_f64`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_extrude` | [`Manifold::extrude`](crates/manifold-csg/src/manifold.rs), [`extrude_with_options`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_revolve` | [`Manifold::revolve`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_compose` | [`Manifold::compose`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_copy` | [`Clone` impl](crates/manifold-csg/src/manifold.rs) |
 | `manifold_level_set` | [`Manifold::from_sdf`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_read_obj` | [`Manifold::from_obj`](crates/manifold-csg/src/manifold.rs) |
@@ -102,8 +101,6 @@ polygon helpers) are used internally and don't need direct safe wrappers.
 | `manifold_get_meshgl` | [`Manifold::to_meshgl`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f32`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_get_meshgl64` | [`Manifold::to_meshgl64`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f64`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_write_obj` | [`Manifold::to_obj`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_get_meshgl_w_normals` | [`Manifold::to_meshgl_with_normals`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f32_with_normals`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_get_meshgl64_w_normals` | [`Manifold::to_meshgl64_with_normals`](crates/manifold-csg/src/manifold.rs), [`to_mesh_f64_with_normals`](crates/manifold-csg/src/manifold.rs) |
 
 ## Ray Casting
 
@@ -152,7 +149,7 @@ and frees it, so the vector accessors are internal.
 | `manifold_cross_section_mirror` | [`CrossSection::mirror`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_offset` | [`CrossSection::offset`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_simplify` | [`CrossSection::simplify`](crates/manifold-csg/src/cross_section.rs) |
-| `manifold_cross_section_warp_context` | [`CrossSection::warp`](crates/manifold-csg/src/cross_section.rs) |
+| `manifold_cross_section_warp` | [`CrossSection::warp`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_area` | [`CrossSection::area`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_num_vert` | [`CrossSection::num_vert`](crates/manifold-csg/src/cross_section.rs) |
 | `manifold_cross_section_num_contour` | [`CrossSection::num_contour`](crates/manifold-csg/src/cross_section.rs) |
@@ -236,15 +233,16 @@ and frees it, so the vector accessors are internal.
 | `manifold_triangulation_num_tri` | Internal |
 | `manifold_triangulation_tri_verts` | Internal |
 
-## Quality Globals
+## Quality and Globals
+
+Circular quality is per call since manifold 4.0: the circular constructors take
+a [`CircularQuality`](crates/manifold-csg/src/quality.rs) (or a plain segment
+count), and upstream removed the global circular setters.
 
 | C API function | Safe wrapper |
 |---|---|
-| `manifold_set_min_circular_angle` | [`set_min_circular_angle`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_set_min_circular_edge_length` | [`set_min_circular_edge_length`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_set_circular_segments` | [`set_circular_segments`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_reset_to_circular_defaults` | [`reset_to_circular_defaults`](crates/manifold-csg/src/manifold.rs) |
-| `manifold_get_circular_segments` | [`get_circular_segments`](crates/manifold-csg/src/manifold.rs) |
+| `manifold_circular_quality_segments_for` | [`CircularQuality::segments_for`](crates/manifold-csg/src/quality.rs) |
+| `manifold_circular_quality_for_divisions` | [`CircularQuality::for_divisions`](crates/manifold-csg/src/quality.rs) |
 | `manifold_reserve_ids` | [`reserve_ids`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_set_relative_precision` | [`set_relative_precision`](crates/manifold-csg/src/manifold.rs) |
 | `manifold_get_relative_precision` | [`get_relative_precision`](crates/manifold-csg/src/manifold.rs) |
@@ -370,26 +368,26 @@ otherwise (`Not used`, `Not wrapped`).
 
 | Category | Wrapped | Internal | Bound, unused |
 |---|---|---|---|
-| Manifold construction | 14 | 0 | 0 |
+| Manifold construction | 13 | 0 | 0 |
 | Manifold booleans | 8 | 0 | 0 |
 | Manifold transforms | 15 | 0 | 0 |
 | Manifold queries | 17 | 0 | 0 |
-| Manifold hull/decompose/mesh | 12 | 0 | 0 |
+| Manifold hull/decompose/mesh | 10 | 0 | 0 |
 | Ray casting | 1 | 2 | 0 |
 | CrossSection construction & booleans | 20 | 0 | 0 |
 | CrossSection transforms & queries | 14 | 0 | 0 |
 | MeshGL/MeshGL64 | 42 | 20 | 0 |
 | Triangulation | 1 | 2 | 0 |
-| Quality globals | 9 | 0 | 0 |
+| Quality and globals | 6 | 0 | 0 |
 | Box3D (BoundingBox) | 16 | 0 | 0 |
 | Rect2D (Rect) | 16 | 0 | 0 |
 | Polygon helpers | 0 | 5 | 3 |
 | Vector containers | 0 | 10 | 4 |
 | ExecutionContext (cancel/progress + factories) | 8 | 0 | 0 |
 | Delete | 0 | 13 | 0 |
-| **Total** | **193** | **52** | **7** |
+| **Total** | **187** | **52** | **7** |
 
-193 + 52 + 7 = 252, matching the sys crate's 252 declarations.
+187 + 52 + 7 = 246, matching the sys crate's 246 declarations.
 
 "Bound, unused" means the function is declared in `manifold-csg-sys` but the
 safe crate never calls it: vector and polygon operations with no safe-API

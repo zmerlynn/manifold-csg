@@ -8,14 +8,23 @@
 /// See the [upstream ray casting docs](https://elalish.github.io/manifold/docs/html/structmanifold_1_1_ray_hit.html)
 /// for details on the fields.
 ///
-/// Non-exhaustive: upstream adds fields (`crossing` arrived in manifold 4.0),
-/// and results only come from [`Manifold::ray_cast`](crate::Manifold::ray_cast).
+/// Non-exhaustive: upstream adds fields (`crossing` and `original_id` arrived
+/// in manifold 4.0), and results only come from
+/// [`Manifold::ray_cast`](crate::Manifold::ray_cast).
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub struct RayHit {
-    /// Index of the face that was hit.
-    pub face_id: u64,
-    /// Distance from the ray origin to the hit point.
+    /// The original ID of the input mesh the hit triangle came from, as in
+    /// [`MeshGL64::run_original_id`](crate::MeshGL64::run_original_id). `0`
+    /// if that mesh was not tracked, e.g. a primitive that never went
+    /// through [`as_original`](crate::Manifold::as_original).
+    pub original_id: u32,
+    /// The face ID the hit triangle got from its input mesh, as in
+    /// [`MeshGL64::face_id`](crate::MeshGL64::face_id). `0` if that mesh had
+    /// no face IDs. Before manifold 4.0 this was an internal triangle index.
+    pub face_id: u32,
+    /// Parametric distance along the ray segment, in `[0, 1]`: `0` at the
+    /// origin and `1` at the end. Hits exactly at either end are included.
     pub distance: f64,
     /// World-space position of the hit.
     pub position: [f64; 3],

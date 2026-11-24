@@ -83,7 +83,7 @@ fn main() {
     // -- Normals and curvature -----------------------------------------------
 
     let sphere = Manifold::sphere(5.0, 64);
-    let with_normals = sphere.calculate_normals(3, 60.0);
+    let with_normals = sphere.calculate_normals(60.0);
     let with_curvature = sphere.calculate_curvature(3, 4);
     println!("Sphere with normals: num_prop={}", with_normals.num_prop(),);
     println!(
@@ -107,8 +107,8 @@ fn main() {
 
     let box_mesh = Manifold::cube(10.0, 10.0, 10.0, true);
     let smoothed = box_mesh
-        .calculate_normals(3, 60.0)
-        .smooth_by_normals(3)
+        .calculate_normals(60.0)
+        .smooth_by_normals()
         .refine(4);
     println!(
         "Smoothed cube: volume={:.1}, verts={}",
