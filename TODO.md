@@ -6,7 +6,7 @@
 
 ## Ergonomics (nice-to-have)
 
-- [ ] Extract vec-building helper to reduce boilerplate in batch operations (`batch_boolean` and `batch_hull` in Manifold and CrossSection, `compose` in Manifold)
+- [ ] Extract vec-building helper to reduce boilerplate in batch operations (`batch_boolean` and `batch_hull` in Manifold and CrossSection)
 
 ## FFI robustness
 

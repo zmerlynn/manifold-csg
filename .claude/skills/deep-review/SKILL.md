@@ -85,7 +85,7 @@ We bind the complete manifold3d v3.4.1 C API (256 functions in `manifold-csg-sys
 - For every function group bound in `manifold-csg-sys`, verify there is a corresponding safe method in `manifold-csg`. Flag sys-level functions that have no safe wrapper yet. Prioritize by usefulness.
 - Specifically check: are all callback-based APIs (warp, set_properties, level_set, write_obj) wrapped safely? These are the hardest to get right.
 - Are all MeshGL/MeshGL64 advanced accessors (merge, run_index, face_id, tangents) exposed through the safe `MeshGL`/`MeshGL64` types?
-- Are the quality globals (`set_min_circular_angle`, `set_circular_segments`, etc.) exposed? If so, are they documented as affecting global state?
+- Is circular quality (`CircularQuality`) accepted by every circular constructor, and do the docs say how a segment count maps to divisions?
 
 **Feature flag coverage:**
 - Does the `nalgebra` feature cover all methods that take/return geometric types (vectors, points, matrices)?

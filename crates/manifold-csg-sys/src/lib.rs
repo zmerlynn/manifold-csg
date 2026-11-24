@@ -141,52 +141,36 @@ pub struct ManifoldVec3 {
     pub z: f64,
 }
 
-/// 3D integer vector.
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct ManifoldIVec3 {
-    pub x: c_int,
-    pub y: c_int,
-    pub z: c_int,
-}
-
-/// 4D vector (e.g. for tangents with weight).
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct ManifoldVec4 {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub w: f64,
-}
-
-/// Surface area and volume properties returned by manifold queries.
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct ManifoldProperties {
-    pub surface_area: f64,
-    pub volume: f64,
-}
-
 /// Result of a ray-manifold intersection test.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct ManifoldRayHit {
-    pub face_id: u64,
+    pub original_id: u32,
+    pub face_id: u32,
     pub distance: f64,
     pub position: ManifoldVec3,
     pub normal: ManifoldVec3,
     pub crossing: c_int,
 }
 
+/// Circular tessellation settings. Upstream's defaults are `segments = 0`,
+/// `min_angle = 10.0` and `min_edge_length = 1.0`.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ManifoldCircularQuality {
+    pub segments: c_int,
+    pub min_angle: f64,
+    pub min_edge_length: f64,
+}
+
 /// Options for constructing a `MeshGL` with additional metadata.
 ///
-/// The upstream C header declares these input-only pointers as mutable. The
-/// Rust binding uses const pointers for the same ABI so safe wrappers can pass
-/// shared slices without casting away constness.
+/// Set `struct_size` to `size_of::<ManifoldMeshGLOptions>()`: upstream aborts on
+/// a smaller value and treats fields past it as empty, so the struct can grow.
 #[repr(C)]
 #[derive(Debug)]
 pub struct ManifoldMeshGLOptions {
+    pub struct_size: usize,
     pub run_indices: *const u32,
     pub run_indices_length: usize,
     pub run_original_ids: *const u32,
@@ -195,16 +179,21 @@ pub struct ManifoldMeshGLOptions {
     pub merge_to_vert: *const u32,
     pub merge_verts_length: usize,
     pub halfedge_tangents: *const f32,
+    pub run_transform: *const f32,
+    pub run_transform_length: usize,
+    pub run_flags: *const u8,
+    pub run_flags_length: usize,
+    pub face_id: *const u32,
 }
 
 /// Options for constructing a `MeshGL64` with additional metadata.
 ///
-/// The upstream C header declares these input-only pointers as mutable. The
-/// Rust binding uses const pointers for the same ABI so safe wrappers can pass
-/// shared slices without casting away constness.
+/// Set `struct_size` to `size_of::<ManifoldMeshGL64Options>()`: upstream aborts on
+/// a smaller value and treats fields past it as empty, so the struct can grow.
 #[repr(C)]
 #[derive(Debug)]
 pub struct ManifoldMeshGL64Options {
+    pub struct_size: usize,
     pub run_indices: *const u64,
     pub run_indices_length: usize,
     pub run_original_ids: *const u32,
@@ -213,6 +202,11 @@ pub struct ManifoldMeshGL64Options {
     pub merge_to_vert: *const u64,
     pub merge_verts_length: usize,
     pub halfedge_tangents: *const f64,
+    pub run_transform: *const f64,
+    pub run_transform_length: usize,
+    pub run_flags: *const u8,
+    pub run_flags_length: usize,
+    pub face_id: *const u64,
 }
 
 // ── Enums ───────────────────────────────────────────────────────────────
@@ -377,12 +371,6 @@ unsafe extern "C" {
     /// Extract `MeshGL` from a Manifold.
     pub fn manifold_get_meshgl(m: *const ManifoldManifold) -> *mut ManifoldMeshGL;
 
-    /// Extract `MeshGL` from a Manifold with normals at the given property index.
-    pub fn manifold_get_meshgl_w_normals(
-        m: *const ManifoldManifold,
-        normal_idx: i32,
-    ) -> *mut ManifoldMeshGL;
-
     /// Copy a `MeshGL`.
     pub fn manifold_meshgl_copy(m: *const ManifoldMeshGL) -> *mut ManifoldMeshGL;
 
@@ -503,12 +491,6 @@ unsafe extern "C" {
 
     /// Extract `MeshGL64` from a Manifold.
     pub fn manifold_get_meshgl64(m: *const ManifoldManifold) -> *mut ManifoldMeshGL64;
-
-    /// Extract `MeshGL64` from a Manifold with normals at the given property index.
-    pub fn manifold_get_meshgl64_w_normals(
-        m: *const ManifoldManifold,
-        normal_idx: i32,
-    ) -> *mut ManifoldMeshGL64;
 
     /// Copy a `MeshGL64`.
     pub fn manifold_meshgl64_copy(m: *const ManifoldMeshGL64) -> *mut ManifoldMeshGL64;
@@ -806,11 +788,8 @@ unsafe extern "C" {
     ) -> *mut ManifoldManifold;
 
     /// Smooth a manifold by converting sharp edges to smooth curves using
-    /// vertex normals at the given property index.
-    pub fn manifold_smooth_by_normals(
-        m: *const ManifoldManifold,
-        normal_idx: c_int,
-    ) -> *mut ManifoldManifold;
+    /// its vertex normals (MeshGL property channels 3-5).
+    pub fn manifold_smooth_by_normals(m: *const ManifoldManifold) -> *mut ManifoldManifold;
 
     /// Increase the density of the mesh by splitting every edge into
     /// `refine` pieces.
@@ -846,11 +825,14 @@ unsafe extern "C" {
         height: f64,
         radius_low: f64,
         radius_high: f64,
-        circular_segments: c_int,
+        quality: *const ManifoldCircularQuality,
         center: c_int,
     ) -> *mut ManifoldManifold;
 
-    pub fn manifold_sphere(radius: f64, circular_segments: c_int) -> *mut ManifoldManifold;
+    pub fn manifold_sphere(
+        radius: f64,
+        quality: *const ManifoldCircularQuality,
+    ) -> *mut ManifoldManifold;
 
     /// Extrude a 2D polygon set into a 3D manifold along the Z axis.
     ///
@@ -867,12 +849,9 @@ unsafe extern "C" {
     /// Revolve a 2D polygon set around the Y axis to create a 3D manifold.
     pub fn manifold_revolve(
         cs: *const ManifoldPolygons,
-        circular_segments: c_int,
+        quality: *const ManifoldCircularQuality,
         revolve_degrees: f64,
     ) -> *mut ManifoldManifold;
-
-    /// Compose multiple manifolds into a single compound manifold.
-    pub fn manifold_compose(ms: *const ManifoldManifoldVec) -> *mut ManifoldManifold;
 
     /// Decompose a manifold into its connected components.
     pub fn manifold_decompose(m: *const ManifoldManifold) -> *mut ManifoldManifoldVec;
@@ -885,10 +864,11 @@ unsafe extern "C" {
 
     pub fn manifold_is_empty(m: *const ManifoldManifold) -> c_int;
     pub fn manifold_status(m: *const ManifoldManifold) -> ManifoldError;
-    /// Returns a copy of `m` with `ctx` attached. The attachment is
-    /// consumed by the next eager op (`manifold_status`, `manifold_refine*`).
-    /// Deferred ops (booleans, transforms, batch) ignore any attached
-    /// context and produce results with no attached context.
+    /// Returns a copy of `m` with `ctx` attached. Only `manifold_status` and
+    /// the eager ops (`manifold_refine*`, `manifold_hull`,
+    /// `manifold_minkowski_sum`, `manifold_minkowski_difference`) observe it.
+    /// Other ops ignore it and return results with no attached context.
+    /// Copies keep the attachment.
     pub fn manifold_with_context(
         m: *const ManifoldManifold,
         ctx: *const ManifoldExecutionContext,
@@ -908,9 +888,6 @@ unsafe extern "C" {
     /// number of times the surface wraps around it. 0 is outside, 1 inside a
     /// single solid.
     pub fn manifold_winding_number(m: *const ManifoldManifold, x: f64, y: f64, z: f64) -> c_int;
-
-    /// Get the number of circular segments for a given radius.
-    pub fn manifold_get_circular_segments(radius: f64) -> c_int;
 
     /// Reserve a block of unique IDs for use with `manifold_as_original`.
     pub fn manifold_reserve_ids(n: u32) -> u32;
@@ -941,10 +918,10 @@ unsafe extern "C" {
         search_length: f64,
     ) -> f64;
 
-    /// Calculate vertex normals and store at the given property index.
+    /// Calculate vertex normals and store them in MeshGL property channels
+    /// 3-5, the first three properties after position.
     pub fn manifold_calculate_normals(
         m: *const ManifoldManifold,
-        normal_idx: c_int,
         min_sharp_angle: f64,
     ) -> *mut ManifoldManifold;
 
@@ -1125,7 +1102,7 @@ unsafe extern "C" {
 
     pub fn manifold_cross_section_circle(
         radius: f64,
-        circular_segments: c_int,
+        quality: *const ManifoldCircularQuality,
     ) -> *mut ManifoldCrossSection;
 
     // ── CrossSection decompose ──────────────────────────────────────────
@@ -1247,7 +1224,7 @@ unsafe extern "C" {
     ) -> *mut ManifoldCrossSection;
 
     /// Warp a cross-section by applying a function to each vertex.
-    pub fn manifold_cross_section_warp_context(
+    pub fn manifold_cross_section_warp(
         cs: *const ManifoldCrossSection,
         fun: Option<unsafe extern "C" fn(f64, f64, *mut std::ffi::c_void) -> ManifoldVec2>,
         ctx: *mut std::ffi::c_void,
@@ -1265,13 +1242,13 @@ unsafe extern "C" {
     ///
     /// `jt` selects the join type.
     /// `miter_limit` is used when `jt` is Miter.
-    /// `circular_segments` controls round join resolution.
+    /// `quality` controls round join resolution (null for the default).
     pub fn manifold_cross_section_offset(
         cs: *const ManifoldCrossSection,
         delta: f64,
         jt: ManifoldJoinType,
         miter_limit: f64,
-        circular_segments: c_int,
+        quality: *const ManifoldCircularQuality,
     ) -> *mut ManifoldCrossSection;
 
     // ── CrossSection queries ────────────────────────────────────────────
@@ -1344,17 +1321,26 @@ unsafe extern "C" {
 
     // ── Static quality globals ──────────────────────────────────────────
 
-    pub fn manifold_set_min_circular_angle(degrees: f64);
-    pub fn manifold_set_min_circular_edge_length(length: f64);
-    pub fn manifold_set_circular_segments(number: c_int);
-    pub fn manifold_reset_to_circular_defaults();
-
     /// Set the global relative precision used to decide when geometry is
     /// coplanar or collinear. Replaces the per-manifold tolerance upstream
     /// removed.
     pub fn manifold_set_relative_precision(precision: f64);
     /// The global relative precision.
     pub fn manifold_get_relative_precision() -> f64;
+
+    // ── Circular quality ────────────────────────────────────────────────
+
+    /// Segments a circle of `radius` gets under `quality` (null for the
+    /// default).
+    pub fn manifold_circular_quality_segments_for(
+        radius: f64,
+        quality: *const ManifoldCircularQuality,
+    ) -> c_int;
+    /// The quality that gives `divisions` segments across `degrees`.
+    pub fn manifold_circular_quality_for_divisions(
+        divisions: c_int,
+        degrees: f64,
+    ) -> ManifoldCircularQuality;
 
     // ── Version ─────────────────────────────────────────────────────────
 

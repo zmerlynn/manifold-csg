@@ -1,9 +1,7 @@
 use approx::assert_relative_eq;
 use manifold_csg::{
-    BoundingBox, CrossSection, FillRule, JoinType, Manifold, MeshGL, MeshGL64, MeshGL64Options,
-    MeshGLOptions, OpType, Rect, get_circular_segments, reserve_ids, reset_to_circular_defaults,
-    set_circular_segments, set_min_circular_angle, set_min_circular_edge_length,
-    triangulate_polygons,
+    BoundingBox, CircularQuality, CrossSection, FillRule, JoinType, Manifold, MeshGL, MeshGL64,
+    MeshGL64Options, MeshGLOptions, OpType, Rect, reserve_ids, triangulate_polygons,
 };
 
 // ── Primitive tests ─────────────────────────────────────────────────────
@@ -197,18 +195,6 @@ fn to_meshgl_returns_full_mesh_container() {
     assert_eq!(mesh64.vert_properties(), verts64);
     assert_eq!(mesh64.num_prop(), n_props64);
     assert_eq!(mesh64.tri_verts(), indices64);
-
-    let mesh32_normals = cube.to_meshgl_with_normals(3);
-    let (verts32_normals, n_props32_normals, indices32_normals) = cube.to_mesh_f32_with_normals(3);
-    assert_eq!(mesh32_normals.vert_properties(), verts32_normals);
-    assert_eq!(mesh32_normals.num_prop(), n_props32_normals);
-    assert_eq!(mesh32_normals.tri_verts(), indices32_normals);
-
-    let mesh64_normals = cube.to_meshgl64_with_normals(3);
-    let (verts64_normals, n_props64_normals, indices64_normals) = cube.to_mesh_f64_with_normals(3);
-    assert_eq!(mesh64_normals.vert_properties(), verts64_normals);
-    assert_eq!(mesh64_normals.num_prop(), n_props64_normals);
-    assert_eq!(mesh64_normals.tri_verts(), indices64_normals);
 }
 
 #[test]
@@ -954,29 +940,6 @@ fn epsilon_positive() {
     assert!(cube.epsilon() >= 0.0);
 }
 
-// ── Compose test ────────────────────────────────────────────────────
-
-#[allow(deprecated)]
-#[test]
-fn compose_preserves_total_volume() {
-    let a = Manifold::cube(5.0, 5.0, 5.0, true).translate(-10.0, 0.0, 0.0);
-    let b = Manifold::cube(5.0, 5.0, 5.0, true).translate(10.0, 0.0, 0.0);
-    let composed = Manifold::compose(&[a, b]);
-    assert_relative_eq!(composed.volume(), 250.0, epsilon = 5.0);
-}
-
-#[allow(deprecated)]
-#[test]
-fn compose_unions_overlapping_inputs() {
-    // Upstream master made compose a union. Two 2x2x2 cubes overlapping by
-    // half are 12, not 16, and leave no doubly-wound region.
-    let a = Manifold::cube(2.0, 2.0, 2.0, false);
-    let b = Manifold::cube(2.0, 2.0, 2.0, false).translate(1.0, 0.0, 0.0);
-    let composed = Manifold::compose(&[a, b]);
-    assert_relative_eq!(composed.volume(), 12.0, epsilon = 1e-9);
-    assert_eq!(composed.winding_number([1.5, 1.0, 1.0]), 1);
-}
-
 // ── Split test ──────────────────────────────────────────────────────
 
 #[test]
@@ -1104,9 +1067,10 @@ fn extrude_with_twist() {
 #[test]
 fn calculate_normals_adds_properties() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
-    let with_normals = cube.calculate_normals(3, 60.0);
+    let with_normals = cube.calculate_normals(60.0);
     assert!(!with_normals.is_empty());
-    assert!(with_normals.num_prop() >= 6);
+    assert_eq!(with_normals.num_prop(), 3);
+    assert_eq!(with_normals.to_meshgl64().num_prop(), 6);
 }
 
 #[test]
@@ -1142,8 +1106,8 @@ fn refine_to_tolerance_increases_density() {
 #[test]
 fn smooth_by_normals_works() {
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
-    let with_normals = cube.calculate_normals(3, 60.0);
-    let smoothed = with_normals.smooth_by_normals(3);
+    let with_normals = cube.calculate_normals(60.0);
+    let smoothed = with_normals.smooth_by_normals();
     assert!(!smoothed.is_empty());
 }
 
@@ -1154,9 +1118,9 @@ fn num_prop_on_constructed_manifold() {
     // Primitive manifolds may not have a fixed num_prop until mesh extraction.
     // Build from mesh data where we control n_props.
     let cube = Manifold::cube(10.0, 10.0, 10.0, true);
-    // After calculate_normals at index 3, we know num_prop >= 6.
-    let with_normals = cube.calculate_normals(3, 60.0);
-    assert!(with_normals.num_prop() >= 6);
+    // calculate_normals writes the first three properties after position.
+    let with_normals = cube.calculate_normals(60.0);
+    assert_eq!(with_normals.num_prop(), 3);
 }
 
 #[test]
@@ -2116,12 +2080,11 @@ fn split_by_plane_both_halves_usable() {
     assert_relative_eq!(neg.volume(), neg_vol, epsilon = 0.01);
 }
 
-#[allow(deprecated)]
 #[test]
 fn decompose_parts_are_independent() {
     let a = Manifold::cube(5.0, 5.0, 5.0, false);
     let b = Manifold::cube(5.0, 5.0, 5.0, false).translate(20.0, 0.0, 0.0);
-    let composed = Manifold::compose(&[a, b]);
+    let composed = Manifold::batch_union(&[a, b]);
     let parts = composed.decompose();
     assert_eq!(parts.len(), 2);
     // Drop composed, parts should still work.
@@ -2186,22 +2149,62 @@ fn cross_section_bounds_rect2() {
 // ── Remaining coverage: quality globals ────────────────────────────────
 
 #[test]
-fn quality_globals_set_and_reset() {
-    // These modify global state, so we reset at the end.
-    reset_to_circular_defaults();
+fn circular_quality_segments_for() {
+    assert_eq!(CircularQuality::from(42).segments_for(1.0), 42);
+    let default = CircularQuality::default();
+    let fine = CircularQuality {
+        min_edge_length: 0.1,
+        ..CircularQuality::default()
+    };
+    assert!(default.segments_for(10.0) > 0);
+    assert!(fine.segments_for(1.0) > default.segments_for(1.0));
+}
 
-    set_circular_segments(42);
-    let segs = get_circular_segments(1.0);
-    assert_eq!(segs, 42);
+#[test]
+fn circular_quality_from_segment_count_matches_struct() {
+    let by_count = Manifold::sphere(2.0, 24);
+    let by_struct = Manifold::sphere(
+        2.0,
+        CircularQuality {
+            segments: 24,
+            ..CircularQuality::default()
+        },
+    );
+    assert_eq!(by_count.num_vert(), by_struct.num_vert());
+    assert_eq!(
+        Manifold::sphere(2.0, 0).num_vert(),
+        Manifold::sphere(2.0, CircularQuality::default()).num_vert()
+    );
+}
 
-    set_min_circular_angle(10.0);
-    set_min_circular_edge_length(0.5);
+#[test]
+fn circular_quality_controls_circle_and_offset() {
+    assert_eq!(CrossSection::circle(1.0, 7).num_vert(), 7);
+    let coarse = CrossSection::square(1.0, 1.0, true).offset(1.0, JoinType::Round, 2.0, 4);
+    let fine = CrossSection::square(1.0, 1.0, true).offset(1.0, JoinType::Round, 2.0, 64);
+    assert!(fine.num_vert() > coarse.num_vert());
+}
 
-    // After setting these, segment count for a given radius should change.
-    let segs2 = get_circular_segments(10.0);
-    assert!(segs2 > 0);
+#[test]
+fn circular_quality_for_divisions_sets_a_partial_revolve() {
+    let q = CircularQuality::for_divisions(5, 90.0);
+    let profile = CrossSection::square(1.0, 1.0, false).translate(1.0, 0.0);
+    let quarter = Manifold::revolve(&profile, q, 90.0);
+    assert!(quarter.status().is_ok());
+    // A square profile has 4 vertices, and 5 divisions give 6 rings of them.
+    assert_eq!(quarter.num_vert(), 4 * 6);
+    // A full circle has at least 3 segments, so half a turn gets at least 2.
+    let half = Manifold::revolve(&profile, CircularQuality::for_divisions(1, 180.0), 180.0);
+    assert_eq!(half.num_vert(), 4 * 3);
+}
 
-    reset_to_circular_defaults();
+#[test]
+fn partial_revolve_takes_a_full_circle_segment_count() {
+    // 16 segments per full circle leave 4 divisions for a quarter turn.
+    let profile = CrossSection::square(1.0, 1.0, false).translate(1.0, 0.0);
+    let quarter = Manifold::revolve(&profile, 16, 90.0);
+    assert!(quarter.status().is_ok());
+    assert_eq!(quarter.num_vert(), 4 * 5);
 }
 
 #[test]
@@ -2565,19 +2568,117 @@ fn from_sdf_seq_sphere() {
 }
 
 #[test]
-fn to_mesh_f64_with_normals() {
-    let sphere = Manifold::sphere(5.0, 32).calculate_normals(3, 60.0);
-    let (verts, n_props, _) = sphere.to_mesh_f64_with_normals(3);
-    assert!(!verts.is_empty());
-    assert!(n_props >= 3);
+fn calculate_normals_writes_unit_normals_to_properties_3_to_5() {
+    let sphere = Manifold::sphere(5.0, 32).calculate_normals(60.0);
+    let (v64, n64, _) = sphere.to_mesh_f64();
+    let (v32, n32, _) = sphere.to_mesh_f32();
+    let v32: Vec<f64> = v32.into_iter().map(f64::from).collect();
+    for (verts, n_props) in [(v64, n64), (v32, n32)] {
+        assert!(n_props >= 6);
+        for vert in verts.chunks(n_props) {
+            let len = (vert[3].powi(2) + vert[4].powi(2) + vert[5].powi(2)).sqrt();
+            assert_relative_eq!(len, 1.0, epsilon = 1e-5);
+        }
+    }
 }
 
 #[test]
-fn to_mesh_f32_with_normals() {
-    let sphere = Manifold::sphere(5.0, 32).calculate_normals(3, 60.0);
-    let (verts, n_props, _) = sphere.to_mesh_f32_with_normals(3);
-    assert!(!verts.is_empty());
-    assert!(n_props >= 3);
+fn ray_hit_reports_original_and_face_ids() {
+    let cube = Manifold::cube(1.0, 1.0, 1.0, false);
+    let (verts, n_props, indices) = cube.to_mesh_f64();
+    let n_tri = indices.len() / 3;
+    let face_ids: Vec<u64> = (0..n_tri as u64).map(|i| 100 + i).collect();
+    let id = reserve_ids(1);
+    let mesh = MeshGL64::new_with_options(
+        &verts,
+        n_props,
+        &indices,
+        MeshGL64Options::new().runs(&[0], &[id]).face_id(&face_ids),
+    )
+    .expect("valid options");
+    let m = Manifold::from_meshgl64(&mesh).expect("valid manifold");
+
+    let hits = m.ray_cast([-1.0, 0.5, 0.5], [2.0, 0.5, 0.5]);
+    assert_eq!(hits.len(), 2);
+    for hit in &hits {
+        assert_eq!(hit.original_id, id);
+        assert!((0.0..=1.0).contains(&hit.distance));
+        // The face ID is one of the two input triangles on the cube face hit.
+        let x = hit.position[0].round();
+        let on_face: Vec<u32> = (0..n_tri)
+            .filter(|&t| {
+                (0..3).all(|k| {
+                    let v = indices[3 * t + k] as usize;
+                    verts[v * n_props] == x
+                })
+            })
+            .map(|t| 100 + t as u32)
+            .collect();
+        assert_eq!(on_face.len(), 2);
+        assert!(on_face.contains(&hit.face_id), "{hit:?} not in {on_face:?}");
+    }
+
+    // The face IDs carry through to the output mesh.
+    let out = m.to_meshgl64().face_id();
+    assert_eq!(out.len(), n_tri);
+    assert!(out.iter().all(|f| (100..100 + n_tri as u64).contains(f)));
+
+    // An untracked primitive reports zeros.
+    let hits = cube.ray_cast([-1.0, 0.5, 0.5], [2.0, 0.5, 0.5]);
+    assert_eq!(hits.len(), 2);
+    assert!(hits.iter().all(|h| h.original_id == 0 && h.face_id == 0));
+}
+
+#[test]
+fn meshgl_options_run_transform_flags_and_face_id_round_trip() {
+    let verts: Vec<f32> = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let indices: Vec<u32> = vec![0, 1, 2];
+    #[rustfmt::skip]
+    let transform: Vec<f32> = vec![
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0,
+        5.0, 6.0, 7.0,
+    ];
+    let mesh = MeshGL::new_with_options(
+        &verts,
+        3,
+        &indices,
+        MeshGLOptions::new()
+            .runs(&[0, 3], &[9])
+            .run_transform(&transform)
+            .run_flags(&[2])
+            .face_id(&[4]),
+    )
+    .expect("valid options");
+    assert_eq!(mesh.run_transform(), transform);
+    assert_eq!(mesh.run_flags(), vec![2]);
+    assert!(mesh.has_normals(0));
+    assert_eq!(mesh.face_id(), vec![4]);
+}
+
+#[test]
+fn meshgl64_options_reject_bad_face_id_and_unrun_metadata() {
+    let verts: Vec<f64> = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let indices: Vec<u64> = vec![0, 1, 2];
+    let build = |o| MeshGL64::new_with_options(&verts, 3, &indices, o);
+    assert!(build(MeshGL64Options::new().face_id(&[1, 2])).is_err());
+    assert!(build(MeshGL64Options::new().face_id(&[])).is_err());
+    assert!(build(MeshGL64Options::new().face_id(&[1])).is_ok());
+    assert!(build(MeshGL64Options::new().run_flags(&[0])).is_err());
+    assert!(build(MeshGL64Options::new().run_transform(&[0.0; 12])).is_err());
+}
+
+#[test]
+fn meshgl_options_reject_bad_face_id_and_unrun_metadata() {
+    let verts: Vec<f32> = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let indices: Vec<u32> = vec![0, 1, 2];
+    let build = |o| MeshGL::new_with_options(&verts, 3, &indices, o);
+    assert!(build(MeshGLOptions::new().face_id(&[1, 2])).is_err());
+    assert!(build(MeshGLOptions::new().face_id(&[])).is_err());
+    assert!(build(MeshGLOptions::new().face_id(&[1])).is_ok());
+    assert!(build(MeshGLOptions::new().run_flags(&[0])).is_err());
+    assert!(build(MeshGLOptions::new().run_transform(&[0.0; 12])).is_err());
 }
 
 #[test]
@@ -2871,7 +2972,7 @@ fn calculate_normals_sets_the_has_normals_flag() {
     assert!(!plain.has_normals(0));
 
     let m = Manifold::cube(2.0, 2.0, 2.0, true)
-        .calculate_normals(0, 60.0)
+        .calculate_normals(60.0)
         .to_meshgl64();
     assert!(m.has_normals(0));
     assert_eq!(m.run_flags(), vec![2], "bit 1, and not the backside bit");
@@ -2970,16 +3071,10 @@ fn meshgl64_merge_with_out_of_range_merge_index_is_a_noop() {
 }
 
 #[test]
-fn smooth_by_normals_rejects_negative_index() {
-    let cube = Manifold::cube(1.0, 1.0, 1.0, true);
-    assert!(cube.smooth_by_normals(-1).status().is_err());
-}
-
-#[test]
 fn smooth_by_normals_treats_channels_past_num_prop_as_missing() {
     let cube = Manifold::cube(1.0, 1.0, 1.0, true);
     assert_eq!(cube.num_prop(), 0);
-    let smoothed = cube.smooth_by_normals(3);
+    let smoothed = cube.smooth_by_normals();
     assert!(smoothed.status().is_ok());
     assert!(!smoothed.is_empty());
 }

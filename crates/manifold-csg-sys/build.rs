@@ -31,7 +31,7 @@ use std::sync::OnceLock;
 /// comment, and declared only once. `flake.nix` and `scripts/pins.py` read
 /// the pin by matching that exact line and fail on anything else. The
 /// nix-offline CI lane fails if they disagree.
-pub(crate) const MANIFOLD_VERSION: &str = "74493803a4d8469779cdf9d8e3e23a11b349c22f";
+pub(crate) const MANIFOLD_VERSION: &str = "2cac6b03bddb6d08ae4eae9fc5cc847080084c1e";
 
 /// `--parallel <N>` for `cmake --build`: `CMAKE_BUILD_PARALLEL_LEVEL` if set,
 /// to throttle only the C++ build, otherwise cargo's `NUM_JOBS`.

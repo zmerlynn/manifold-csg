@@ -9,7 +9,8 @@ use manifold_csg_sys::*;
 use std::ops;
 use std::sync::Mutex;
 
-use crate::manifold::{read_polygons, with_quality_lock_if_auto_segments};
+use crate::manifold::read_polygons;
+use crate::quality::CircularQuality;
 use crate::rect::Rect;
 use crate::types::{OpType, PanicPayload, store_panic, take_stored_panic};
 
@@ -187,12 +188,14 @@ impl CrossSection {
     }
 
     /// Circle centered at the origin.
+    ///
+    /// `quality` is a [`CircularQuality`] or a plain segment count (`0` for
+    /// the default quality).
     #[must_use]
-    pub fn circle(radius: f64, circular_segments: i32) -> Self {
-        let ptr = with_quality_lock_if_auto_segments(circular_segments, || {
-            // SAFETY: takes plain values and returns a new handle.
-            owned(unsafe { manifold_cross_section_circle(radius, circular_segments) })
-        });
+    pub fn circle(radius: f64, quality: impl Into<CircularQuality>) -> Self {
+        let q = quality.into().to_sys();
+        // SAFETY: &q is valid for the call, and the call returns a new handle.
+        let ptr = owned(unsafe { manifold_cross_section_circle(radius, &q) });
         Self { ptr }
     }
 
@@ -356,26 +359,21 @@ impl CrossSection {
     /// * `delta` - offset distance (positive = grow, negative = shrink)
     /// * `join_type` - how to handle corners (Square, Round, Miter)
     /// * `miter_limit` - maximum distance for miter joins
-    /// * `circular_segments` - resolution for round joins
+    /// * `quality` - resolution for round joins: a [`CircularQuality`] or a
+    ///   plain segment count (`0` for the default quality)
     #[must_use]
     pub fn offset(
         &self,
         delta: f64,
         join_type: JoinType,
         miter_limit: f64,
-        circular_segments: i32,
+        quality: impl Into<CircularQuality>,
     ) -> Self {
-        let ptr = with_quality_lock_if_auto_segments(circular_segments, || {
-            // SAFETY: self.ptr is valid (invariant), and the call returns a new handle.
-            owned(unsafe {
-                manifold_cross_section_offset(
-                    self.ptr,
-                    delta,
-                    join_type.to_ffi(),
-                    miter_limit,
-                    circular_segments,
-                )
-            })
+        let q = quality.into().to_sys();
+        // SAFETY: self.ptr and &q are valid (invariant), and the call returns
+        // a new handle.
+        let ptr = owned(unsafe {
+            manifold_cross_section_offset(self.ptr, delta, join_type.to_ffi(), miter_limit, &q)
         });
         Self { ptr }
     }
@@ -633,9 +631,8 @@ impl CrossSection {
         };
         let ctx_ptr = &mut ctx as *mut Context<'_, F> as *mut std::ffi::c_void;
         // SAFETY: self.ptr is valid (invariant), ctx_ptr is valid for the call, and the call returns a new handle.
-        let ptr = owned(unsafe {
-            manifold_cross_section_warp_context(self.ptr, Some(trampoline::<F>), ctx_ptr)
-        });
+        let ptr =
+            owned(unsafe { manifold_cross_section_warp(self.ptr, Some(trampoline::<F>), ctx_ptr) });
         if let Some(payload) = take_stored_panic(&ctx.panic) {
             // SAFETY: ptr came from the call above and is not returned.
             unsafe { manifold_delete_cross_section(ptr) };

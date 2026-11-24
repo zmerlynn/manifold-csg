@@ -13,13 +13,15 @@ use crate::types::CsgError;
 /// Optional metadata for constructing a [`MeshGL`].
 ///
 /// Use this when importing mesh data that already has manifold topology
-/// metadata. The current C shim supports run indices/original IDs, merge
-/// vectors, and halfedge tangents. Other upstream `MeshGL` fields can be added
-/// as builder methods later without changing this type's construction pattern.
+/// metadata: run indices and original IDs, run transforms and flags, merge
+/// vectors, face IDs and halfedge tangents.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MeshGLOptions<'a> {
     runs: Option<(&'a [u32], &'a [u32])>,
+    run_transform: Option<&'a [f32]>,
+    run_flags: Option<&'a [u8]>,
     merge_vertices: Option<(&'a [u32], &'a [u32])>,
+    face_id: Option<&'a [u32]>,
     halfedge_tangents: Option<&'a [f32]>,
 }
 
@@ -29,7 +31,10 @@ impl<'a> MeshGLOptions<'a> {
     pub const fn new() -> Self {
         Self {
             runs: None,
+            run_transform: None,
+            run_flags: None,
             merge_vertices: None,
+            face_id: None,
             halfedge_tangents: None,
         }
     }
@@ -59,6 +64,39 @@ impl<'a> MeshGLOptions<'a> {
         self.halfedge_tangents = Some(halfedge_tangents);
         self
     }
+
+    /// Attach a 3x4 column-major transform per run, saying how each run's
+    /// original mesh was transformed: 12 values per entry of
+    /// `run_original_ids`. Needs [`runs`](Self::runs). Upstream reports a
+    /// wrong length as [`ManifoldError::TransformWrongLength`] on the
+    /// resulting manifold's status.
+    ///
+    /// [`ManifoldError::TransformWrongLength`]: manifold_csg_sys::ManifoldError::TransformWrongLength
+    #[must_use]
+    pub const fn run_transform(mut self, run_transform: &'a [f32]) -> Self {
+        self.run_transform = Some(run_transform);
+        self
+    }
+
+    /// Attach per-run flags, one byte per entry of `run_original_ids`. Bit 1
+    /// marks a run whose property channels 3-5 are normals (see
+    /// [`MeshGL::has_normals`]). Needs [`runs`](Self::runs).
+    #[must_use]
+    pub const fn run_flags(mut self, run_flags: &'a [u8]) -> Self {
+        self.run_flags = Some(run_flags);
+        self
+    }
+
+    /// Attach a source face ID per triangle. Simplification keeps every edge
+    /// between triangles with different face IDs, and the IDs carry through
+    /// to outputs.
+    ///
+    /// The slice must have one entry per triangle.
+    #[must_use]
+    pub const fn face_id(mut self, face_id: &'a [u32]) -> Self {
+        self.face_id = Some(face_id);
+        self
+    }
 }
 
 /// Optional metadata for constructing a [`MeshGL64`].
@@ -67,7 +105,10 @@ impl<'a> MeshGLOptions<'a> {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MeshGL64Options<'a> {
     runs: Option<(&'a [u64], &'a [u32])>,
+    run_transform: Option<&'a [f64]>,
+    run_flags: Option<&'a [u8]>,
     merge_vertices: Option<(&'a [u64], &'a [u64])>,
+    face_id: Option<&'a [u64]>,
     halfedge_tangents: Option<&'a [f64]>,
 }
 
@@ -77,7 +118,10 @@ impl<'a> MeshGL64Options<'a> {
     pub const fn new() -> Self {
         Self {
             runs: None,
+            run_transform: None,
+            run_flags: None,
             merge_vertices: None,
+            face_id: None,
             halfedge_tangents: None,
         }
     }
@@ -105,6 +149,39 @@ impl<'a> MeshGL64Options<'a> {
     #[must_use]
     pub const fn halfedge_tangents(mut self, halfedge_tangents: &'a [f64]) -> Self {
         self.halfedge_tangents = Some(halfedge_tangents);
+        self
+    }
+
+    /// Attach a 3x4 column-major transform per run, saying how each run's
+    /// original mesh was transformed: 12 values per entry of
+    /// `run_original_ids`. Needs [`runs`](Self::runs). Upstream reports a
+    /// wrong length as [`ManifoldError::TransformWrongLength`] on the
+    /// resulting manifold's status.
+    ///
+    /// [`ManifoldError::TransformWrongLength`]: manifold_csg_sys::ManifoldError::TransformWrongLength
+    #[must_use]
+    pub const fn run_transform(mut self, run_transform: &'a [f64]) -> Self {
+        self.run_transform = Some(run_transform);
+        self
+    }
+
+    /// Attach per-run flags, one byte per entry of `run_original_ids`. Bit 1
+    /// marks a run whose property channels 3-5 are normals (see
+    /// [`MeshGL64::has_normals`]). Needs [`runs`](Self::runs).
+    #[must_use]
+    pub const fn run_flags(mut self, run_flags: &'a [u8]) -> Self {
+        self.run_flags = Some(run_flags);
+        self
+    }
+
+    /// Attach a source face ID per triangle. Simplification keeps every edge
+    /// between triangles with different face IDs, and the IDs carry through
+    /// to outputs.
+    ///
+    /// The slice must have one entry per triangle.
+    #[must_use]
+    pub const fn face_id(mut self, face_id: &'a [u64]) -> Self {
+        self.face_id = Some(face_id);
         self
     }
 }
@@ -220,7 +297,11 @@ impl MeshGL {
         let (run_indices, run_original_ids) = options.runs.unwrap_or((&[], &[]));
         let (merge_from, merge_to) = options.merge_vertices.unwrap_or((&[], &[]));
         let halfedge_tangents = options.halfedge_tangents.unwrap_or(&[]);
+        let run_transform = options.run_transform.unwrap_or(&[]);
+        let run_flags = options.run_flags.unwrap_or(&[]);
+        let face_id = options.face_id.unwrap_or(&[]);
         let sys_options = ManifoldMeshGLOptions {
+            struct_size: std::mem::size_of::<ManifoldMeshGLOptions>(),
             run_indices: slice_ptr(run_indices),
             run_indices_length: run_indices.len(),
             run_original_ids: slice_ptr(run_original_ids),
@@ -229,6 +310,11 @@ impl MeshGL {
             merge_to_vert: slice_ptr(merge_to),
             merge_verts_length: merge_from.len(),
             halfedge_tangents: slice_ptr(halfedge_tangents),
+            run_transform: slice_ptr(run_transform),
+            run_transform_length: run_transform.len(),
+            run_flags: slice_ptr(run_flags),
+            run_flags_length: run_flags.len(),
+            face_id: slice_ptr(face_id),
         };
 
         // SAFETY: the slices and the option arrays sys_options points at were
@@ -439,8 +525,9 @@ impl MeshGL {
     /// Whether property slots 3, 4, 5 of triangle run `run` carry world-frame
     /// vertex normals.
     ///
-    /// Set by [`Manifold::calculate_normals`](crate::Manifold::calculate_normals)
-    /// with `normal_idx` 0 and round-tripped through the run flags. Consumers
+    /// Set by [`Manifold::calculate_normals`](crate::Manifold::calculate_normals),
+    /// or by bit 1 of the `run_flags` option on input, and round-tripped
+    /// through the run flags. Consumers
     /// should read that slot as normals and not re-apply the run transform to
     /// it. The flag is per-run, so runs may disagree. Returns `false` for an
     /// out-of-range `run`.
@@ -571,7 +658,11 @@ impl MeshGL64 {
         let (run_indices, run_original_ids) = options.runs.unwrap_or((&[], &[]));
         let (merge_from, merge_to) = options.merge_vertices.unwrap_or((&[], &[]));
         let halfedge_tangents = options.halfedge_tangents.unwrap_or(&[]);
+        let run_transform = options.run_transform.unwrap_or(&[]);
+        let run_flags = options.run_flags.unwrap_or(&[]);
+        let face_id = options.face_id.unwrap_or(&[]);
         let sys_options = ManifoldMeshGL64Options {
+            struct_size: std::mem::size_of::<ManifoldMeshGL64Options>(),
             run_indices: slice_ptr(run_indices),
             run_indices_length: run_indices.len(),
             run_original_ids: slice_ptr(run_original_ids),
@@ -580,6 +671,11 @@ impl MeshGL64 {
             merge_to_vert: slice_ptr(merge_to),
             merge_verts_length: merge_from.len(),
             halfedge_tangents: slice_ptr(halfedge_tangents),
+            run_transform: slice_ptr(run_transform),
+            run_transform_length: run_transform.len(),
+            run_flags: slice_ptr(run_flags),
+            run_flags_length: run_flags.len(),
+            face_id: slice_ptr(face_id),
         };
 
         // SAFETY: the slices and the option arrays sys_options points at were
@@ -790,8 +886,9 @@ impl MeshGL64 {
     /// Whether property slots 3, 4, 5 of triangle run `run` carry world-frame
     /// vertex normals.
     ///
-    /// Set by [`Manifold::calculate_normals`](crate::Manifold::calculate_normals)
-    /// with `normal_idx` 0 and round-tripped through the run flags. Consumers
+    /// Set by [`Manifold::calculate_normals`](crate::Manifold::calculate_normals),
+    /// or by bit 1 of the `run_flags` option on input, and round-tripped
+    /// through the run flags. Consumers
     /// should read that slot as normals and not re-apply the run transform to
     /// it. The flag is per-run, so runs may disagree. Returns `false` for an
     /// out-of-range `run`.
@@ -894,6 +991,21 @@ fn validate_meshgl_options(
     if let Some(tangents) = options.halfedge_tangents {
         validate_tangent_len(tangents.len(), n_tris)?;
     }
+    // Upstream reads n_tris entries with no length, so this one is a memory
+    // safety check, not just a courtesy.
+    if let Some(face_id) = options.face_id {
+        if face_id.len() != n_tris {
+            return Err(CsgError::InvalidInput(format!(
+                "face_id length must be num_tri ({n_tris}), got {}",
+                face_id.len()
+            )));
+        }
+    }
+    if options.runs.is_none() && (options.run_transform.is_some() || options.run_flags.is_some()) {
+        return Err(CsgError::InvalidInput(
+            "run_transform and run_flags need runs".into(),
+        ));
+    }
     if let Some((run_indices, run_original_ids)) = options.runs {
         validate_run_metadata(run_indices, run_original_ids.len(), tri_indices_len)?;
     }
@@ -910,6 +1022,21 @@ fn validate_meshgl64_options(
 ) -> Result<(), CsgError> {
     if let Some(tangents) = options.halfedge_tangents {
         validate_tangent_len(tangents.len(), n_tris)?;
+    }
+    // Upstream reads n_tris entries with no length, so this one is a memory
+    // safety check, not just a courtesy.
+    if let Some(face_id) = options.face_id {
+        if face_id.len() != n_tris {
+            return Err(CsgError::InvalidInput(format!(
+                "face_id length must be num_tri ({n_tris}), got {}",
+                face_id.len()
+            )));
+        }
+    }
+    if options.runs.is_none() && (options.run_transform.is_some() || options.run_flags.is_some()) {
+        return Err(CsgError::InvalidInput(
+            "run_transform and run_flags need runs".into(),
+        ));
     }
     if let Some((run_indices, run_original_ids)) = options.runs {
         validate_run_metadata(run_indices, run_original_ids.len(), tri_indices_len)?;

@@ -38,9 +38,35 @@ Tracks upstream manifold master on its way to 4.0. Not published yet. See the
   original ID 0 instead of a unique one, so after a boolean their faces
   share a run and can merge. Call `as_original(-1)` on an input to keep
   it in its own run.
-- **Behavioral:** `Manifold::compose` is now a union, the same as
-  `batch_union`, so overlapping inputs merge. It is deprecated, as it is
-  upstream.
+- `Manifold::compose` is gone, because upstream removed it. Use
+  `batch_union`.
+- Circular quality is per call. `sphere`, `cylinder`, `revolve`,
+  `CrossSection::circle` and `offset` take `impl Into<CircularQuality>`, so
+  a plain segment count still compiles. The global setters
+  (`set_circular_segments`, `set_min_circular_angle`,
+  `set_min_circular_edge_length`, `reset_to_circular_defaults`) and
+  `get_circular_segments` are gone. Use `CircularQuality::segments_for`.
+- **Behavioral:** a segment count passed to a partial `revolve` is now a
+  full-circle count, so the sweep gets that fraction of it, rounded up.
+  It used to be the number of divisions across the arc:
+  `revolve(&cs, 16, 90.0)` built 16 divisions and now builds 4. Use
+  `CircularQuality::for_divisions` for the old meaning. Partial revolves at
+  the default quality now round their division count up instead of down.
+- `calculate_normals` and `smooth_by_normals` lost their property index.
+  The `to_mesh*_with_normals` and `to_meshgl*_with_normals` getters are
+  gone. Call `calculate_normals`, then the plain getter. A mesh that
+  brings its own normals marks them with bit 1 of `run_flags` instead, so
+  transforms rotate them.
+- **Behavioral:** normals always go in MeshGL property channels 3-5, right
+  after position. The old index counted from after position, so the common
+  `calculate_normals(3, ..)` put them in channels 6-8. Only an old index of
+  0 matches the new layout.
+- New: `CircularQuality`, and the `run_transform`, `run_flags` and `face_id`
+  builders on `MeshGLOptions` / `MeshGL64Options`.
+- **Behavioral:** `RayHit::face_id` is now a `u32` input face ID (as in
+  `MeshGL::face_id`), not an internal triangle index, and the new
+  `RayHit::original_id` names the input mesh. Both are 0 for an untracked
+  primitive.
 - **Behavioral:** `Manifold::simplify` uses upstream's new decimation, so
   the same tolerance keeps a different set of vertices, usually fewer.
   Surfaces still move by less than the tolerance.
@@ -51,9 +77,6 @@ Tracks upstream manifold master on its way to 4.0. Not published yet. See the
 - **Behavioral:** `MeshGL::face_id` / `MeshGL64::face_id` are empty
   unless the input carried face IDs. Upstream no longer fills them from
   its coplanar-face calculation.
-- **Behavioral:** `reset_to_circular_defaults` also resets the new
-  relative precision to `1e-12`, because upstream resets every quality
-  global. Set the precision again afterwards if you changed it.
 
 ## 0.4.2
 

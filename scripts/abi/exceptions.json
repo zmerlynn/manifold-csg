@@ -1,29 +1,6 @@
 {
- "_comment": "Deliberate differences scripts/check-abi.py accepts on every branch. Keep it short; each entry needs a reason in CLAUDE.md or the sys crate's docs.",
- "enum_names": {
-  "ManifoldError": {
-   "VertexOutOfBounds": "MANIFOLD_VERTEX_INDEX_OUT_OF_BOUNDS"
-  }
- },
- "added_const_fields": {
-  "ManifoldMeshGLOptions": [
-   "run_indices",
-   "run_original_ids",
-   "merge_from_vert",
-   "merge_to_vert",
-   "halfedge_tangents"
-  ],
-  "ManifoldMeshGL64Options": [
-   "run_indices",
-   "run_original_ids",
-   "merge_from_vert",
-   "merge_to_vert",
-   "halfedge_tangents"
-  ]
- },
+ "_comment": "Deliberate differences scripts/check-abi.py accepts on every branch. Keep it short; each entry needs a reason in CLAUDE.md or the sys crate's docs. On next, the header has made the option fields const and renamed VERTEX_INDEX_OUT_OF_BOUNDS to our VertexOutOfBounds, so only the opaque handles remain.",
  "_reasons": {
-  "added_const_fields": "input-only pointers, tightened to *const in manifold-csg-sys 3.5.101 (see CLAUDE.md, Versioning)",
-  "enum_names": "ManifoldError::VertexOutOfBounds predates the header's VERTEX_INDEX_OUT_OF_BOUNDS naming",
   "opaque_handles": "C++ objects the C API only hands out by pointer; declared in Rust as `_private: [u8; 0]` structs"
  },
  "opaque_handles": [
