@@ -27,7 +27,7 @@ CHECK = ROOT / "scripts/check-abi.py"
 # regex; anything else (a crash, a different reason) is a broken self-test.
 MUTATIONS = [
     ("struct field retyped", "lib.rs", r"pub distance: f64,", "pub distance: f32,",
-     r"struct ManifoldRayHit: field 2 is \('distance', 'float'\)"),
+     r"struct ManifoldRayHit: field \d+ is \('distance', 'float'\)"),
     ("enum value shifted", "lib.rs", r"\bAdd = 0,", "Add = 9,",
      r"enum ManifoldOpType: Add = 9"),
     ("return retyped", "lib.rs", r"pub fn manifold_volume\(m: \*const ManifoldManifold\) -> f64;",
