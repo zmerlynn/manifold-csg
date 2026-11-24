@@ -66,7 +66,8 @@ jobs:
       # PRs into main only exercise the baseline mode above. Run this
       # branch's checker in strict mode against next's tree too, so a change
       # to the checker cannot break next's check unseen. next keeps its own
-      # declarations; only the checker files are overlaid.
+      # declarations and its own exceptions.json, which differs from main's
+      # because next's header differs; only the checker code is overlaid.
       - name: ABI check against next (strict mode)
         if: (github.base_ref || github.ref_name) == 'main'
         run: |
@@ -74,7 +75,7 @@ jobs:
           git worktree add -q --detach "$RUNNER_TEMP/next" origin/next
           mkdir -p "$RUNNER_TEMP/next/scripts/abi"
           cp scripts/check-abi.py "$RUNNER_TEMP/next/scripts/"
-          cp scripts/abi/cbindgen.toml scripts/abi/exceptions.json scripts/abi/selftest.py "$RUNNER_TEMP/next/scripts/abi/"
+          cp scripts/abi/cbindgen.toml scripts/abi/selftest.py "$RUNNER_TEMP/next/scripts/abi/"
           cd "$RUNNER_TEMP/next"
           python3 scripts/check-abi.py
           python3 scripts/abi/selftest.py
